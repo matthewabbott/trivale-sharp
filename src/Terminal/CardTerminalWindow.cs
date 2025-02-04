@@ -33,6 +33,38 @@ public partial class CardTerminalWindow : TerminalWindow
         AddContent(_cardContainer);
     }
     
+    private Button CreateCardButton(Card card)
+    {
+        var button = new Button
+        {
+            Text = FormatCardText(card),
+            Modulate = BorderColor
+        };
+        
+        // Style the button
+        var normalStyle = new StyleBoxFlat();
+        normalStyle.BgColor = new Color(0, 0, 0, 0.8f);
+        normalStyle.BorderColor = BorderColor;
+        normalStyle.BorderWidthBottom = normalStyle.BorderWidthLeft = 
+        normalStyle.BorderWidthRight = normalStyle.BorderWidthTop = 1;
+        normalStyle.ContentMarginLeft = 10;
+        normalStyle.ContentMarginRight = 10;
+        
+        var hoverStyle = normalStyle.Duplicate() as StyleBoxFlat;
+        hoverStyle.BgColor = new Color(0.2f, 0.2f, 0.2f, 0.8f);
+        
+        var pressedStyle = hoverStyle.Duplicate() as StyleBoxFlat;
+        pressedStyle.BgColor = new Color(0.3f, 0.3f, 0.3f, 0.8f);
+        
+        button.AddThemeStyleboxOverride("normal", normalStyle);
+        button.AddThemeStyleboxOverride("hover", hoverStyle);
+        button.AddThemeStyleboxOverride("pressed", pressedStyle);
+        
+        button.Pressed += () => EmitSignal(SignalName.CardSelected, card);
+        
+        return button;
+    }
+    
     public void DisplayCards(List<Card> cards, string header = "Available Cards:")
     {
         _statusLabel.Text = header;
@@ -43,16 +75,10 @@ public partial class CardTerminalWindow : TerminalWindow
             _cardContainer.GetChild(i).QueueFree();
         }
         
-        // Add each card as a button
+        // Add each card as a styled button
         foreach (var card in cards)
         {
-            var cardButton = new Button
-            {
-                Text = FormatCardText(card),
-                Modulate = BorderColor
-            };
-            cardButton.Pressed += () => EmitSignal(SignalName.CardSelected, card);
-            _cardContainer.AddChild(cardButton);
+            _cardContainer.AddChild(CreateCardButton(card));
         }
     }
     

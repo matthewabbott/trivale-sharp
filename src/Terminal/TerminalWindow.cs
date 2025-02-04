@@ -30,32 +30,36 @@ public partial class TerminalWindow : Control
     
     private void SetupWindow()
     {
-        // Title bar
+        // Title bar with darker background
         _titleBar = new Panel();
-        _titleBar.CustomMinimumSize = new Vector2(0, 25);
-        _titleBar.MouseEntered += () => MouseDefaultCursorShape = CursorShape.Move;
-        _titleBar.MouseExited += () => MouseDefaultCursorShape = CursorShape.Arrow;
+        _titleBar.CustomMinimumSize = new Vector2(0, 30); // Slightly taller
+        var titleStylebox = new StyleBoxFlat();
+        titleStylebox.BgColor = new Color(0.1f, 0.1f, 0.1f, 0.95f);
+        titleStylebox.BorderColor = BorderColor;
+        titleStylebox.BorderWidthBottom = 1;
+        _titleBar.AddThemeStyleboxOverride("panel", titleStylebox);
         AddChild(_titleBar);
         
-        // Title text
+        // Title text with padding
         _titleLabel = new Label
         {
             Text = WindowTitle,
             HorizontalAlignment = HorizontalAlignment.Left,
-            VerticalAlignment = VerticalAlignment.Center
+            VerticalAlignment = VerticalAlignment.Center,
+            Position = new Vector2(10, 0), // Add left padding
+            Modulate = BorderColor
         };
         _titleBar.AddChild(_titleLabel);
         
-        // Content panel
+        // Content panel with padding
         _contentPanel = new Panel();
-        AddChild(_contentPanel);
-        
-        // Set up styles
         var stylebox = new StyleBoxFlat();
         stylebox.BorderColor = BorderColor;
         stylebox.BorderWidthBottom = stylebox.BorderWidthLeft = 
         stylebox.BorderWidthRight = stylebox.BorderWidthTop = 1;
         stylebox.BgColor = new Color(0, 0, 0, 0.9f);
+        stylebox.ContentMarginLeft = stylebox.ContentMarginRight = 
+        stylebox.ContentMarginTop = stylebox.ContentMarginBottom = 10;
         _contentPanel.AddThemeStyleboxOverride("panel", stylebox);
         
         // Layout
