@@ -26,24 +26,20 @@ public enum EncounterType
 
 public partial class GameState : Node
 {
-    // Core state
-    private List<Player> _players = new();
-    private List<Card> _cardsOnTable = new();
+    private List<Player> _players;
+    private List<Card> _cardsOnTable;
     private int _currentPlayer = 0;
     private Suit _leadSuit = Suit.None;
     private Suit _trumpSuit = Suit.None;
     
-    // Game configuration
     public int NumPlayers { get; private set; } = 4;
     public int HandSize { get; private set; } = 5;
     public EncounterType CurrentEncounter { get; private set; } = EncounterType.SecuredSystem;
     
-    // Game status
     public bool IsGameOver { get; private set; } = false;
     public int Winner { get; private set; } = -1;
     public string StatusMessage { get; private set; } = "";
-    
-    // Signals
+
     [Signal]
     public delegate void GameStateChangedEventHandler();
     
@@ -60,15 +56,21 @@ public partial class GameState : Node
     
     public void InitializeGame(EncounterType encounterType = EncounterType.SecuredSystem)
     {
+        // Initialize collections
+        _players = new List<Player>();
+        _cardsOnTable = new List<Card>();
+        
         CurrentEncounter = encounterType;
-        _players.Clear();
-        _cardsOnTable.Clear();
+        _currentPlayer = 0;
+        _leadSuit = Suit.None;
+        _trumpSuit = Suit.None;
+        IsGameOver = false;
+        Winner = -1;
         
         // Initialize players (first player is human)
-        _players.Add(new Player { IsHuman = true });
-        for (int i = 1; i < NumPlayers; i++)
+        for (int i = 0; i < NumPlayers; i++)
         {
-            _players.Add(new Player { IsHuman = false });
+            _players.Add(new Player { IsHuman = i == 0 });
         }
         
         switch (CurrentEncounter)
@@ -93,26 +95,29 @@ public partial class GameState : Node
         var deck = CreateDeck();
         ShuffleDeck(deck);
         
-        foreach (var player in _players)
+        for (int i = 0; i < NumPlayers; i++)
         {
-            player.Hand = deck.Take(HandSize).ToList();
-            deck.RemoveRange(0, HandSize);
-            
-            // Set ownership
-            foreach (var card in player.Hand)
+            var playerHand = new List<Card>();
+            for (int j = 0; j < HandSize; j++)
             {
-                card.CardOwner = _players.IndexOf(player);
+                if (deck.Count > 0)
+                {
+                    var card = deck[deck.Count - 1];
+                    deck.RemoveAt(deck.Count - 1);
+                    card.CardOwner = i;
+                    playerHand.Add(card);
+                }
             }
+            _players[i].Hand = playerHand;
         }
     }
     
     public bool PlayCard(int playerIndex, Card card)
     {
-        var player = _players[playerIndex];
-        
         if (!IsValidPlay(playerIndex, card))
             return false;
             
+        var player = _players[playerIndex];
         player.Hand.Remove(card);
         _cardsOnTable.Add(card);
         
@@ -167,7 +172,9 @@ public partial class GameState : Node
             }
         }
         
-        int winner = (_currentPlayer + winnerOffset) % NumPlayers;
+        int winner = (_currentPlayer - (_cardsOnTable.Count - 1) + winnerOffset) % NumPlayers;
+        if (winner < 0) winner += NumPlayers; // Handle negative modulo
+        
         _players[winner].Score++;
         
         EmitSignal(SignalName.TrickCompleted, winner);
