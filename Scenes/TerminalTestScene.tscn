@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://7qdlmhwsi6u6"]
+
+[ext_resource type="Script" path="res://src/Tests/TerminalTestScene.cs" id="1_xk4n2"]
+
+[node name="TerminalTestScene" type="Node2D"]
+script = ExtResource("1_xk4n2")
