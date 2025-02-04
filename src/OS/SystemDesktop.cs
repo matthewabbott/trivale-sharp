@@ -15,7 +15,6 @@ public partial class SystemDesktop : Control
     private Panel _background;
     
     private Theme _defaultTheme;
-    private SystemFont _terminalFont;
     
     // Keep track of available programs
     private Dictionary<string, ProgramInfo> _programs = new();
@@ -39,6 +38,7 @@ public partial class SystemDesktop : Control
         // Full screen background
         _background = new Panel
         {
+            LayoutMode = 1, // 1 is anchors
             AnchorsPreset = (int)LayoutPreset.FullRect,
             SizeFlagsHorizontal = SizeFlags.Fill,
             SizeFlagsVertical = SizeFlags.Fill
@@ -58,6 +58,7 @@ public partial class SystemDesktop : Control
         // Main content container with margins
         var marginContainer = new MarginContainer
         {
+            LayoutMode = 1,
             AnchorsPreset = (int)LayoutPreset.FullRect,
             Theme = _defaultTheme
         };
@@ -70,6 +71,8 @@ public partial class SystemDesktop : Control
         // Main layout container
         _mainDisplay = new VBoxContainer
         {
+            LayoutMode = 1,
+            AnchorsPreset = (int)LayoutPreset.FullRect,
             Theme = _defaultTheme
         };
         marginContainer.AddChild(_mainDisplay);
@@ -77,10 +80,12 @@ public partial class SystemDesktop : Control
         // System status bar at top
         _systemStatus = new RichTextLabel
         {
+            LayoutMode = 1,
             BbcodeEnabled = true,
             CustomMinimumSize = new Vector2(0, 60), // Two lines of ASCII
             Theme = _defaultTheme,
-            SizeFlagsHorizontal = SizeFlags.Fill
+            SizeFlagsHorizontal = SizeFlags.Fill,
+            ScrollActive = false // Disable scrolling
         };
         _mainDisplay.AddChild(_systemStatus);
         
@@ -90,6 +95,7 @@ public partial class SystemDesktop : Control
         // Program grid with centering
         var gridCenter = new CenterContainer
         {
+            LayoutMode = 1,
             SizeFlagsHorizontal = SizeFlags.Fill,
             SizeFlagsVertical = SizeFlags.Fill
         };
@@ -97,6 +103,7 @@ public partial class SystemDesktop : Control
         
         _programGrid = new GridContainer
         {
+            LayoutMode = 1,
             Columns = 4,
             CustomMinimumSize = new Vector2(800, 0)
         };
@@ -105,46 +112,11 @@ public partial class SystemDesktop : Control
         // Window layer
         _windowLayer = new Control
         {
+            LayoutMode = 1,
             AnchorsPreset = (int)LayoutPreset.FullRect,
             MouseFilter = MouseFilterEnum.Ignore
         };
         AddChild(_windowLayer);
-    }
-    
-    private Theme CreateDefaultTheme()
-    {
-        var theme = new Theme();
-        
-        // Base style for containers
-        var styleNormal = new StyleBoxFlat
-        {
-            BgColor = Colors.Transparent,
-            BorderColor = new Color(0, 1, 0, 0.5f) // Semi-transparent green
-        };
-        
-        // Button style
-        var buttonNormal = new StyleBoxFlat
-        {
-            BgColor = new Color(0, 0.15f, 0, 0.8f),
-            BorderColor = new Color(0, 1, 0, 0.5f),
-            BorderWidthBottom = 1,
-            BorderWidthLeft = 1,
-            BorderWidthRight = 1,
-            BorderWidthTop = 1,
-            ContentMarginLeft = 10,
-            ContentMarginRight = 10,
-            ContentMarginTop = 10,
-            ContentMarginBottom = 10
-        };
-        
-        // Set default font
-        theme.DefaultFont = _terminalFont;
-        theme.DefaultFontSize = 16;
-        
-        // Add styles to theme
-        theme.SetStylebox("normal", "ProgramButton", buttonNormal);
-        
-        return theme;
     }
     
     private void PopulatePrograms()
@@ -161,7 +133,8 @@ public partial class SystemDesktop : Control
         {
             Name = "SETTINGS.EXE",
             Description = "System Configuration",
-            AsciiArt = AsciiStyle.SETTINGS_ICON
+            AsciiArt = UIThemeManager.Instance.GetProgramIcon("SETTINGS.EXE"),
+            IconPath = UIThemeManager.Instance.GetProgramIcon("SETTINGS.EXE", UIStyle.Modern)
         });
         
         foreach (var program in _programs.Values)
@@ -175,12 +148,14 @@ public partial class SystemDesktop : Control
     {
         var button = new Button
         {
+            LayoutMode = 1,
             CustomMinimumSize = new Vector2(180, 180),
             Theme = _defaultTheme
         };
         
         var container = new VBoxContainer
         {
+            LayoutMode = 1,
             CustomMinimumSize = new Vector2(170, 170)
         };
         button.AddChild(container);
@@ -190,10 +165,12 @@ public partial class SystemDesktop : Control
         
         var icon = new RichTextLabel
         {
+            LayoutMode = 1,
             BbcodeEnabled = true,
             Text = $"[center]{program.AsciiArt}[/center]",
             CustomMinimumSize = new Vector2(0, 80),
-            SizeFlagsHorizontal = SizeFlags.Fill
+            SizeFlagsHorizontal = SizeFlags.Fill,
+            ScrollActive = false // Disable scrolling
         };
         container.AddChild(icon);
         

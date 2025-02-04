@@ -89,10 +89,23 @@ public partial class UIThemeManager : Node
             ContentMarginBottom = 10
         };
         
+        // Hide scrollbars
+        var emptyStyle = new StyleBoxEmpty();
+        
         theme.DefaultFont = _asciiFont;
         theme.DefaultFontSize = 16;
         
         theme.SetStylebox("normal", "ProgramButton", buttonNormal);
+        
+        // Remove scrollbar styling
+        theme.SetStylebox("normal", "VScrollBar", emptyStyle);
+        theme.SetStylebox("normal", "HScrollBar", emptyStyle);
+        theme.SetStylebox("hover", "VScrollBar", emptyStyle);
+        theme.SetStylebox("hover", "HScrollBar", emptyStyle);
+        theme.SetStylebox("pressed", "VScrollBar", emptyStyle);
+        theme.SetStylebox("pressed", "HScrollBar", emptyStyle);
+        theme.SetConstant("scroll_speed", "VScrollBar", 0);
+        theme.SetConstant("scroll_speed", "HScrollBar", 0);
         
         return theme;
     }
