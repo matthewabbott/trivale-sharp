@@ -196,16 +196,14 @@ public partial class Card : Node2D
         return 0;  // Different non-trump suits
     }
     
-    public Card Duplicate()
+    public Card CreateDuplicate()
     {
-        var card = new Card
-        {
-            Suit = Suit,
-            Value = Value,
-            Owner = Owner,
-            Behavior = Behavior,
-            PlayOrder = PlayOrder
-        };
+        var card = (Card)Duplicate();
+        card.Suit = Suit;
+        card.Value = Value;
+        card.CardOwner = CardOwner;
+        card.Behavior = Behavior;
+        card.PlayOrder = PlayOrder;
         return card;
     }
 }

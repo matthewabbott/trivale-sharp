@@ -101,7 +101,7 @@ public partial class GameState : Node
             // Set ownership
             foreach (var card in player.Hand)
             {
-                card.Owner = _players.IndexOf(player);
+                card.CardOwner = _players.IndexOf(player);
             }
         }
     }
