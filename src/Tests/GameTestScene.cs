@@ -85,9 +85,22 @@ public partial class GameTestScene : Node2D
     {
         GD.Print("Updating display");
         // Update status
-        var status = $"Current Player: {_gameState.GetCurrentPlayer()}\n";
+        var status = "";
+        
+        if (_gameState.IsGameOver)
+        {
+            status = $"Game Over! Player {_gameState.GetWinner()} wins!\n\n";
+        }
+        
+        status += $"Current Player: {_gameState.GetCurrentPlayer()}\n";
         status += $"Lead Suit: {_gameState.GetLeadSuit()}\n";
         status += $"Trump Suit: {_gameState.GetTrumpSuit()}\n";
+        status += "\nTricks Won:\n";
+        for (int i = 0; i < 4; i++)
+        {
+            status += $"Player {i}: {_gameState.GetScore(i)}\n";
+        }
+        
         _statusLabel.Text = status;
         
         // Update table cards
@@ -185,6 +198,18 @@ public partial class GameTestScene : Node2D
     private void OnResetGamePressed()
     {
         GD.Print("Resetting game");
+        // Remove old game state
+        if (_gameState != null)
+        {
+            _gameState.GameStateChanged -= UpdateDisplay;
+            _gameState.TrickCompleted -= OnTrickCompleted;
+            _gameState.GameOver -= OnGameOver;
+            _gameState.QueueFree();
+        }
+        
+        // Re-enable buttons
+        _nextTurnButton.Disabled = false;
+        
         InitializeGame();
     }
     

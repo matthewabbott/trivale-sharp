@@ -260,4 +260,5 @@ public partial class GameState : Node
     public bool IsHumanPlayer(int playerIndex) => _players[playerIndex].IsHuman;
     public int GetScore(int playerIndex) => _players[playerIndex].Score;
     public int GetRequiredTricks(int playerIndex) => _players[playerIndex].RequiredTricks;
+    public int GetWinner() => Winner;
 }
