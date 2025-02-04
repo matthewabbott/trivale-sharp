@@ -49,7 +49,7 @@ public partial class Card : Node2D
     public Value Value { get; set; }
     
     [Export]
-    public int Owner { get; set; } = -1; // -1 means unowned
+    public int CardOwner { get; set; } = -1; // -1 means unowned
     
     [Export]
     public AIBehavior Behavior { get; set; } = AIBehavior.None;
