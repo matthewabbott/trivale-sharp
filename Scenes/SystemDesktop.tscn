@@ -1,6 +1,17 @@
-[gd_scene load_steps=2 format=3 uid="uid://b4e6d8j2y1q5x"]
+[gd_scene load_steps=5 format=3 uid="uid://b4e6d8j2y1q5x"]
 
 [ext_resource type="Script" path="res://src/OS/SystemDesktop.cs" id="1_desktop"]
+[ext_resource type="Script" path="res://src/OS/WindowManager.cs" id="2_window_manager"]
+[ext_resource type="Script" path="res://src/Tests/WindowSystemTest.cs" id="3_window_test"]
+[ext_resource type="Shader" path="res://Assets/Shaders/crt_effect.gdshader" id="4_shader"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_crt"]
+shader = ExtResource("4_shader")
+shader_parameter/scan_line_count = 100.0
+shader_parameter/scan_line_opacity = 0.2
+shader_parameter/base_color = Color(0, 1, 0, 1)
+shader_parameter/brightness = 1.2
+shader_parameter/flicker_intensity = 0.03
 
 [node name="SystemDesktop" type="Control"]
 layout_mode = 3
@@ -12,3 +23,65 @@ grow_vertical = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 script = ExtResource("1_desktop")
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0.05, 0, 1)
+
+[node name="CRTEffect" type="ColorRect" parent="."]
+material = SubResource("ShaderMaterial_crt")
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="MainContainer" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 40
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 40
+theme_override_constants/margin_bottom = 20
+
+[node name="SystemStatus" type="RichTextLabel" parent="MainContainer"]
+layout_mode = 2
+size_flags_vertical = 0
+custom_minimum_size = Vector2(0, 60)
+bbcode_enabled = true
+scroll_active = false
+
+[node name="Spacer" type="Control" parent="MainContainer"]
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+size_flags_vertical = 0
+
+[node name="ProgramGridCenter" type="CenterContainer" parent="MainContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="ProgramGrid" type="GridContainer" parent="MainContainer/ProgramGridCenter"]
+custom_minimum_size = Vector2(800, 0)
+layout_mode = 2
+theme_override_constants/h_separation = 20
+theme_override_constants/v_separation = 20
+columns = 4
+
+[node name="WindowLayer" type="Control" parent="MainContainer"]
+layout_mode = 2
+mouse_filter = 1
+script = ExtResource("2_window_manager")
+
+[node name="WindowSystemTest" type="Node" parent="."]
+script = ExtResource("3_window_test")
