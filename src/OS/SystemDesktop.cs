@@ -146,17 +146,39 @@ public partial class SystemDesktop : Control
     
     private Button CreateProgramButton(ProgramInfo program)
     {
+        var style = new StyleBoxFlat
+        {
+            BgColor = new Color(0.0f, 0.1f, 0.0f, 0.8f),
+            BorderColor = UIThemeManager.Instance.PrimaryColor,
+            BorderWidthBottom = 2,
+            BorderWidthLeft = 2,
+            BorderWidthRight = 2,
+            BorderWidthTop = 2,
+            CornerRadiusBottomLeft = 0,
+            CornerRadiusBottomRight = 0,
+            CornerRadiusTopLeft = 0,
+            CornerRadiusTopRight = 0,
+            ContentMarginLeft = 20,
+            ContentMarginRight = 20,
+            ContentMarginTop = 20,
+            ContentMarginBottom = 20,
+            ShadowColor = new Color(0, 0, 0, 0.5f),
+            ShadowSize = 4,
+            ShadowOffset = new Vector2(2, 2)
+        };
+
         var button = new Button
         {
             LayoutMode = 1,
-            CustomMinimumSize = new Vector2(180, 180),
+            CustomMinimumSize = new Vector2(220, 220),
             Theme = _defaultTheme
         };
-        
+        button.AddThemeStyleboxOverride("normal", style);
+
         var container = new VBoxContainer
         {
             LayoutMode = 1,
-            CustomMinimumSize = new Vector2(170, 170)
+            CustomMinimumSize = new Vector2(200, 200)
         };
         button.AddChild(container);
         
@@ -168,9 +190,9 @@ public partial class SystemDesktop : Control
             LayoutMode = 1,
             BbcodeEnabled = true,
             Text = $"[center]{program.AsciiArt}[/center]",
-            CustomMinimumSize = new Vector2(0, 80),
+            CustomMinimumSize = new Vector2(0, 100),
             SizeFlagsHorizontal = SizeFlags.Fill,
-            ScrollActive = false // Disable scrolling
+            ScrollActive = false
         };
         container.AddChild(icon);
         
@@ -178,7 +200,7 @@ public partial class SystemDesktop : Control
         {
             Text = program.Name,
             HorizontalAlignment = HorizontalAlignment.Center,
-            CustomMinimumSize = new Vector2(0, 30)
+            CustomMinimumSize = new Vector2(0, 40)
         };
         container.AddChild(name);
         
