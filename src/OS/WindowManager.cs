@@ -75,17 +75,16 @@ public partial class WindowManager : Control
         
         _focusedWindow = window;
         
-        // Update z-indices for all windows
-        int baseZ = 0;
+        // Find highest current Z-index
+        int maxZ = 0;
         foreach (var w in _windows)
         {
-            w.ZIndex = baseZ;
-            baseZ += 10;
+            maxZ = Mathf.Max(maxZ, w.ZIndex);
         }
         
-        // Move focused window to top and set highest z-index
+        // Set focused window above highest
+        window.ZIndex = maxZ + 10;
         MoveChild(window, GetChildCount() - 1);
-        window.ZIndex = baseZ;
         
         // Update window appearance
         foreach (var w in _windows)
