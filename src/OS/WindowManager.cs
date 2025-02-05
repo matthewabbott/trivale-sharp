@@ -10,36 +10,40 @@ public partial class WindowManager : Control
 {
     private List<TerminalWindow> _windows = new();
     private TerminalWindow _focusedWindow;
-    
     private ColorRect _debugBounds;
     
     public override void _Ready()
     {
         GD.Print("WindowManager._Ready called");
-        MouseFilter = MouseFilterEnum.Pass;
         
-        // Make sure we're visible and at the right Z-index
+        // Make sure we're at the top layer and can receive input
+        MouseFilter = MouseFilterEnum.Pass;
         ZIndex = 100;
-        ZAsRelative = false;
+        // These are crucial for making sure we're on top
+        Position = Vector2.Zero;
+        AnchorRight = 1;
+        AnchorBottom = 1;
+        
+        // Set up layout
+        SizeFlagsHorizontal = SizeFlags.Fill;
+        SizeFlagsVertical = SizeFlags.Fill;
+        
+        // Make this a top-level node so it draws above everything else
+        TopLevel = true;
         
         // DEBUG: Add a visible rectangle to show the bounds
         _debugBounds = new ColorRect
         {
             Name = "DebugBounds",
-            Color = new Color(1, 0, 1, 0.2f), // Semi-transparent magenta
+            Color = new Color(1, 0, 1, 0.2f),
             LayoutMode = 1,
             AnchorsPreset = (int)LayoutPreset.FullRect,
-            ZIndex = -1  // Put it behind windows
+            MouseFilter = MouseFilterEnum.Ignore,
+            ZIndex = -1
         };
         AddChild(_debugBounds);
-    }
-    
-    public void SetDebugBoundsVisible(bool visible)
-    {
-        if (_debugBounds != null)
-        {
-            _debugBounds.Visible = visible;
-        }
+        
+        GD.Print($"WindowManager initialized at position {Position}, size {Size}, mouse_filter: {MouseFilter}");
     }
     
     public void AddWindow(TerminalWindow window)
@@ -49,13 +53,16 @@ public partial class WindowManager : Control
         _windows.Add(window);
         AddChild(window);
         
-        // Connect window input
+        // Make sure the window is pickable and can receive input
+        window.MouseFilter = MouseFilterEnum.Stop;
+        
+        // Connect window input for focus
         window.GuiInput += (@event) => HandleWindowInput(window, @event);
         
         // Focus the new window
         FocusWindow(window);
         
-        GD.Print($"Window count: {_windows.Count}");
+        GD.Print($"Window count: {_windows.Count}, Window position: {window.Position}");
     }
     
     private void HandleWindowInput(TerminalWindow window, InputEvent @event)
@@ -83,12 +90,7 @@ public partial class WindowManager : Control
         foreach (var w in _windows)
         {
             bool isFocused = w == window;
-            var titleBar = w.GetNodeOrNull<Panel>("VBoxContainer/TitleBar");
-            if (titleBar == null)
-            {
-                GD.PrintErr($"Could not find title bar at 'VBoxContainer/TitleBar' for window: {w.WindowTitle}");
-                continue;
-            }
+            var titleBar = w.GetNode<Panel>("VBoxContainer/TitleBar");
             if (titleBar != null)
             {
                 var styleBox = new StyleBoxFlat
@@ -101,10 +103,14 @@ public partial class WindowManager : Control
                 };
                 titleBar.AddThemeStyleboxOverride("panel", styleBox);
             }
-            else
-            {
-                GD.PrintErr($"Could not find title bar for window: {w.WindowTitle}");
-            }
+        }
+    }
+    
+    public void SetDebugBoundsVisible(bool visible)
+    {
+        if (_debugBounds != null)
+        {
+            _debugBounds.Visible = visible;
         }
     }
     

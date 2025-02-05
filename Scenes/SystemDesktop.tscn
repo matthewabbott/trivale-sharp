@@ -33,16 +33,6 @@ grow_horizontal = 2
 grow_vertical = 2
 color = Color(0, 0.05, 0, 1)
 
-[node name="CRTEffect" type="ColorRect" parent="."]
-material = SubResource("ShaderMaterial_crt")
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-
 [node name="MainContainer" type="MarginContainer" parent="."]
 layout_mode = 1
 anchors_preset = 15
@@ -78,10 +68,25 @@ theme_override_constants/h_separation = 20
 theme_override_constants/v_separation = 20
 columns = 4
 
-[node name="WindowLayer" type="Control" parent="MainContainer"]
-layout_mode = 2
+[node name="WindowLayer" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 mouse_filter = 1
 script = ExtResource("2_window_manager")
+
+[node name="CRTEffect" type="ColorRect" parent="."]
+material = SubResource("ShaderMaterial_crt")
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
 
 [node name="WindowSystemTest" type="Node" parent="."]
 script = ExtResource("3_window_test")

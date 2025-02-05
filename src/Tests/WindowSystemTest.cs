@@ -25,10 +25,10 @@ public partial class WindowSystemTest : Node
 		}
 		
 		// Get or create window manager
-		_windowManager = _desktop.GetNode<WindowManager>("MainContainer/WindowLayer");
+		_windowManager = _desktop.GetNode<WindowManager>("WindowLayer");
 		if (_windowManager == null)
 		{
-			GD.PrintErr("Could not find WindowManager node");
+			GD.PrintErr("Could not find WindowManager node at 'WindowLayer'");
 			return;
 		}
 		

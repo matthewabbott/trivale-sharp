@@ -26,7 +26,7 @@ public partial class TerminalWindow : Control
     public string WindowTitle { get; set; } = "Terminal";
     
     [Export]
-    public Color BorderColor { get; set; } = new Color(0, 1, 0); // Default phosphor green
+    public Color BorderColor { get; set; } = new Color(0, 1, 0);
     
     [Export]
     public WindowStyle Style { get; set; } = WindowStyle.Normal;
@@ -38,8 +38,10 @@ public partial class TerminalWindow : Control
     {
         GD.Print($"Setting up window: {WindowTitle}");
         
+        // Set up Control node properties
         CustomMinimumSize = MinSize;
         Size = MinSize;
+        MouseFilter = MouseFilterEnum.Stop;  // Make sure we get mouse events
         
         // Add main container
         var layout = new VBoxContainer
@@ -48,17 +50,20 @@ public partial class TerminalWindow : Control
             LayoutMode = 1,
             AnchorsPreset = (int)LayoutPreset.FullRect,
             SizeFlagsHorizontal = SizeFlags.Fill,
-            SizeFlagsVertical = SizeFlags.Fill
+            SizeFlagsVertical = SizeFlags.Fill,
+            MouseFilter = MouseFilterEnum.Pass  // Let events pass through to children
         };
         AddChild(layout);
         
-        // Add background for entire window
+        // Add background
         var background = new ColorRect
         {
+            Name = "Background",
             ZIndex = -1,
             LayoutMode = 1,
             AnchorsPreset = (int)LayoutPreset.FullRect,
-            Color = new Color(0, 0, 0, 0.9f)
+            Color = new Color(0, 0, 0, 0.9f),
+            MouseFilter = MouseFilterEnum.Ignore  // Ignore mouse events
         };
         AddChild(background);
         
@@ -66,28 +71,30 @@ public partial class TerminalWindow : Control
         ApplyStyle(Style);
         
         GD.Print($"Window setup complete for {WindowTitle} at position {GlobalPosition}");
+        GD.Print("Mouse event handlers initialized");
     }
     
     private void ApplyStyle(WindowStyle style)
     {
+        var layout = GetNode<VBoxContainer>("VBoxContainer");
+        
         // Create title bar
         _titleBar = new Panel
         {
             Name = "TitleBar",
             CustomMinimumSize = new Vector2(0, 30),
-            MouseFilter = MouseFilterEnum.Stop  // Make sure we catch mouse events
+            MouseFilter = MouseFilterEnum.Stop  // Make sure title bar gets mouse events
         };
-        
-        GD.Print($"Created title bar for {WindowTitle}");
-        GetNode<VBoxContainer>("VBoxContainer").AddChild(_titleBar);
+        layout.AddChild(_titleBar);
         
         // Create content panel
         _contentPanel = new Panel
         {
             Name = "ContentPanel",
-            SizeFlagsVertical = SizeFlags.Fill
+            SizeFlagsVertical = SizeFlags.Fill,
+            MouseFilter = MouseFilterEnum.Pass  // Let events through to content
         };
-        GetNode<VBoxContainer>("VBoxContainer").AddChild(_contentPanel);
+        layout.AddChild(_contentPanel);
         
         // Title text
         _titleLabel = new Label
@@ -95,7 +102,8 @@ public partial class TerminalWindow : Control
             Name = "TitleLabel",
             Text = WindowTitle,
             Position = new Vector2(10, 0),
-            SizeFlagsVertical = SizeFlags.ShrinkCenter
+            SizeFlagsVertical = SizeFlags.ShrinkCenter,
+            MouseFilter = MouseFilterEnum.Ignore  // Ignore mouse events on label
         };
         _titleBar.AddChild(_titleLabel);
         
@@ -129,68 +137,22 @@ public partial class TerminalWindow : Control
         };
         _contentPanel.AddThemeStyleboxOverride("panel", contentStylebox);
         
-        // Set text color
         _titleLabel.Modulate = borderColor;
         
-        if (style == WindowStyle.Debug)
-        {
-            var debugLabel = new Label
-            {
-                Text = "DEBUG: " + WindowTitle,
-                Modulate = borderColor
-            };
-            _contentPanel.AddChild(debugLabel);
-        }
+        // Add input event handlers for the title bar
+        _titleBar.GuiInput += OnTitleBarInput;
+        
+        GD.Print($"Style applied to {WindowTitle}, title bar input handler connected");
     }
     
-    private (Color bg, Color border, Color titleBg) GetColorsForStyle(WindowStyle style)
+    private void OnTitleBarInput(InputEvent @event)
     {
-        return style switch
-        {
-            WindowStyle.Normal => (
-                new Color(0, 0.05f, 0, 0.9f),    // Dark green bg
-                new Color(0, 1, 0, 1),           // Bright green border
-                new Color(0, 0.1f, 0, 0.95f)     // Slightly lighter title bg
-            ),
-            WindowStyle.Alert => (
-                new Color(0.2f, 0, 0, 0.9f),     // Dark red bg
-                new Color(1, 0, 0, 1),           // Bright red border
-                new Color(0.3f, 0, 0, 0.95f)     // Slightly lighter title bg
-            ),
-            WindowStyle.Secure => (
-                new Color(0, 0, 0.05f, 0.9f),    // Dark blue bg
-                new Color(0, 0.5f, 1, 1),        // Bright blue border
-                new Color(0, 0, 0.1f, 0.95f)     // Slightly lighter title bg
-            ),
-            WindowStyle.Corrupted => (
-                new Color(0.1f, 0, 0.1f, 0.9f),  // Dark purple bg
-                new Color(1, 0, 1, 1),           // Bright purple border
-                new Color(0.15f, 0, 0.15f, 0.95f)// Slightly lighter title bg
-            ),
-            WindowStyle.Debug => (
-                new Color(1, 0, 0, 0.5f),        // Semi-transparent red bg
-                new Color(1, 1, 0, 1),           // Yellow border
-                new Color(0, 0, 1, 1)            // Blue title bg
-            ),
-            _ => (
-                new Color(0, 0.05f, 0, 0.9f),
-                new Color(0, 1, 0, 1),
-                new Color(0, 0.1f, 0, 0.95f)
-            )
-        };
-    }
-    
-    public override void _GuiInput(InputEvent @event)
-    {
+        GD.Print($"Title bar input on {WindowTitle}: {@event}");
         if (@event is InputEventMouseButton mouseButton)
         {
-            GD.Print($"Mouse button event on {WindowTitle} at {mouseButton.Position}");
             if (mouseButton.ButtonIndex == MouseButton.Left)
             {
-                var titleBarRect = _titleBar.GetRect();
-                GD.Print($"Title bar rect: {titleBarRect}, Mouse pos: {mouseButton.Position}");
-                
-                if (mouseButton.Pressed && titleBarRect.HasPoint(mouseButton.Position))
+                if (mouseButton.Pressed)
                 {
                     _isDragging = true;
                     _dragStart = mouseButton.GlobalPosition - GlobalPosition;
@@ -206,9 +168,47 @@ public partial class TerminalWindow : Control
         else if (@event is InputEventMouseMotion mouseMotion && _isDragging)
         {
             var newPos = mouseMotion.GlobalPosition - _dragStart;
-            GD.Print($"Dragging {WindowTitle} to {newPos}");
             GlobalPosition = newPos;
+            GD.Print($"Dragging {WindowTitle} to {newPos}");
         }
+    }
+    
+    private (Color bg, Color border, Color titleBg) GetColorsForStyle(WindowStyle style)
+    {
+        // ... (same as before)
+        return style switch
+        {
+            WindowStyle.Normal => (
+                new Color(0, 0.05f, 0, 0.9f),
+                new Color(0, 1, 0, 1),
+                new Color(0, 0.1f, 0, 0.95f)
+            ),
+            WindowStyle.Alert => (
+                new Color(0.2f, 0, 0, 0.9f),
+                new Color(1, 0, 0, 1),
+                new Color(0.3f, 0, 0, 0.95f)
+            ),
+            WindowStyle.Secure => (
+                new Color(0, 0, 0.05f, 0.9f),
+                new Color(0, 0.5f, 1, 1),
+                new Color(0, 0, 0.1f, 0.95f)
+            ),
+            WindowStyle.Corrupted => (
+                new Color(0.1f, 0, 0.1f, 0.9f),
+                new Color(1, 0, 1, 1),
+                new Color(0.15f, 0, 0.15f, 0.95f)
+            ),
+            WindowStyle.Debug => (
+                new Color(1, 0, 0, 0.5f),
+                new Color(1, 1, 0, 1),
+                new Color(0, 0, 1, 1)
+            ),
+            _ => (
+                new Color(0, 0.05f, 0, 0.9f),
+                new Color(0, 1, 0, 1),
+                new Color(0, 0.1f, 0, 0.95f)
+            )
+        };
     }
     
     protected void AddContent(Control content)
