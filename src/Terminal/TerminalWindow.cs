@@ -46,9 +46,21 @@ public partial class TerminalWindow : Control
         {
             Name = "VBoxContainer",
             LayoutMode = 1,
-            AnchorsPreset = (int)LayoutPreset.FullRect
+            AnchorsPreset = (int)LayoutPreset.FullRect,
+            SizeFlagsHorizontal = SizeFlags.Fill,
+            SizeFlagsVertical = SizeFlags.Fill
         };
         AddChild(layout);
+        
+        // Add background for entire window
+        var background = new ColorRect
+        {
+            ZIndex = -1,
+            LayoutMode = 1,
+            AnchorsPreset = (int)LayoutPreset.FullRect,
+            Color = new Color(0, 0, 0, 0.9f)
+        };
+        AddChild(background);
         
         // Setup window style
         ApplyStyle(Style);
@@ -62,8 +74,11 @@ public partial class TerminalWindow : Control
         _titleBar = new Panel
         {
             Name = "TitleBar",
-            CustomMinimumSize = new Vector2(0, 30)
+            CustomMinimumSize = new Vector2(0, 30),
+            MouseFilter = MouseFilterEnum.Stop  // Make sure we catch mouse events
         };
+        
+        GD.Print($"Created title bar for {WindowTitle}");
         GetNode<VBoxContainer>("VBoxContainer").AddChild(_titleBar);
         
         // Create content panel
@@ -169,23 +184,30 @@ public partial class TerminalWindow : Control
     {
         if (@event is InputEventMouseButton mouseButton)
         {
+            GD.Print($"Mouse button event on {WindowTitle} at {mouseButton.Position}");
             if (mouseButton.ButtonIndex == MouseButton.Left)
             {
-                if (mouseButton.Pressed && _titleBar.GetRect().HasPoint(mouseButton.Position))
+                var titleBarRect = _titleBar.GetRect();
+                GD.Print($"Title bar rect: {titleBarRect}, Mouse pos: {mouseButton.Position}");
+                
+                if (mouseButton.Pressed && titleBarRect.HasPoint(mouseButton.Position))
                 {
                     _isDragging = true;
                     _dragStart = mouseButton.GlobalPosition - GlobalPosition;
-                    GD.Print($"Started dragging {WindowTitle}");
+                    GD.Print($"Started dragging {WindowTitle} from {_dragStart}");
                 }
                 else
                 {
                     _isDragging = false;
+                    GD.Print($"Stopped dragging {WindowTitle}");
                 }
             }
         }
         else if (@event is InputEventMouseMotion mouseMotion && _isDragging)
         {
-            GlobalPosition = mouseMotion.GlobalPosition - _dragStart;
+            var newPos = mouseMotion.GlobalPosition - _dragStart;
+            GD.Print($"Dragging {WindowTitle} to {newPos}");
+            GlobalPosition = newPos;
         }
     }
     

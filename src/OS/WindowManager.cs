@@ -11,23 +11,35 @@ public partial class WindowManager : Control
     private List<TerminalWindow> _windows = new();
     private TerminalWindow _focusedWindow;
     
+    private ColorRect _debugBounds;
+    
     public override void _Ready()
     {
         GD.Print("WindowManager._Ready called");
         MouseFilter = MouseFilterEnum.Pass;
         
-        // DEBUG: Add a visible rectangle to show the bounds
-        var debugRect = new ColorRect
-        {
-            Color = new Color(1, 0, 1, 0.2f), // Semi-transparent magenta
-            LayoutMode = 1,
-            AnchorsPreset = (int)LayoutPreset.FullRect
-        };
-        AddChild(debugRect);
-        
         // Make sure we're visible and at the right Z-index
         ZIndex = 100;
         ZAsRelative = false;
+        
+        // DEBUG: Add a visible rectangle to show the bounds
+        _debugBounds = new ColorRect
+        {
+            Name = "DebugBounds",
+            Color = new Color(1, 0, 1, 0.2f), // Semi-transparent magenta
+            LayoutMode = 1,
+            AnchorsPreset = (int)LayoutPreset.FullRect,
+            ZIndex = -1  // Put it behind windows
+        };
+        AddChild(_debugBounds);
+    }
+    
+    public void SetDebugBoundsVisible(bool visible)
+    {
+        if (_debugBounds != null)
+        {
+            _debugBounds.Visible = visible;
+        }
     }
     
     public void AddWindow(TerminalWindow window)

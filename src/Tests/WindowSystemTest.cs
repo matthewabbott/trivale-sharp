@@ -127,18 +127,21 @@ public partial class WindowSystemTest : Node
 		_windowManager.AddWindow(window);
 	}
 	
+	private bool _debugVisible = true;
+	
 	private void ToggleCRTEffect()
 	{
 		GD.Print("Toggling CRT effect");
+		_debugVisible = !_debugVisible;
+		
+		// Toggle both the CRT effect and debug bounds
 		var crtOverlay = _desktop.GetNode<ColorRect>("CRTEffect");
 		if (crtOverlay != null)
 		{
 			crtOverlay.Visible = !crtOverlay.Visible;
 			GD.Print($"CRT effect visibility: {crtOverlay.Visible}");
 		}
-		else
-		{
-			GD.PrintErr("Could not find CRT effect node");
-		}
+		
+		_windowManager.SetDebugBoundsVisible(_debugVisible);
 	}
 }
