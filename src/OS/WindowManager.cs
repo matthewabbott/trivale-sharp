@@ -48,21 +48,14 @@ public partial class WindowManager : Control
     
     public void AddWindow(TerminalWindow window)
     {
-        GD.Print($"Adding window: {window.WindowTitle}");
-        
         _windows.Add(window);
         AddChild(window);
         
-        // Make sure the window is pickable and can receive input
         window.MouseFilter = MouseFilterEnum.Stop;
-        
-        // Connect window input for focus
+        window.ZIndex = _windows.Count * 10;
         window.GuiInput += (@event) => HandleWindowInput(window, @event);
         
-        // Focus the new window
         FocusWindow(window);
-        
-        GD.Print($"Window count: {_windows.Count}, Window position: {window.Position}");
     }
     
     private void HandleWindowInput(TerminalWindow window, InputEvent @event)
@@ -80,11 +73,19 @@ public partial class WindowManager : Control
     {
         if (_focusedWindow == window) return;
         
-        GD.Print($"Focusing window: {window.WindowTitle}");
         _focusedWindow = window;
         
-        // Move focused window to top
+        // Update z-indices for all windows
+        int baseZ = 0;
+        foreach (var w in _windows)
+        {
+            w.ZIndex = baseZ;
+            baseZ += 10;
+        }
+        
+        // Move focused window to top and set highest z-index
         MoveChild(window, GetChildCount() - 1);
+        window.ZIndex = baseZ;
         
         // Update window appearance
         foreach (var w in _windows)

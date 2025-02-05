@@ -147,29 +147,27 @@ public partial class TerminalWindow : Control
     
     private void OnTitleBarInput(InputEvent @event)
     {
-        GD.Print($"Title bar input on {WindowTitle}: {@event}");
         if (@event is InputEventMouseButton mouseButton)
         {
             if (mouseButton.ButtonIndex == MouseButton.Left)
             {
+                // Request focus regardless of whether we're starting or stopping a drag
+                EmitSignal(SignalName.GuiInput, @event);
+                
                 if (mouseButton.Pressed)
                 {
                     _isDragging = true;
                     _dragStart = mouseButton.GlobalPosition - GlobalPosition;
-                    GD.Print($"Started dragging {WindowTitle} from {_dragStart}");
                 }
                 else
                 {
                     _isDragging = false;
-                    GD.Print($"Stopped dragging {WindowTitle}");
                 }
             }
         }
         else if (@event is InputEventMouseMotion mouseMotion && _isDragging)
         {
-            var newPos = mouseMotion.GlobalPosition - _dragStart;
-            GlobalPosition = newPos;
-            GD.Print($"Dragging {WindowTitle} to {newPos}");
+            GlobalPosition = mouseMotion.GlobalPosition - _dragStart;
         }
     }
     
