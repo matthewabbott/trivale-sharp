@@ -100,7 +100,18 @@ public partial class WindowSystemTest : Node
 			GD.Randf() * (viewportRect.Size.Y - 300)
 		);
 		
-		CreateWindowAt($"Terminal {_windowManager.GetChildCount() + 1}", randomPos);
+		// Cycle through different styles
+		var style = (WindowStyle)(_windowManager.GetChildCount() % 5);
+		
+		var window = new TerminalWindow
+		{
+			WindowTitle = $"Terminal {_windowManager.GetChildCount() + 1} ({style})",
+			Position = randomPos,
+			CustomMinimumSize = new Vector2(400, 300),
+			Style = style
+		};
+		
+		_windowManager.AddWindow(window);
 	}
 	
 	private void CreateWindowAt(string title, Vector2 position)

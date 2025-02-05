@@ -5,6 +5,15 @@ using System;
 
 namespace Trivale.Terminal;
 
+public enum WindowStyle
+{
+    Normal,
+    Alert,
+    Secure,
+    Corrupted,
+    Debug
+}
+
 public partial class TerminalWindow : Control
 {
     protected Panel _titleBar;
@@ -17,29 +26,22 @@ public partial class TerminalWindow : Control
     public string WindowTitle { get; set; } = "Terminal";
     
     [Export]
-    public Color BorderColor { get; set; } = new Color(0, 1, 0); // Phosphor green
+    public Color BorderColor { get; set; } = new Color(0, 1, 0); // Default phosphor green
     
     [Export]
-    public Vector2 MinSize { get; set; } = new Vector2(200, 150);
+    public WindowStyle Style { get; set; } = WindowStyle.Normal;
+    
+    [Export]
+    public Vector2 MinSize { get; set; } = new Vector2(400, 300);
     
     public override void _Ready()
     {
         GD.Print($"Setting up window: {WindowTitle}");
         
-        // DEBUG: Force a specific size
-        CustomMinimumSize = new Vector2(400, 300);
-        Size = new Vector2(400, 300);
+        CustomMinimumSize = MinSize;
+        Size = MinSize;
         
-        // DEBUG: Add a background panel for the entire window
-        var background = new ColorRect
-        {
-            Color = new Color(1, 0, 0, 0.5f), // Semi-transparent red
-            LayoutMode = 1,
-            AnchorsPreset = (int)LayoutPreset.FullRect
-        };
-        AddChild(background);
-        
-        // Layout container
+        // Add main container
         var layout = new VBoxContainer
         {
             Name = "VBoxContainer",
@@ -48,25 +50,29 @@ public partial class TerminalWindow : Control
         };
         AddChild(layout);
         
-        // Title bar
+        // Setup window style
+        ApplyStyle(Style);
+        
+        GD.Print($"Window setup complete for {WindowTitle} at position {GlobalPosition}");
+    }
+    
+    private void ApplyStyle(WindowStyle style)
+    {
+        // Create title bar
         _titleBar = new Panel
         {
             Name = "TitleBar",
             CustomMinimumSize = new Vector2(0, 30)
         };
+        GetNode<VBoxContainer>("VBoxContainer").AddChild(_titleBar);
         
-        // DEBUG: Make title bar very visible
-        var titleStylebox = new StyleBoxFlat
+        // Create content panel
+        _contentPanel = new Panel
         {
-            BgColor = new Color(0, 0, 1, 1), // Bright blue
-            BorderColor = new Color(1, 1, 0, 1), // Yellow
-            BorderWidthBottom = 2,
-            BorderWidthLeft = 2,
-            BorderWidthRight = 2,
-            BorderWidthTop = 2
+            Name = "ContentPanel",
+            SizeFlagsVertical = SizeFlags.Fill
         };
-        _titleBar.AddThemeStyleboxOverride("panel", titleStylebox);
-        layout.AddChild(_titleBar);
+        GetNode<VBoxContainer>("VBoxContainer").AddChild(_contentPanel);
         
         // Title text
         _titleLabel = new Label
@@ -74,49 +80,89 @@ public partial class TerminalWindow : Control
             Name = "TitleLabel",
             Text = WindowTitle,
             Position = new Vector2(10, 0),
-            SizeFlagsVertical = SizeFlags.ShrinkCenter,
-            Modulate = new Color(1, 1, 1, 1) // White text
+            SizeFlagsVertical = SizeFlags.ShrinkCenter
         };
         _titleBar.AddChild(_titleLabel);
         
-        // Content panel
-        _contentPanel = new Panel
-        {
-            Name = "ContentPanel",
-            SizeFlagsVertical = SizeFlags.Fill
-        };
+        var (bgColor, borderColor, titleBgColor) = GetColorsForStyle(style);
         
-        // DEBUG: Make content panel very visible
+        // Apply title bar style
+        var titleStylebox = new StyleBoxFlat
+        {
+            BgColor = titleBgColor,
+            BorderColor = borderColor,
+            BorderWidthBottom = style == WindowStyle.Debug ? 2 : 1,
+            BorderWidthLeft = 0,
+            BorderWidthRight = 0,
+            BorderWidthTop = 0
+        };
+        _titleBar.AddThemeStyleboxOverride("panel", titleStylebox);
+        
+        // Apply content panel style
         var contentStylebox = new StyleBoxFlat
         {
-            BgColor = new Color(0, 1, 0, 0.5f), // Semi-transparent green
-            BorderColor = new Color(1, 1, 0, 1), // Yellow
-            BorderWidthBottom = 2,
-            BorderWidthLeft = 2,
-            BorderWidthRight = 2,
-            BorderWidthTop = 2
+            BgColor = bgColor,
+            BorderColor = borderColor,
+            BorderWidthBottom = style == WindowStyle.Debug ? 2 : 1,
+            BorderWidthLeft = style == WindowStyle.Debug ? 2 : 1,
+            BorderWidthRight = style == WindowStyle.Debug ? 2 : 1,
+            BorderWidthTop = 0,
+            ContentMarginLeft = 10,
+            ContentMarginRight = 10,
+            ContentMarginTop = 10,
+            ContentMarginBottom = 10
         };
         _contentPanel.AddThemeStyleboxOverride("panel", contentStylebox);
-        layout.AddChild(_contentPanel);
         
-        // DEBUG: Add a label to content panel
-        var debugLabel = new Label
+        // Set text color
+        _titleLabel.Modulate = borderColor;
+        
+        if (style == WindowStyle.Debug)
         {
-            Text = "DEBUG: " + WindowTitle,
-            Modulate = new Color(1, 1, 1, 1)
-        };
-        _contentPanel.AddChild(debugLabel);
-        
-        GD.Print($"Window setup complete for {WindowTitle} at position {GlobalPosition}");
+            var debugLabel = new Label
+            {
+                Text = "DEBUG: " + WindowTitle,
+                Modulate = borderColor
+            };
+            _contentPanel.AddChild(debugLabel);
+        }
     }
     
-    public override void _Process(double delta)
+    private (Color bg, Color border, Color titleBg) GetColorsForStyle(WindowStyle style)
     {
-        // DEBUG: Print position every few seconds
-        if (Time.GetTicksMsec() % 3000 < 16)
+        return style switch
         {
-            GD.Print($"Window {WindowTitle} at position {GlobalPosition}, size {Size}, visible: {IsVisibleInTree()}");
-        }
+            WindowStyle.Normal => (
+                new Color(0, 0.05f, 0, 0.9f),    // Dark green bg
+                new Color(0, 1, 0, 1),           // Bright green border
+                new Color(0, 0.1f, 0, 0.95f)     // Slightly lighter title bg
+            ),
+            WindowStyle.Alert => (
+                new Color(0.2f, 0, 0, 0.9f),     // Dark red bg
+                new Color(1, 0, 0, 1),           // Bright red border
+                new Color(0.3f, 0, 0, 0.95f)     // Slightly lighter title bg
+            ),
+            WindowStyle.Secure => (
+                new Color(0, 0, 0.05f, 0.9f),    // Dark blue bg
+                new Color(0, 0.5f, 1, 1),        // Bright blue border
+                new Color(0, 0, 0.1f, 0.95f)     // Slightly lighter title bg
+            ),
+            WindowStyle.Corrupted => (
+                new Color(0.1f, 0, 0.1f, 0.9f),  // Dark purple bg
+                new Color(1, 0, 1, 1),           // Bright purple border
+                new Color(0.15f, 0, 0.15f, 0.95f)// Slightly lighter title bg
+            ),
+            WindowStyle.Debug => (
+                new Color(1, 0, 0, 0.5f),        // Semi-transparent red bg
+                new Color(1, 1, 0, 1),           // Yellow border
+                new Color(0, 0, 1, 1)            // Blue title bg
+            ),
+            _ => (
+                new Color(0, 0.05f, 0, 0.9f),
+                new Color(0, 1, 0, 1),
+                new Color(0, 0.1f, 0, 0.95f)
+            )
+        };
     }
     
     public override void _GuiInput(InputEvent @event)
@@ -140,7 +186,6 @@ public partial class TerminalWindow : Control
         else if (@event is InputEventMouseMotion mouseMotion && _isDragging)
         {
             GlobalPosition = mouseMotion.GlobalPosition - _dragStart;
-            GD.Print($"Dragged {WindowTitle} to {GlobalPosition}");
         }
     }
     
