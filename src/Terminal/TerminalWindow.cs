@@ -24,57 +24,99 @@ public partial class TerminalWindow : Control
     
     public override void _Ready()
     {
-        SetupWindow();
-        CustomMinimumSize = MinSize;
-    }
-    
-    private void SetupWindow()
-    {
-        // Title bar with darker background
-        _titleBar = new Panel();
-        _titleBar.CustomMinimumSize = new Vector2(0, 30); // Slightly taller
-        var titleStylebox = new StyleBoxFlat();
-        titleStylebox.BgColor = new Color(0.1f, 0.1f, 0.1f, 0.95f);
-        titleStylebox.BorderColor = BorderColor;
-        titleStylebox.BorderWidthBottom = 1;
-        _titleBar.AddThemeStyleboxOverride("panel", titleStylebox);
-        AddChild(_titleBar);
+        GD.Print($"Setting up window: {WindowTitle}");
         
-        // Title text with padding
+        // DEBUG: Force a specific size
+        CustomMinimumSize = new Vector2(400, 300);
+        Size = new Vector2(400, 300);
+        
+        // DEBUG: Add a background panel for the entire window
+        var background = new ColorRect
+        {
+            Color = new Color(1, 0, 0, 0.5f), // Semi-transparent red
+            LayoutMode = 1,
+            AnchorsPreset = (int)LayoutPreset.FullRect
+        };
+        AddChild(background);
+        
+        // Layout container
+        var layout = new VBoxContainer
+        {
+            Name = "VBoxContainer",
+            LayoutMode = 1,
+            AnchorsPreset = (int)LayoutPreset.FullRect
+        };
+        AddChild(layout);
+        
+        // Title bar
+        _titleBar = new Panel
+        {
+            Name = "TitleBar",
+            CustomMinimumSize = new Vector2(0, 30)
+        };
+        
+        // DEBUG: Make title bar very visible
+        var titleStylebox = new StyleBoxFlat
+        {
+            BgColor = new Color(0, 0, 1, 1), // Bright blue
+            BorderColor = new Color(1, 1, 0, 1), // Yellow
+            BorderWidthBottom = 2,
+            BorderWidthLeft = 2,
+            BorderWidthRight = 2,
+            BorderWidthTop = 2
+        };
+        _titleBar.AddThemeStyleboxOverride("panel", titleStylebox);
+        layout.AddChild(_titleBar);
+        
+        // Title text
         _titleLabel = new Label
         {
+            Name = "TitleLabel",
             Text = WindowTitle,
-            HorizontalAlignment = HorizontalAlignment.Left,
-            VerticalAlignment = VerticalAlignment.Center,
-            Position = new Vector2(10, 0), // Add left padding
-            Modulate = BorderColor
+            Position = new Vector2(10, 0),
+            SizeFlagsVertical = SizeFlags.ShrinkCenter,
+            Modulate = new Color(1, 1, 1, 1) // White text
         };
         _titleBar.AddChild(_titleLabel);
         
-        // Content panel with padding
-        _contentPanel = new Panel();
-        var stylebox = new StyleBoxFlat();
-        stylebox.BorderColor = BorderColor;
-        stylebox.BorderWidthBottom = stylebox.BorderWidthLeft = 
-        stylebox.BorderWidthRight = stylebox.BorderWidthTop = 1;
-        stylebox.BgColor = new Color(0, 0, 0, 0.9f);
-        stylebox.ContentMarginLeft = stylebox.ContentMarginRight = 
-        stylebox.ContentMarginTop = stylebox.ContentMarginBottom = 10;
-        _contentPanel.AddThemeStyleboxOverride("panel", stylebox);
+        // Content panel
+        _contentPanel = new Panel
+        {
+            Name = "ContentPanel",
+            SizeFlagsVertical = SizeFlags.Fill
+        };
         
-        // Layout
-        var layout = new VBoxContainer();
-        layout.AddChild(_titleBar);
+        // DEBUG: Make content panel very visible
+        var contentStylebox = new StyleBoxFlat
+        {
+            BgColor = new Color(0, 1, 0, 0.5f), // Semi-transparent green
+            BorderColor = new Color(1, 1, 0, 1), // Yellow
+            BorderWidthBottom = 2,
+            BorderWidthLeft = 2,
+            BorderWidthRight = 2,
+            BorderWidthTop = 2
+        };
+        _contentPanel.AddThemeStyleboxOverride("panel", contentStylebox);
         layout.AddChild(_contentPanel);
-        AddChild(layout);
         
-        // CRT shader (to be implemented)
-        SetupShader();
+        // DEBUG: Add a label to content panel
+        var debugLabel = new Label
+        {
+            Text = "DEBUG: " + WindowTitle,
+            Modulate = new Color(1, 1, 1, 1)
+        };
+        _contentPanel.AddChild(debugLabel);
+        
+        GD.Print($"Window setup complete for {WindowTitle} at position {GlobalPosition}");
     }
     
-    private void SetupShader()
+    public override void _Process(double delta)
     {
-        // TODO: Implement CRT shader
+        // DEBUG: Print position every few seconds
+        if (Time.GetTicksMsec() % 3000 < 16)
+        {
+            GD.Print($"Window {WindowTitle} at position {GlobalPosition}, size {Size}, visible: {IsVisibleInTree()}");
+        }
     }
     
     public override void _GuiInput(InputEvent @event)
@@ -87,6 +129,7 @@ public partial class TerminalWindow : Control
                 {
                     _isDragging = true;
                     _dragStart = mouseButton.GlobalPosition - GlobalPosition;
+                    GD.Print($"Started dragging {WindowTitle}");
                 }
                 else
                 {
@@ -97,12 +140,13 @@ public partial class TerminalWindow : Control
         else if (@event is InputEventMouseMotion mouseMotion && _isDragging)
         {
             GlobalPosition = mouseMotion.GlobalPosition - _dragStart;
+            GD.Print($"Dragged {WindowTitle} to {GlobalPosition}");
         }
     }
     
-    // Method to add content to the window
     protected void AddContent(Control content)
     {
         _contentPanel.AddChild(content);
+        GD.Print($"Added content to {WindowTitle}");
     }
 }

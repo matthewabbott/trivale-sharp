@@ -10,10 +10,13 @@ namespace Trivale.Tests;
 public partial class WindowSystemTest : Node
 {
 	private SystemDesktop _desktop;
-	private Control _windowContainer;
+	private WindowManager _windowManager;
+	private Control _controlPanel;
 	
 	public override void _Ready()
 	{
+		GD.Print("WindowSystemTest._Ready called");
+		
 		_desktop = GetParent<SystemDesktop>();
 		if (_desktop == null)
 		{
@@ -21,106 +24,110 @@ public partial class WindowSystemTest : Node
 			return;
 		}
 		
-		// Get or create window container
-		_windowContainer = _desktop.GetNode<Control>("MainContainer/WindowLayer");
-		if (_windowContainer == null)
+		// Get or create window manager
+		_windowManager = _desktop.GetNode<WindowManager>("MainContainer/WindowLayer");
+		if (_windowManager == null)
 		{
-			_windowContainer = new Control
-			{
-				Name = "WindowLayer",
-				LayoutMode = 1,
-				AnchorsPreset = (int)Control.LayoutPreset.FullRect,
-				MouseFilter = Control.MouseFilterEnum.Pass // This is fine as MouseFilter is already the right type
-			};
-			_desktop.GetNode<Control>("MainContainer").AddChild(_windowContainer);
+			GD.PrintErr("Could not find WindowManager node");
+			return;
 		}
 		
-		CreateTestWindows();
+		SetupControlPanel();
+		CreateInitialWindows();
+		
+		GD.Print("WindowSystemTest initialization complete");
 	}
 	
-	private void CreateTestWindows()
+	private void SetupControlPanel()
 	{
-		// Create a simple text terminal
-		var textTerminal = new TerminalWindow
-		{
-			WindowTitle = "Command Terminal",
-			Position = new Vector2(100, 100),
-			CustomMinimumSize = new Vector2(400, 300)
-		};
-		_windowContainer.AddChild(textTerminal);
+		GD.Print("Setting up control panel");
 		
-		// Create a card terminal
-		var cardTerminal = new CardTerminalWindow
+		_controlPanel = new Control
 		{
-			WindowTitle = "Card Display",
-			Position = new Vector2(550, 100),
-			CustomMinimumSize = new Vector2(400, 300)
+			Position = new Vector2(20, 20),
 		};
-		_windowContainer.AddChild(cardTerminal);
+		AddChild(_controlPanel);
 		
-		// Create a status terminal
-		var statusTerminal = new TerminalWindow
-		{
-			WindowTitle = "System Status",
-			Position = new Vector2(100, 450),
-			CustomMinimumSize = new Vector2(300, 200)
-		};
-		_windowContainer.AddChild(statusTerminal);
+		var buttonContainer = new VBoxContainer();
+		_controlPanel.AddChild(buttonContainer);
 		
-		// Add test controls
-		AddTestControls();
-	}
-	
-	private void AddTestControls()
-	{
-		var controlPanel = new VBoxContainer
-		{
-			Position = new Vector2(20, 20)
-		};
-		AddChild(controlPanel);
-		
-		// Add window creation button
+		// Create window button
 		var createButton = new Button
 		{
 			Text = "Create New Window",
 			CustomMinimumSize = new Vector2(150, 30)
 		};
-		createButton.Pressed += CreateNewWindow;
-		controlPanel.AddChild(createButton);
+		createButton.Pressed += () => {
+			GD.Print("Create window button pressed");
+			CreateNewWindow();
+		};
+		buttonContainer.AddChild(createButton);
 		
-		// Add CRT toggle button
+		// Toggle CRT button
 		var crtButton = new Button
 		{
 			Text = "Toggle CRT Effect",
 			CustomMinimumSize = new Vector2(150, 30)
 		};
-		crtButton.Pressed += ToggleCRTEffect;
-		controlPanel.AddChild(crtButton);
+		crtButton.Pressed += () => {
+			GD.Print("Toggle CRT button pressed");
+			ToggleCRTEffect();
+		};
+		buttonContainer.AddChild(crtButton);
+		
+		GD.Print("Control panel setup complete");
+	}
+	
+	private void CreateInitialWindows()
+	{
+		GD.Print("Creating initial test windows");
+		
+		CreateWindowAt("Initial Terminal", new Vector2(100, 100));
+		CreateWindowAt("Card Display", new Vector2(550, 100));
+		CreateWindowAt("Status Window", new Vector2(100, 450));
+		
+		GD.Print("Initial windows created");
 	}
 	
 	private void CreateNewWindow()
 	{
+		GD.Print("Creating new window");
+		
 		var viewport = GetViewport();
 		var viewportRect = viewport.GetVisibleRect();
+		var randomPos = new Vector2(
+			GD.Randf() * (viewportRect.Size.X - 400),
+			GD.Randf() * (viewportRect.Size.Y - 300)
+		);
 		
+		CreateWindowAt($"Terminal {_windowManager.GetChildCount() + 1}", randomPos);
+	}
+	
+	private void CreateWindowAt(string title, Vector2 position)
+	{
 		var window = new TerminalWindow
 		{
-			WindowTitle = $"Terminal {_windowContainer.GetChildCount() + 1}",
-			Position = new Vector2(
-				GD.Randf() * (viewportRect.Size.X - 400),
-				GD.Randf() * (viewportRect.Size.Y - 300)
-			),
+			WindowTitle = title,
+			Position = position,
 			CustomMinimumSize = new Vector2(400, 300)
 		};
-		_windowContainer.AddChild(window);
+		
+		GD.Print($"Adding window '{title}' at position {position}");
+		_windowManager.AddWindow(window);
 	}
 	
 	private void ToggleCRTEffect()
 	{
+		GD.Print("Toggling CRT effect");
 		var crtOverlay = _desktop.GetNode<ColorRect>("CRTEffect");
 		if (crtOverlay != null)
 		{
 			crtOverlay.Visible = !crtOverlay.Visible;
+			GD.Print($"CRT effect visibility: {crtOverlay.Visible}");
+		}
+		else
+		{
+			GD.PrintErr("Could not find CRT effect node");
 		}
 	}
 }

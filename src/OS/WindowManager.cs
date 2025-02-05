@@ -13,15 +13,37 @@ public partial class WindowManager : Control
     
     public override void _Ready()
     {
+        GD.Print("WindowManager._Ready called");
         MouseFilter = MouseFilterEnum.Pass;
+        
+        // DEBUG: Add a visible rectangle to show the bounds
+        var debugRect = new ColorRect
+        {
+            Color = new Color(1, 0, 1, 0.2f), // Semi-transparent magenta
+            LayoutMode = 1,
+            AnchorsPreset = (int)LayoutPreset.FullRect
+        };
+        AddChild(debugRect);
+        
+        // Make sure we're visible and at the right Z-index
+        ZIndex = 100;
+        ZAsRelative = false;
     }
     
     public void AddWindow(TerminalWindow window)
     {
+        GD.Print($"Adding window: {window.WindowTitle}");
+        
         _windows.Add(window);
         AddChild(window);
-        window.GuiInput += (InputEvent @event) => HandleWindowInput(window, @event);
+        
+        // Connect window input
+        window.GuiInput += (@event) => HandleWindowInput(window, @event);
+        
+        // Focus the new window
         FocusWindow(window);
+        
+        GD.Print($"Window count: {_windows.Count}");
     }
     
     private void HandleWindowInput(TerminalWindow window, InputEvent @event)
@@ -30,6 +52,7 @@ public partial class WindowManager : Control
             mouseEvent.ButtonIndex == MouseButton.Left && 
             mouseEvent.Pressed)
         {
+            GD.Print($"Window clicked: {window.WindowTitle}");
             FocusWindow(window);
         }
     }
@@ -38,29 +61,44 @@ public partial class WindowManager : Control
     {
         if (_focusedWindow == window) return;
         
+        GD.Print($"Focusing window: {window.WindowTitle}");
         _focusedWindow = window;
         
         // Move focused window to top
-        RemoveChild(window);
-        AddChild(window);
+        MoveChild(window, GetChildCount() - 1);
         
         // Update window appearance
         foreach (var w in _windows)
         {
             bool isFocused = w == window;
-            if (w.GetNode<Panel>("TitleBar") is Panel titleBar)
+            var titleBar = w.GetNodeOrNull<Panel>("VBoxContainer/TitleBar");
+            if (titleBar == null)
             {
-                var styleBox = (StyleBoxFlat)titleBar.GetThemeStylebox("panel").Duplicate();
-                styleBox.BgColor = isFocused ? 
-                    new Color(0.2f, 0.2f, 0.2f, 0.95f) : 
-                    new Color(0.1f, 0.1f, 0.1f, 0.95f);
+                GD.PrintErr($"Could not find title bar at 'VBoxContainer/TitleBar' for window: {w.WindowTitle}");
+                continue;
+            }
+            if (titleBar != null)
+            {
+                var styleBox = new StyleBoxFlat
+                {
+                    BgColor = isFocused ? 
+                        new Color(0.2f, 0.2f, 0.2f, 0.95f) : 
+                        new Color(0.1f, 0.1f, 0.1f, 0.95f),
+                    BorderColor = w.BorderColor,
+                    BorderWidthBottom = 1
+                };
                 titleBar.AddThemeStyleboxOverride("panel", styleBox);
+            }
+            else
+            {
+                GD.PrintErr($"Could not find title bar for window: {w.WindowTitle}");
             }
         }
     }
     
     public void RemoveWindow(TerminalWindow window)
     {
+        GD.Print($"Removing window: {window.WindowTitle}");
         _windows.Remove(window);
         window.QueueFree();
         
