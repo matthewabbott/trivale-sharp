@@ -146,25 +146,30 @@ public partial class SystemDesktop : Control
     
     private Button CreateProgramButton(ProgramInfo program)
     {
-        // Load ASCII border shader
-        var borderShader = GD.Load<Shader>("res://Assets/Shaders/ascii_border.gdshader");
-        var borderMaterial = new ShaderMaterial { Shader = borderShader };
-        borderMaterial.SetShaderParameter("border_color", UIThemeManager.Instance.PrimaryColor);
-        
-        // Normal state
+        // Normal state - dark background, white text
         var styleNormal = new StyleBoxFlat
         {
-            BgColor = new Color(0.0f, 0.1f, 0.0f, 0.8f),
+            BgColor = new Color(0.1f, 0.1f, 0.1f, 0.95f), // Very dark gray, almost black
+            BorderColor = new Color(0.0f, 0.8f, 0.0f, 0.7f), // Softer green
+            BorderWidthBottom = 1,
+            BorderWidthLeft = 1,
+            BorderWidthRight = 1,
+            BorderWidthTop = 1,
             ContentMarginLeft = 20,
             ContentMarginRight = 20,
             ContentMarginTop = 20,
             ContentMarginBottom = 20
         };
         
-        // Hover state - inverted colors
+        // Hover state - same dark background, but glowing border
         var styleHover = new StyleBoxFlat
         {
-            BgColor = UIThemeManager.Instance.PrimaryColor,
+            BgColor = new Color(0.12f, 0.12f, 0.12f, 0.95f), // Slightly lighter
+            BorderColor = new Color(0.0f, 1.0f, 0.0f, 0.9f), // Brighter green
+            BorderWidthBottom = 1,
+            BorderWidthLeft = 1,
+            BorderWidthRight = 1,
+            BorderWidthTop = 1,
             ContentMarginLeft = 20,
             ContentMarginRight = 20,
             ContentMarginTop = 20,
@@ -174,7 +179,12 @@ public partial class SystemDesktop : Control
         // Pressed state
         var stylePressed = new StyleBoxFlat
         {
-            BgColor = new Color(0.0f, 0.3f, 0.0f, 0.9f),
+            BgColor = new Color(0.15f, 0.15f, 0.15f, 0.95f), // Even lighter when pressed
+            BorderColor = new Color(0.0f, 1.0f, 0.0f, 1.0f), // Full bright green
+            BorderWidthBottom = 1,
+            BorderWidthLeft = 1,
+            BorderWidthRight = 1,
+            BorderWidthTop = 1,
             ContentMarginLeft = 20,
             ContentMarginRight = 20,
             ContentMarginTop = 20,
@@ -185,8 +195,7 @@ public partial class SystemDesktop : Control
         {
             LayoutMode = 1,
             CustomMinimumSize = new Vector2(220, 220),
-            Theme = _defaultTheme,
-            Material = borderMaterial
+            Theme = _defaultTheme
         };
         
         button.AddThemeStyleboxOverride("normal", styleNormal);
@@ -200,7 +209,6 @@ public partial class SystemDesktop : Control
         };
         button.AddChild(container);
         
-        // Icon with inverse colors on hover
         var icon = new RichTextLabel
         {
             LayoutMode = 1,
@@ -208,25 +216,29 @@ public partial class SystemDesktop : Control
             Text = $"[center]{program.AsciiArt}[/center]",
             CustomMinimumSize = new Vector2(0, 100),
             SizeFlagsHorizontal = SizeFlags.Fill,
-            ScrollActive = false
+            ScrollActive = false,
+            Modulate = Colors.White // Start with white text
         };
         container.AddChild(icon);
-        
-        // Update the colors when hovering
-        button.MouseEntered += () => {
-            icon.Modulate = new Color(0, 0.1f, 0, 1); // Dark text on light background
-        };
-        button.MouseExited += () => {
-            icon.Modulate = UIThemeManager.Instance.PrimaryColor; // Back to normal
-        };
         
         var name = new Label
         {
             Text = program.Name,
             HorizontalAlignment = HorizontalAlignment.Center,
-            CustomMinimumSize = new Vector2(0, 40)
+            CustomMinimumSize = new Vector2(0, 40),
+            Modulate = Colors.White // Start with white text
         };
         container.AddChild(name);
+        
+        // Update colors on hover
+        button.MouseEntered += () => {
+            icon.Modulate = new Color(0.0f, 1.0f, 0.0f, 1.0f); // Bright green
+            name.Modulate = new Color(0.0f, 1.0f, 0.0f, 1.0f); // Bright green
+        };
+        button.MouseExited += () => {
+            icon.Modulate = Colors.White; // Back to white
+            name.Modulate = Colors.White; // Back to white
+        };
         
         button.Pressed += () => OnProgramClicked(program.Name);
         
