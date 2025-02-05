@@ -146,34 +146,52 @@ public partial class SystemDesktop : Control
     
     private Button CreateProgramButton(ProgramInfo program)
     {
-        var style = new StyleBoxFlat
+        // Load ASCII border shader
+        var borderShader = GD.Load<Shader>("res://Assets/Shaders/ascii_border.gdshader");
+        var borderMaterial = new ShaderMaterial { Shader = borderShader };
+        borderMaterial.SetShaderParameter("border_color", UIThemeManager.Instance.PrimaryColor);
+        
+        // Normal state
+        var styleNormal = new StyleBoxFlat
         {
             BgColor = new Color(0.0f, 0.1f, 0.0f, 0.8f),
-            BorderColor = UIThemeManager.Instance.PrimaryColor,
-            BorderWidthBottom = 2,
-            BorderWidthLeft = 2,
-            BorderWidthRight = 2,
-            BorderWidthTop = 2,
-            CornerRadiusBottomLeft = 0,
-            CornerRadiusBottomRight = 0,
-            CornerRadiusTopLeft = 0,
-            CornerRadiusTopRight = 0,
             ContentMarginLeft = 20,
             ContentMarginRight = 20,
             ContentMarginTop = 20,
-            ContentMarginBottom = 20,
-            ShadowColor = new Color(0, 0, 0, 0.5f),
-            ShadowSize = 4,
-            ShadowOffset = new Vector2(2, 2)
+            ContentMarginBottom = 20
+        };
+        
+        // Hover state - inverted colors
+        var styleHover = new StyleBoxFlat
+        {
+            BgColor = UIThemeManager.Instance.PrimaryColor,
+            ContentMarginLeft = 20,
+            ContentMarginRight = 20,
+            ContentMarginTop = 20,
+            ContentMarginBottom = 20
+        };
+        
+        // Pressed state
+        var stylePressed = new StyleBoxFlat
+        {
+            BgColor = new Color(0.0f, 0.3f, 0.0f, 0.9f),
+            ContentMarginLeft = 20,
+            ContentMarginRight = 20,
+            ContentMarginTop = 20,
+            ContentMarginBottom = 20
         };
 
         var button = new Button
         {
             LayoutMode = 1,
             CustomMinimumSize = new Vector2(220, 220),
-            Theme = _defaultTheme
+            Theme = _defaultTheme,
+            Material = borderMaterial
         };
-        button.AddThemeStyleboxOverride("normal", style);
+        
+        button.AddThemeStyleboxOverride("normal", styleNormal);
+        button.AddThemeStyleboxOverride("hover", styleHover);
+        button.AddThemeStyleboxOverride("pressed", stylePressed);
 
         var container = new VBoxContainer
         {
@@ -182,9 +200,7 @@ public partial class SystemDesktop : Control
         };
         button.AddChild(container);
         
-        // Add some top padding
-        container.AddChild(new Control { CustomMinimumSize = new Vector2(0, 10) });
-        
+        // Icon with inverse colors on hover
         var icon = new RichTextLabel
         {
             LayoutMode = 1,
@@ -195,6 +211,14 @@ public partial class SystemDesktop : Control
             ScrollActive = false
         };
         container.AddChild(icon);
+        
+        // Update the colors when hovering
+        button.MouseEntered += () => {
+            icon.Modulate = new Color(0, 0.1f, 0, 1); // Dark text on light background
+        };
+        button.MouseExited += () => {
+            icon.Modulate = UIThemeManager.Instance.PrimaryColor; // Back to normal
+        };
         
         var name = new Label
         {
