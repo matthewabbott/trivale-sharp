@@ -24,7 +24,7 @@ public partial class WindowSystemTest : Node
 			return;
 		}
 		
-		// Get or create window manager
+		GD.Print("Looking for WindowManager at 'WindowLayer'...");
 		_windowManager = _desktop.GetNode<WindowManager>("WindowLayer");
 		if (_windowManager == null)
 		{
@@ -40,15 +40,16 @@ public partial class WindowSystemTest : Node
 	
 	private void SetupControlPanel()
 	{
-		GD.Print("Setting up control panel");
-		
 		_controlPanel = new Control
 		{
 			Position = new Vector2(20, 20),
 		};
 		AddChild(_controlPanel);
 		
-		var buttonContainer = new VBoxContainer();
+		var buttonContainer = new VBoxContainer
+		{
+			CustomMinimumSize = new Vector2(150, 0)
+		};
 		_controlPanel.AddChild(buttonContainer);
 		
 		// Create window button
@@ -57,10 +58,7 @@ public partial class WindowSystemTest : Node
 			Text = "Create New Window",
 			CustomMinimumSize = new Vector2(150, 30)
 		};
-		createButton.Pressed += () => {
-			GD.Print("Create window button pressed");
-			CreateNewWindow();
-		};
+		createButton.Pressed += CreateNewWindow;
 		buttonContainer.AddChild(createButton);
 		
 		// Toggle CRT button
@@ -69,22 +67,89 @@ public partial class WindowSystemTest : Node
 			Text = "Toggle CRT Effect",
 			CustomMinimumSize = new Vector2(150, 30)
 		};
-		crtButton.Pressed += () => {
-			GD.Print("Toggle CRT button pressed");
-			ToggleCRTEffect();
-		};
+		crtButton.Pressed += ToggleCRTEffect;
 		buttonContainer.AddChild(crtButton);
 		
-		GD.Print("Control panel setup complete");
+		// Alert cascade button
+		var alertButton = new Button
+		{
+			Text = "ALERT!",
+			CustomMinimumSize = new Vector2(150, 30)
+		};
+		var alertStyle = new StyleBoxFlat
+		{
+			BgColor = new Color(0.5f, 0, 0, 1),
+			BorderColor = new Color(1, 0, 0, 1),
+			BorderWidthBottom = 2,
+			BorderWidthLeft = 2,
+			BorderWidthRight = 2,
+			BorderWidthTop = 2,
+			ContentMarginLeft = 10,
+			ContentMarginRight = 10,
+			ContentMarginTop = 5,
+			ContentMarginBottom = 5
+		};
+		alertButton.AddThemeStyleboxOverride("normal", alertStyle);
+		
+		// Add hover effect
+		var hoverStyle = alertStyle.Duplicate() as StyleBoxFlat;
+		if (hoverStyle != null)
+		{
+			hoverStyle.BgColor = new Color(0.7f, 0, 0, 1);
+		}
+		alertButton.AddThemeStyleboxOverride("hover", hoverStyle);
+		
+		alertButton.Pressed += StartAlertCascade;
+		buttonContainer.AddChild(alertButton);
+	}
+	
+	private async void StartAlertCascade()
+	{
+		var viewport = GetViewport();
+		var viewportRect = viewport.GetVisibleRect();
+		double delay = 0.1; // Delay between alerts in seconds
+		int numAlerts = 8;  // Number of alert windows to create
+		
+		for (int i = 0; i < numAlerts; i++)
+		{
+			var randomPos = new Vector2(
+				GD.Randf() * (viewportRect.Size.X - 400),
+				GD.Randf() * (viewportRect.Size.Y - 300)
+			);
+			
+			var window = new TerminalWindow
+			{
+				WindowTitle = $"SYSTEM ALERT {i + 1}",
+				Position = randomPos,
+				CustomMinimumSize = new Vector2(400, 300),
+				Style = WindowStyle.Alert
+			};
+			
+			// Add alert content
+			var content = new VBoxContainer();
+			content.AddChild(new Label 
+			{ 
+				Text = "⚠ WARNING ⚠\n\nSecurity breach detected!\nUnauthorized access attempt in progress.\nInitiating countermeasures...",
+				HorizontalAlignment = HorizontalAlignment.Center,
+				CustomMinimumSize = new Vector2(0, 100)
+			});
+			
+			window.AddChild(content);
+			_windowManager.AddWindow(window);
+			
+			await ToSignal(GetTree().CreateTimer(delay), "timeout");
+		}
 	}
 	
 	private void CreateInitialWindows()
 	{
 		GD.Print("Creating initial test windows");
 		
-		CreateWindowAt("Initial Terminal", new Vector2(100, 100));
-		CreateWindowAt("Card Display", new Vector2(550, 100));
-		CreateWindowAt("Status Window", new Vector2(100, 450));
+		// Create a few initial windows with specific styles
+		for (int i = 0; i < 3; i++)
+		{
+			CreateNewWindow();
+		}
 		
 		GD.Print("Initial windows created");
 	}
@@ -114,32 +179,16 @@ public partial class WindowSystemTest : Node
 		_windowManager.AddWindow(window);
 	}
 	
-	private void CreateWindowAt(string title, Vector2 position)
-	{
-		var window = new TerminalWindow
-		{
-			WindowTitle = title,
-			Position = position,
-			CustomMinimumSize = new Vector2(400, 300)
-		};
-		
-		GD.Print($"Adding window '{title}' at position {position}");
-		_windowManager.AddWindow(window);
-	}
-	
 	private bool _debugVisible = true;
 	
 	private void ToggleCRTEffect()
 	{
-		GD.Print("Toggling CRT effect");
 		_debugVisible = !_debugVisible;
 		
-		// Toggle both the CRT effect and debug bounds
 		var crtOverlay = _desktop.GetNode<ColorRect>("CRTEffect");
 		if (crtOverlay != null)
 		{
 			crtOverlay.Visible = !crtOverlay.Visible;
-			GD.Print($"CRT effect visibility: {crtOverlay.Visible}");
 		}
 		
 		_windowManager.SetDebugBoundsVisible(_debugVisible);
