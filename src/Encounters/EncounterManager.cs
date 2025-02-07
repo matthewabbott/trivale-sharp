@@ -1,4 +1,3 @@
-
 // src/Encounters/EncounterManager.cs
 using Godot;
 using System.Collections.Generic;
@@ -43,6 +42,11 @@ public partial class EncounterManager : Node
         }
     }
     
+    public IEncounter GetEncounter(string encounterId)
+    {
+        return _activeEncounters.TryGetValue(encounterId, out var encounter) ? encounter : null;
+    }
+    
     private bool ValidateResources(Dictionary<string, float> requirements)
     {
         foreach (var (resource, amount) in requirements)
@@ -52,12 +56,6 @@ public partial class EncounterManager : Node
                 return false;
         }
         return true;
-    }
-    
-    // Called every frame
-    public IEncounter GetEncounter(string encounterId)
-    {
-        return _activeEncounters.TryGetValue(encounterId, out var encounter) ? encounter : null;
     }
     
     public override void _Process(double delta)
