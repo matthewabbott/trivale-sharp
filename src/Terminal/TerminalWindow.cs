@@ -309,7 +309,7 @@ public partial class TerminalWindow : Control
         };
     }
     
-    protected void AddContent(Control content)
+    public void AddContent(Control content)
     {
         _contentPanel.AddChild(content);
         GD.Print($"Added content to {WindowTitle}");

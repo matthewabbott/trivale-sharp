@@ -1,5 +1,3 @@
-// src/Tests/EncounterTestScene.cs
-
 using Godot;
 using System;
 using Trivale.Encounters;
@@ -18,12 +16,15 @@ public partial class EncounterTestScene : Node
     
     public override void _Ready()
     {
+        GD.Print("EncounterTestScene._Ready called");
+        
         _desktop = GetParent<SystemDesktop>();
         if (_desktop == null)
         {
             GD.PrintErr("EncounterTestScene must be a child of SystemDesktop");
             return;
         }
+        GD.Print("Found SystemDesktop");
         
         _windowManager = _desktop.GetNode<WindowManager>("WindowLayer");
         if (_windowManager == null)
@@ -31,23 +32,31 @@ public partial class EncounterTestScene : Node
             GD.PrintErr("Could not find WindowManager");
             return;
         }
+        GD.Print("Found WindowManager");
         
         // Create and add encounter manager
         _encounterManager = new EncounterManager();
         AddChild(_encounterManager);
+        GD.Print("Created EncounterManager");
         
         SetupControls();
+        GD.Print("Setup complete");
     }
     
     private void SetupControls()
     {
         var controlPanel = new Control
         {
-            Position = new Vector2(20, 20)
+            Position = new Vector2(200, 20),  // Moved from (20,20) to (200,20)
+            CustomMinimumSize = new Vector2(200, 150)
         };
         AddChild(controlPanel);
+        GD.Print("Added control panel");
         
-        var container = new VBoxContainer();
+        var container = new VBoxContainer
+        {
+            CustomMinimumSize = new Vector2(200, 150)  // Give container a minimum size too
+        };
         controlPanel.AddChild(container);
         
         // Player count control
@@ -89,10 +98,14 @@ public partial class EncounterTestScene : Node
         };
         _createGameButton.Pressed += CreateNewGame;
         container.AddChild(_createGameButton);
+        
+        GD.Print("Controls set up - button should be visible");
     }
     
     private void CreateNewGame()
     {
+        GD.Print("CreateNewGame called");
+        
         var config = new GameConfiguration
         {
             NumPlayers = (int)_playerCountSpinner.Value,
@@ -101,6 +114,8 @@ public partial class EncounterTestScene : Node
         
         var encounterName = $"puzzle_{DateTime.Now.Ticks}";
         var encounter = new PuzzleCardEncounter(encounterName, config);
+        
+        GD.Print($"Created encounter: {encounterName}");
         
         if (_encounterManager.StartEncounter(encounter))
         {
@@ -112,12 +127,22 @@ public partial class EncounterTestScene : Node
             
             if (playerWindow != null)
             {
+                GD.Print("Adding player window");
                 _windowManager.AddWindow(playerWindow);
+            }
+            else
+            {
+                GD.PrintErr("Player window was null!");
             }
             
             if (tableWindow != null)
             {
+                GD.Print("Adding table window");
                 _windowManager.AddWindow(tableWindow);
+            }
+            else
+            {
+                GD.PrintErr("Table window was null!");
             }
         }
         else

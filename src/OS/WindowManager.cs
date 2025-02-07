@@ -19,6 +19,7 @@ public partial class WindowManager : Control
         // Make sure we're at the top layer and can receive input
         MouseFilter = MouseFilterEnum.Pass;
         ZIndex = 100;
+        
         // These are crucial for making sure we're on top
         Position = Vector2.Zero;
         AnchorRight = 1;
@@ -51,11 +52,16 @@ public partial class WindowManager : Control
         _windows.Add(window);
         AddChild(window);
         
+        // Set up window properties
         window.MouseFilter = MouseFilterEnum.Stop;
         window.ZIndex = _windows.Count * 10;
+        
+        // Connect to window's input events
         window.GuiInput += (@event) => HandleWindowInput(window, @event);
         
         FocusWindow(window);
+        
+        GD.Print($"Added window: {window.WindowTitle}, ZIndex: {window.ZIndex}");
     }
     
     private void HandleWindowInput(TerminalWindow window, InputEvent @event)
@@ -72,6 +78,8 @@ public partial class WindowManager : Control
     private void FocusWindow(TerminalWindow window)
     {
         if (_focusedWindow == window) return;
+        
+        GD.Print($"Focusing window: {window.WindowTitle}");
         
         _focusedWindow = window;
         
@@ -104,6 +112,8 @@ public partial class WindowManager : Control
                 titleBar.AddThemeStyleboxOverride("panel", styleBox);
             }
         }
+        
+        GD.Print($"Window {window.WindowTitle} focused with ZIndex: {window.ZIndex}");
     }
     
     public void SetDebugBoundsVisible(bool visible)
@@ -123,6 +133,10 @@ public partial class WindowManager : Control
         if (_focusedWindow == window)
         {
             _focusedWindow = _windows.Count > 0 ? _windows[^1] : null;
+            if (_focusedWindow != null)
+            {
+                FocusWindow(_focusedWindow);
+            }
         }
     }
 }

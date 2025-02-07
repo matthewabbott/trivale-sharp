@@ -1,5 +1,3 @@
-// src/Tests/WindowSystemTest.cs
-
 using Godot;
 using System;
 using Trivale.Terminal;
@@ -24,35 +22,34 @@ public partial class WindowSystemTest : Node
 			return;
 		}
 		
-		GD.Print("Looking for WindowManager at 'WindowLayer'...");
 		_windowManager = _desktop.GetNode<WindowManager>("WindowLayer");
 		if (_windowManager == null)
 		{
-			GD.PrintErr("Could not find WindowManager node at 'WindowLayer'");
+			GD.PrintErr("Could not find WindowManager");
 			return;
 		}
 		
 		SetupControlPanel();
 		CreateInitialWindows();
-		
-		GD.Print("WindowSystemTest initialization complete");
 	}
 	
 	private void SetupControlPanel()
 	{
+		GD.Print("Setting up WindowSystemTest control panel");
 		_controlPanel = new Control
 		{
 			Position = new Vector2(20, 20),
+			Visible = true  // Changed from Show to Visible
 		};
 		AddChild(_controlPanel);
 		
 		var buttonContainer = new VBoxContainer
 		{
-			CustomMinimumSize = new Vector2(150, 0)
+			CustomMinimumSize = new Vector2(150, 0),
+			Visible = true
 		};
 		_controlPanel.AddChild(buttonContainer);
 		
-		// Create window button
 		var createButton = new Button
 		{
 			Text = "Create New Window",
@@ -61,7 +58,6 @@ public partial class WindowSystemTest : Node
 		createButton.Pressed += CreateNewWindow;
 		buttonContainer.AddChild(createButton);
 		
-		// Toggle CRT button
 		var crtButton = new Button
 		{
 			Text = "Toggle CRT Effect",
@@ -70,7 +66,6 @@ public partial class WindowSystemTest : Node
 		crtButton.Pressed += ToggleCRTEffect;
 		buttonContainer.AddChild(crtButton);
 		
-		// Alert cascade button
 		var alertButton = new Button
 		{
 			Text = "ALERT!",
@@ -91,7 +86,6 @@ public partial class WindowSystemTest : Node
 		};
 		alertButton.AddThemeStyleboxOverride("normal", alertStyle);
 		
-		// Add hover effect
 		var hoverStyle = alertStyle.Duplicate() as StyleBoxFlat;
 		if (hoverStyle != null)
 		{
@@ -101,57 +95,18 @@ public partial class WindowSystemTest : Node
 		
 		alertButton.Pressed += StartAlertCascade;
 		buttonContainer.AddChild(alertButton);
-	}
-	
-	private async void StartAlertCascade()
-	{
-		var viewport = GetViewport();
-		var viewportRect = viewport.GetVisibleRect();
-		double delay = 0.1; // Delay between alerts in seconds
-		int numAlerts = 8;  // Number of alert windows to create
 		
-		for (int i = 0; i < numAlerts; i++)
-		{
-			var randomPos = new Vector2(
-				GD.Randf() * (viewportRect.Size.X - 400),
-				GD.Randf() * (viewportRect.Size.Y - 300)
-			);
-			
-			var window = new TerminalWindow
-			{
-				WindowTitle = $"SYSTEM ALERT {i + 1}",
-				Position = randomPos,
-				CustomMinimumSize = new Vector2(400, 300),
-				Style = WindowStyle.Alert
-			};
-			
-			// Add alert content
-			var content = new VBoxContainer();
-			content.AddChild(new Label 
-			{ 
-				Text = "⚠ WARNING ⚠\n\nSecurity breach detected!\nUnauthorized access attempt in progress.\nInitiating countermeasures...",
-				HorizontalAlignment = HorizontalAlignment.Center,
-				CustomMinimumSize = new Vector2(0, 100)
-			});
-			
-			window.AddChild(content);
-			_windowManager.AddWindow(window);
-			
-			await ToSignal(GetTree().CreateTimer(delay), "timeout");
-		}
+		GD.Print("WindowSystemTest control panel setup complete");
 	}
 	
 	private void CreateInitialWindows()
 	{
 		GD.Print("Creating initial test windows");
 		
-		// Create a few initial windows with specific styles
 		for (int i = 0; i < 3; i++)
 		{
 			CreateNewWindow();
 		}
-		
-		GD.Print("Initial windows created");
 	}
 	
 	private void CreateNewWindow()
@@ -165,24 +120,68 @@ public partial class WindowSystemTest : Node
 			GD.Randf() * (viewportRect.Size.Y - 300)
 		);
 		
-		// Cycle through different styles
 		var style = (WindowStyle)(_windowManager.GetChildCount() % 5);
 		
 		var window = new TerminalWindow
 		{
 			WindowTitle = $"Terminal {_windowManager.GetChildCount() + 1} ({style})",
 			Position = randomPos,
-			CustomMinimumSize = new Vector2(400, 300),
+			MinSize = new Vector2(400, 300),
 			Style = style
 		};
 		
+		var content = new VBoxContainer();
+		content.AddChild(new Label { Text = "Test Window Content" });
+		window.AddContent(content);
+		
+		GD.Print($"Adding window to manager: {window.WindowTitle}");
 		_windowManager.AddWindow(window);
+	}
+	
+	private async void StartAlertCascade()
+	{
+		GD.Print("Starting alert cascade");
+		var viewport = GetViewport();
+		var viewportRect = viewport.GetVisibleRect();
+		double delay = 0.1;
+		int numAlerts = 8;
+		
+		for (int i = 0; i < numAlerts; i++)
+		{
+			var randomPos = new Vector2(
+				GD.Randf() * (viewportRect.Size.X - 400),
+				GD.Randf() * (viewportRect.Size.Y - 300)
+			);
+			
+			var window = new TerminalWindow
+			{
+				WindowTitle = $"SYSTEM ALERT {i + 1}",
+				Position = randomPos,
+				MinSize = new Vector2(400, 300),
+				Style = WindowStyle.Alert
+			};
+			
+			var content = new VBoxContainer();
+			content.AddChild(new Label 
+			{ 
+				Text = "⚠ WARNING ⚠\n\nSecurity breach detected!\nUnauthorized access attempt in progress.\nInitiating countermeasures...",
+				HorizontalAlignment = HorizontalAlignment.Center,
+				CustomMinimumSize = new Vector2(0, 100)
+			});
+			
+			window.AddContent(content);
+			_windowManager.AddWindow(window);
+			
+			await ToSignal(GetTree(), "process_frame");
+			await ToSignal(GetTree().CreateTimer(delay), "timeout");
+		}
 	}
 	
 	private bool _debugVisible = true;
 	
 	private void ToggleCRTEffect()
 	{
+		GD.Print("Toggling CRT effect");
 		_debugVisible = !_debugVisible;
 		
 		var crtOverlay = _desktop.GetNode<ColorRect>("CRTEffect");
