@@ -1,5 +1,3 @@
-// src/Terminal/TerminalWindow.cs
-
 using Godot;
 using System;
 
@@ -19,20 +17,32 @@ public partial class TerminalWindow : Control
     protected Panel _titleBar;
     protected Label _titleLabel;
     protected Panel _contentPanel;
-    protected bool _isDragging = false;
-    protected Vector2 _dragStart;
+    protected Button _closeButton;
+    protected Vector2 _dragOffset;
+    protected bool _isDragging;
+    protected bool _isResizing;
+    protected Vector2 _minSize = new(400, 300);
+    protected Vector2 _resizeHandleSize = new(10, 10);
     
     [Export]
     public string WindowTitle { get; set; } = "Terminal";
     
     [Export]
-    public Color BorderColor { get; set; } = new Color(0, 1, 0);
+    public Color BorderColor { get; set; } = new(0, 1, 0);
     
     [Export]
     public WindowStyle Style { get; set; } = WindowStyle.Normal;
     
     [Export]
-    public Vector2 MinSize { get; set; } = new Vector2(400, 300);
+    public Vector2 MinSize
+    {
+        get => _minSize;
+        set
+        {
+            _minSize = value;
+            CustomMinimumSize = _minSize;
+        }
+    }
     
     public override void _Ready()
     {
@@ -41,7 +51,7 @@ public partial class TerminalWindow : Control
         // Set up Control node properties
         CustomMinimumSize = MinSize;
         Size = MinSize;
-        MouseFilter = MouseFilterEnum.Stop;  // Make sure we get mouse events
+        MouseFilter = MouseFilterEnum.Stop;
         
         // Add main container
         var layout = new VBoxContainer
@@ -51,11 +61,11 @@ public partial class TerminalWindow : Control
             AnchorsPreset = (int)LayoutPreset.FullRect,
             SizeFlagsHorizontal = SizeFlags.Fill,
             SizeFlagsVertical = SizeFlags.Fill,
-            MouseFilter = MouseFilterEnum.Pass  // Let events pass through to children
+            MouseFilter = MouseFilterEnum.Pass
         };
         AddChild(layout);
         
-        // Add background
+        // Add background with drop shadow
         var background = new ColorRect
         {
             Name = "Background",
@@ -63,49 +73,96 @@ public partial class TerminalWindow : Control
             LayoutMode = 1,
             AnchorsPreset = (int)LayoutPreset.FullRect,
             Color = new Color(0, 0, 0, 0.9f),
-            MouseFilter = MouseFilterEnum.Ignore  // Ignore mouse events
+            MouseFilter = MouseFilterEnum.Ignore
         };
         AddChild(background);
         
         // Setup window style
         ApplyStyle(Style);
         
+        // Ensure window starts within viewport bounds
+        CallDeferred(nameof(ClampToViewport));
+        
         GD.Print($"Window setup complete for {WindowTitle} at position {GlobalPosition}");
-        GD.Print("Mouse event handlers initialized");
+    }
+    
+    public override void _Process(double delta)
+    {
+        if (_isDragging || _isResizing)
+        {
+            ClampToViewport();
+        }
+    }
+    
+    private void ClampToViewport()
+    {
+        var viewport = GetViewport();
+        if (viewport != null)
+        {
+            var rect = viewport.GetVisibleRect();
+            Position = new Vector2(
+                Mathf.Clamp(Position.X, 0, rect.Size.X - Size.X),
+                Mathf.Clamp(Position.Y, 0, rect.Size.Y - Size.Y)
+            );
+        }
     }
     
     private void ApplyStyle(WindowStyle style)
     {
         var layout = GetNode<VBoxContainer>("VBoxContainer");
         
-        // Create title bar
+        // Create title bar panel directly
         _titleBar = new Panel
         {
             Name = "TitleBar",
             CustomMinimumSize = new Vector2(0, 30),
-            MouseFilter = MouseFilterEnum.Stop  // Make sure title bar gets mouse events
+            SizeFlagsHorizontal = SizeFlags.Fill,
+            MouseFilter = MouseFilterEnum.Stop
         };
         layout.AddChild(_titleBar);
         
-        // Create content panel
-        _contentPanel = new Panel
+        // Create inner container for title bar contents
+        var titleBarContents = new HBoxContainer
         {
-            Name = "ContentPanel",
-            SizeFlagsVertical = SizeFlags.Fill,
-            MouseFilter = MouseFilterEnum.Pass  // Let events through to content
+            Name = "TitleBarContents",
+            AnchorsPreset = (int)LayoutPreset.FullRect,
+            MouseFilter = MouseFilterEnum.Ignore
         };
-        layout.AddChild(_contentPanel);
+        _titleBar.AddChild(titleBarContents);
         
         // Title text
         _titleLabel = new Label
         {
             Name = "TitleLabel",
             Text = WindowTitle,
-            Position = new Vector2(10, 0),
-            SizeFlagsVertical = SizeFlags.ShrinkCenter,
-            MouseFilter = MouseFilterEnum.Ignore  // Ignore mouse events on label
+            SizeFlagsHorizontal = SizeFlags.Fill,
+            SizeFlagsVertical = SizeFlags.Fill,
+            VerticalAlignment = VerticalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Left,
+            MouseFilter = MouseFilterEnum.Ignore,
         };
-        _titleBar.AddChild(_titleLabel);
+        titleBarContents.AddChild(_titleLabel);
+        
+        // Close button
+        _closeButton = new Button
+        {
+            Text = "×",
+            CustomMinimumSize = new Vector2(30, 0),
+            SizeFlagsVertical = SizeFlags.Fill,
+            MouseFilter = MouseFilterEnum.Stop
+        };
+        _closeButton.Pressed += OnClosePressed;
+        titleBarContents.AddChild(_closeButton);
+
+        
+        // Create content panel
+        _contentPanel = new Panel
+        {
+            Name = "ContentPanel",
+            SizeFlagsVertical = SizeFlags.Fill,
+            MouseFilter = MouseFilterEnum.Pass
+        };
+        layout.AddChild(_contentPanel);
         
         var (bgColor, borderColor, titleBgColor) = GetColorsForStyle(style);
         
@@ -114,10 +171,11 @@ public partial class TerminalWindow : Control
         {
             BgColor = titleBgColor,
             BorderColor = borderColor,
-            BorderWidthBottom = style == WindowStyle.Debug ? 2 : 1,
+            BorderWidthBottom = 1,
             BorderWidthLeft = 0,
             BorderWidthRight = 0,
-            BorderWidthTop = 0
+            BorderWidthTop = 0,
+            ContentMarginBottom = 4
         };
         _titleBar.AddThemeStyleboxOverride("panel", titleStylebox);
         
@@ -129,7 +187,6 @@ public partial class TerminalWindow : Control
             BorderWidthBottom = style == WindowStyle.Debug ? 2 : 1,
             BorderWidthLeft = style == WindowStyle.Debug ? 2 : 1,
             BorderWidthRight = style == WindowStyle.Debug ? 2 : 1,
-            BorderWidthTop = 0,
             ContentMarginLeft = 10,
             ContentMarginRight = 10,
             ContentMarginTop = 10,
@@ -139,41 +196,84 @@ public partial class TerminalWindow : Control
         
         _titleLabel.Modulate = borderColor;
         
-        // Add input event handlers for the title bar
+        // Add input event handlers
         _titleBar.GuiInput += OnTitleBarInput;
-        
-        GD.Print($"Style applied to {WindowTitle}, title bar input handler connected");
+        GuiInput += OnWindowInput;
     }
     
     private void OnTitleBarInput(InputEvent @event)
     {
+        // Print debug info to verify the handler is being called
+        GD.Print($"Title bar input received: {@event.GetType()}");
+        
         if (@event is InputEventMouseButton mouseButton)
         {
             if (mouseButton.ButtonIndex == MouseButton.Left)
             {
-                // Request focus regardless of whether we're starting or stopping a drag
-                EmitSignal(SignalName.GuiInput, @event);
-                
                 if (mouseButton.Pressed)
                 {
                     _isDragging = true;
-                    _dragStart = mouseButton.GlobalPosition - GlobalPosition;
+                    _dragOffset = GetLocalMousePosition();
+                    GD.Print($"Started dragging at offset: {_dragOffset}");
+                    
+                    // Request focus when starting drag
+                    EmitSignal(SignalName.GuiInput, @event);
                 }
                 else
                 {
                     _isDragging = false;
+                    GD.Print("Stopped dragging");
                 }
+                GetViewport().SetInputAsHandled();
             }
         }
         else if (@event is InputEventMouseMotion mouseMotion && _isDragging)
         {
-            GlobalPosition = mouseMotion.GlobalPosition - _dragStart;
+            var newPos = GlobalPosition + mouseMotion.Relative;
+            GlobalPosition = newPos;
+            GD.Print($"Dragging to: {newPos}");
+            GetViewport().SetInputAsHandled();
         }
+    }
+    
+    private void OnWindowInput(InputEvent @event)
+    {
+        var resizeArea = new Rect2(
+            Size - _resizeHandleSize,
+            _resizeHandleSize
+        );
+        
+        if (@event is InputEventMouseButton mouseButton)
+        {
+            if (mouseButton.ButtonIndex == MouseButton.Left)
+            {
+                Vector2 localPos = mouseButton.Position;
+                
+                if (resizeArea.HasPoint(localPos))
+                {
+                    _isResizing = mouseButton.Pressed;
+                    GetViewport().SetInputAsHandled();
+                }
+            }
+        }
+        else if (@event is InputEventMouseMotion mouseMotion && _isResizing)
+        {
+            Size = new Vector2(
+                Mathf.Max(Size.X + mouseMotion.Relative.X, MinSize.X),
+                Mathf.Max(Size.Y + mouseMotion.Relative.Y, MinSize.Y)
+            );
+            GetViewport().SetInputAsHandled();
+        }
+    }
+    
+    private void OnClosePressed()
+    {
+        GD.Print($"Closing window: {WindowTitle}");
+        QueueFree();
     }
     
     private (Color bg, Color border, Color titleBg) GetColorsForStyle(WindowStyle style)
     {
-        // ... (same as before)
         return style switch
         {
             WindowStyle.Normal => (
@@ -197,9 +297,9 @@ public partial class TerminalWindow : Control
                 new Color(0.15f, 0, 0.15f, 0.95f)
             ),
             WindowStyle.Debug => (
-                new Color(1, 0, 0, 0.5f),
+                new Color(0.1f, 0.1f, 0.1f, 0.5f),
                 new Color(1, 1, 0, 1),
-                new Color(0, 0, 1, 1)
+                new Color(0.15f, 0.15f, 0.15f, 0.95f)
             ),
             _ => (
                 new Color(0, 0.05f, 0, 0.9f),
@@ -213,5 +313,11 @@ public partial class TerminalWindow : Control
     {
         _contentPanel.AddChild(content);
         GD.Print($"Added content to {WindowTitle}");
+    }
+    
+    public override void _ExitTree()
+    {
+        base._ExitTree();
+        GD.Print($"Window cleaned up: {WindowTitle}");
     }
 }
