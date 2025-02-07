@@ -93,9 +93,9 @@ private void CreateWindows()
     }
     
     // Override state change handler to update displays
-    private void OnGameStateChanged()
+    protected override void HandleGameStateChanged()
     {
-        base.OnGameStateChanged();
+        base.HandleGameStateChanged();
         UpdateDisplays();
     }
 }

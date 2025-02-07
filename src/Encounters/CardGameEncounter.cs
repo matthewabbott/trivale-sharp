@@ -52,7 +52,7 @@ public class CardGameEncounter : BaseEncounter
         ApplyConfiguration();
         
         // Hook up game state events
-        GameState.GameStateChanged += OnGameStateChanged;
+        GameState.GameStateChanged += HandleGameStateChanged;
         GameState.TrickCompleted += OnTrickCompleted;
         GameState.GameOver += OnGameOver;
         
@@ -70,7 +70,7 @@ public class CardGameEncounter : BaseEncounter
         if (GameState != null)
         {
             // Unhook events
-            GameState.GameStateChanged -= OnGameStateChanged;
+            GameState.GameStateChanged -= HandleGameStateChanged;
             GameState.TrickCompleted -= OnTrickCompleted;
             GameState.GameOver -= OnGameOver;
         }
@@ -100,7 +100,7 @@ public class CardGameEncounter : BaseEncounter
     }
     
     // Event Handlers
-    private void OnGameStateChanged()
+    protected virtual void HandleGameStateChanged()
     {
         SaveCurrentState();
     }
