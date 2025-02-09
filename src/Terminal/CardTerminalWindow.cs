@@ -33,6 +33,13 @@ public partial class CardTerminalWindow : TerminalWindow
         AddContent(_cardContainer);
     }
     
+    [Signal]
+    public delegate void CardHoveredEventHandler(Card card);
+
+    [Signal]
+    public delegate void CardUnhoveredEventHandler(Card card);
+
+    // Update the CreateCardButton method in CardTerminalWindow
     private Button CreateCardButton(Card card)
     {
         var button = new Button
@@ -61,6 +68,8 @@ public partial class CardTerminalWindow : TerminalWindow
         button.AddThemeStyleboxOverride("pressed", pressedStyle);
         
         button.Pressed += () => EmitSignal(SignalName.CardSelected, card);
+        button.MouseEntered += () => EmitSignal(SignalName.CardHovered, card);
+        button.MouseExited += () => EmitSignal(SignalName.CardUnhovered, card);
         
         return button;
     }
@@ -89,4 +98,6 @@ public partial class CardTerminalWindow : TerminalWindow
     
     [Signal]
     public delegate void CardSelectedEventHandler(Card card);
+
+    
 }

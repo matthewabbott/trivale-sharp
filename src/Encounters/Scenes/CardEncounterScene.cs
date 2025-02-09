@@ -1,10 +1,12 @@
 // src/Encounters/Scenes/CardEncounterScene.cs
+
 using Godot;
 using System;
 using System.Collections.Generic;
 using Trivale.Terminal;
 using Trivale.Cards;
 using Trivale.OS;
+using Trivale.Game;
 
 namespace Trivale.Encounters.Scenes;
 
@@ -17,6 +19,8 @@ public partial class CardEncounterScene : EncounterScene
     private WindowManager _windowManager;
     private CardTerminalWindow _handWindow;
     private CardTerminalWindow _tableWindow;
+    private CardTerminalWindow _controlWindow;
+    private Dictionary<Card, List<Card>> _currentPreviews;
     
     public override void Initialize(IEncounter encounter)
     {
@@ -33,6 +37,8 @@ public partial class CardEncounterScene : EncounterScene
         
         CreateWindows();
         UpdateDisplays();
+        
+        GD.Print($"CardEncounterScene initialized for {encounter.Id}");
     }
     
     public override void _ExitTree()
@@ -42,6 +48,7 @@ public partial class CardEncounterScene : EncounterScene
         // Clean up windows
         _handWindow?.QueueFree();
         _tableWindow?.QueueFree();
+        _controlWindow?.QueueFree();
     }
     
     private void CreateWindows()
@@ -56,6 +63,8 @@ public partial class CardEncounterScene : EncounterScene
             BorderColor = new Color(0, 1, 0) // Green
         };
         _handWindow.CardSelected += OnCardSelected;
+        _handWindow.CardHovered += OnCardHovered;
+        _handWindow.CardUnhovered += OnCardUnhovered;
         _windowManager.AddWindow(_handWindow);
         
         // Create table cards window
@@ -66,21 +75,66 @@ public partial class CardEncounterScene : EncounterScene
             BorderColor = new Color(0, 0.7f, 1) // Cyan
         };
         _windowManager.AddWindow(_tableWindow);
+        
+        // Add control window
+        _controlWindow = new CardTerminalWindow
+        {
+            WindowTitle = "Game Controls",
+            Position = new Vector2(550, 50),
+            MinSize = new Vector2(200, 150),
+            BorderColor = new Color(1, 1, 0) // Yellow
+        };
+        
+        var container = new VBoxContainer();
+        
+        var undoButton = new Button
+        {
+            Text = "Undo Move",
+            CustomMinimumSize = new Vector2(0, 30)
+        };
+        undoButton.Pressed += OnUndoPressed;
+        container.AddChild(undoButton);
+        
+        var aiTurnButton = new Button
+        {
+            Text = "Play AI Turns",
+            CustomMinimumSize = new Vector2(0, 30)
+        };
+        aiTurnButton.Pressed += OnAITurnPressed;
+        container.AddChild(aiTurnButton);
+        
+        var statusLabel = new Label
+        {
+            Text = "Required Tricks: 0/0\nCurrent Turn: Player"
+        };
+        container.AddChild(statusLabel);
+        
+        _controlWindow.AddContent(container);
+        _windowManager.AddWindow(_controlWindow);
     }
     
     private void UpdateDisplays()
     {
         var cardEncounter = (CardGameEncounter)Encounter;
-        var state = cardEncounter.GetState();
         
-        if (state.TryGetValue("hand", out var handObj) && handObj is List<Card> hand)
-        {
-            _handWindow?.DisplayCards(hand, "Your Hand:");
-        }
+        // Update player hand window
+        var playerHand = cardEncounter.GetPlayerHand();
+        _handWindow?.DisplayCards(playerHand, "Your Hand:");
         
-        if (state.TryGetValue("table", out var tableObj) && tableObj is List<Card> table)
+        // Update table cards window
+        var tableCards = cardEncounter.GetTableCards();
+        _tableWindow?.DisplayCards(tableCards, "Cards on Table:");
+        
+        // Update control window status
+        var statusLabel = _controlWindow?.GetNode<Label>("VBoxContainer/Label");
+        if (statusLabel != null)
         {
-            _tableWindow?.DisplayCards(table, "Cards on Table:");
+            var playerScore = cardEncounter.GetPlayerScore();
+            var requiredTricks = cardEncounter.GetRequiredTricks();
+            var currentPlayer = cardEncounter.GetCurrentPlayer() == 0 ? "Player" : $"AI {cardEncounter.GetCurrentPlayer()}";
+            
+            statusLabel.Text = $"Required Tricks: {playerScore}/{requiredTricks}\n" +
+                             $"Current Turn: {currentPlayer}";
         }
     }
     
@@ -90,10 +144,74 @@ public partial class CardEncounterScene : EncounterScene
         if (cardEncounter.PlayCard(card))
         {
             GD.Print($"Played card: {card.GetFullName()}");
+            ClearHighlights();
         }
         else
         {
             GD.Print($"Invalid play: {card.GetFullName()}");
+        }
+    }
+    
+    private void OnCardHovered(Card card)
+    {
+        var cardEncounter = (CardGameEncounter)Encounter;
+        
+        // Clear previous highlights
+        ClearHighlights();
+        
+        // Get AI responses
+        _currentPreviews = cardEncounter.PreviewPlay(card);
+        if (_currentPreviews != null)
+        {
+            HighlightAIResponses(_currentPreviews[card]);
+        }
+    }
+    
+    private void OnCardUnhovered(Card card)
+    {
+        ClearHighlights();
+    }
+    
+    private void ClearHighlights()
+    {
+        // Implementation depends on how you're displaying cards
+        // For now, just refresh the displays without highlights
+        UpdateDisplays();
+    }
+    
+    private void HighlightAIResponses(List<Card> responses)
+    {
+        var tableCards = new List<Card>();
+        var cardEncounter = (CardGameEncounter)Encounter;
+        
+        // Add the current table cards
+        tableCards.AddRange(cardEncounter.GetTableCards());
+        
+        // Add the predicted responses with a special display state
+        foreach (var response in responses)
+        {
+            var previewCard = response.CreateDuplicate();
+            tableCards.Add(previewCard);
+        }
+        
+        _tableWindow?.DisplayCards(tableCards, "Cards on Table (Preview):");
+    }
+    
+    private void OnUndoPressed()
+    {
+        var cardEncounter = (CardGameEncounter)Encounter;
+        if (cardEncounter.Undo())
+        {
+            UpdateDisplays();
+        }
+    }
+    
+    private void OnAITurnPressed()
+    {
+        var cardEncounter = (CardGameEncounter)Encounter;
+        if (cardEncounter.PlayAITurns())
+        {
+            UpdateDisplays();
         }
     }
     

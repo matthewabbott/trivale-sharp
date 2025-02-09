@@ -11,6 +11,7 @@ public class GameConfiguration
 {
     public int NumPlayers { get; set; } = 4;
     public int HandSize { get; set; } = 13;
+    public int RequiredTricks { get; set; } = -1;  // -1 means no requirement
     public bool AllowSpecialCards { get; set; } = false;
     public List<string> EnabledPowers { get; set; } = new();
     

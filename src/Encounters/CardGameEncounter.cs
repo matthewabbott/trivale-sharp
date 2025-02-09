@@ -58,7 +58,12 @@ public class CardGameEncounter : BaseEncounter
         GameState.GameOver += OnGameOver;
         
         // Initialize the game with our config
-        GameState.InitializeGame(EncounterType.SecuredSystem);
+        GameState.InitializeGame(
+            EncounterType.SecuredSystem, 
+            Config.NumPlayers, 
+            Config.HandSize,
+            Config.RequiredTricks
+        );
         
         // Store initial state
         SaveCurrentState();
@@ -73,6 +78,17 @@ public class CardGameEncounter : BaseEncounter
             GameState.GameOver -= OnGameOver;
         }
     }
+    
+    // Public interface methods
+    public List<Card> GetPlayerHand() => GameState.GetHand(0);
+    public List<Card> GetTableCards() => GameState.GetTableCards();
+    public int GetCurrentPlayer() => GameState.GetCurrentPlayer();
+    public int GetPlayerScore() => GameState.GetScore(0);
+    public int GetRequiredTricks() => GameState.RequiredTricks;
+    public Dictionary<Card, List<Card>> PreviewPlay(Card card) => GameState.PreviewPlay(card);
+    public bool Undo() => GameState.Undo();
+    public bool PlayAITurns() => GameState.PlayAITurns();
+    public virtual bool PlayCard(Card card) => GameState.PlayCard(0, card);
     
     // Configuration System
     protected virtual void ApplyConfiguration()
@@ -110,16 +126,5 @@ public class CardGameEncounter : BaseEncounter
     {
         IsComplete = true;
         EmitEncounterEvent($"game_over_{winner}");
-    }
-    
-    // Public Interface
-    public virtual bool PlayCard(Card card)
-    {
-        if (GameState.PlayCard(0, card))
-        {
-            CardPlayed?.Invoke(card);
-            return true;
-        }
-        return false;
     }
 }

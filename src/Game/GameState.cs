@@ -28,13 +28,17 @@ public partial class GameState : Node
 {
     private List<Player> _players;
     private List<Card> _cardsOnTable;
+    private Stack<Dictionary<string, object>> _undoStack = new();
+    private Dictionary<Card, List<Card>> _aiResponses = new();
     private int _currentPlayer = 0;
     private Suit _leadSuit = Suit.None;
     private Suit _trumpSuit = Suit.None;
     
     public int NumPlayers { get; private set; } = 4;
     public int HandSize { get; private set; } = 5;
+    public int RequiredTricks { get; private set; }
     public EncounterType CurrentEncounter { get; private set; } = EncounterType.SecuredSystem;
+    public bool IsPreviewMode { get; private set; }
     
     public bool IsGameOver { get; private set; } = false;
     public int Winner { get; private set; } = -1;
@@ -54,12 +58,18 @@ public partial class GameState : Node
         InitializeGame();
     }
     
-    public void InitializeGame(EncounterType encounterType = EncounterType.SecuredSystem)
+    public void InitializeGame(EncounterType encounterType = EncounterType.SecuredSystem,
+        int numPlayers = 4, int handSize = 5, int requiredTricks = -1)
     {
         // Initialize collections
         _players = new List<Player>();
         _cardsOnTable = new List<Card>();
+        _undoStack.Clear();
+        _aiResponses.Clear();
         
+        NumPlayers = numPlayers;
+        HandSize = handSize;
+        RequiredTricks = requiredTricks;
         CurrentEncounter = encounterType;
         _currentPlayer = 0;
         _leadSuit = Suit.None;
@@ -87,6 +97,17 @@ public partial class GameState : Node
                 break;
         }
         
+        // Set AI behaviors
+        for (int i = 1; i < NumPlayers; i++)
+        {
+            foreach (var card in _players[i].Hand)
+            {
+                card.Behavior = AIBehavior.OrderedPlay;
+                card.PlayOrder = _players[i].Hand.IndexOf(card);
+            }
+        }
+        
+        SaveStateForUndo();
         EmitSignal(SignalName.GameStateChanged);
     }
     
@@ -112,11 +133,125 @@ public partial class GameState : Node
         }
     }
     
+    private void SaveStateForUndo()
+    {
+        var state = new Dictionary<string, object>
+        {
+            ["players"] = _players.Select(p => new
+            {
+                Hand = p.Hand.Select(c => (c.Suit, c.Value, c.CardOwner)).ToList(),
+                Score = p.Score
+            }).ToList(),
+            ["cardsOnTable"] = _cardsOnTable.Select(c => (c.Suit, c.Value, c.CardOwner)).ToList(),
+            ["currentPlayer"] = _currentPlayer,
+            ["leadSuit"] = _leadSuit
+        };
+        
+        _undoStack.Push(state);
+    }
+    
+    public bool Undo()
+    {
+        if (_undoStack.Count <= 1) return false;
+        
+        _undoStack.Pop(); // Remove current state
+        var previousState = _undoStack.Peek();
+        
+        // Restore state
+        var playerData = (List<dynamic>)previousState["players"];
+        for (int i = 0; i < _players.Count; i++)
+        {
+            var player = _players[i];
+            var data = playerData[i];
+            
+            player.Hand = ((List<(Suit, Value, int)>)data.Hand)
+                .Select(t => new Card { Suit = t.Item1, Value = t.Item2, CardOwner = t.Item3 })
+                .ToList();
+            player.Score = data.Score;
+        }
+        
+        _cardsOnTable = ((List<(Suit, Value, int)>)previousState["cardsOnTable"])
+            .Select(t => new Card { Suit = t.Item1, Value = t.Item2, CardOwner = t.Item3 })
+            .ToList();
+            
+        _currentPlayer = (int)previousState["currentPlayer"];
+        _leadSuit = (Suit)previousState["leadSuit"];
+        
+        EmitSignal(SignalName.GameStateChanged);
+        return true;
+    }
+    
+    public Dictionary<Card, List<Card>> PreviewPlay(Card card)
+    {
+        if (!IsValidPlay(_currentPlayer, card)) return null;
+        
+        _aiResponses.Clear();
+        var responses = new List<Card>();
+        
+        // Simulate AI plays
+        var tempCurrentPlayer = _currentPlayer;
+        var tempLeadSuit = _leadSuit;
+        var tempCardsOnTable = new List<Card>(_cardsOnTable);
+        
+        // Add player's card
+        tempCardsOnTable.Add(card);
+        if (tempLeadSuit == Suit.None)
+            tempLeadSuit = card.Suit;
+            
+        // Simulate each AI's response
+        for (int i = 1; i < NumPlayers; i++)
+        {
+            tempCurrentPlayer = (tempCurrentPlayer + 1) % NumPlayers;
+            var aiPlayer = _players[tempCurrentPlayer];
+            
+            var validPlays = aiPlayer.Hand
+                .Where(c => IsValidPlay(tempCurrentPlayer, c))
+                .OrderBy(c => c.PlayOrder)
+                .ToList();
+                
+            if (validPlays.Any())
+            {
+                responses.Add(validPlays.First());
+            }
+        }
+        
+        _aiResponses[card] = responses;
+        return _aiResponses;
+    }
+    
+    public bool PlayAITurns()
+    {
+        if (_currentPlayer == 0 || IsGameOver) return false;
+        
+        while (_currentPlayer != 0 && !IsGameOver)
+        {
+            var aiPlayer = _players[_currentPlayer];
+            var validPlays = aiPlayer.Hand
+                .Where(c => IsValidPlay(_currentPlayer, c))
+                .OrderBy(c => c.PlayOrder)
+                .ToList();
+                
+            if (validPlays.Any())
+            {
+                PlayCard(_currentPlayer, validPlays.First());
+            }
+            else
+            {
+                // Skip if AI has no valid plays (shouldn't happen in standard trick-taking)
+                _currentPlayer = (_currentPlayer + 1) % NumPlayers;
+            }
+        }
+        
+        return true;
+    }
+    
     public bool PlayCard(int playerIndex, Card card)
     {
         if (!IsValidPlay(playerIndex, card))
             return false;
             
+        SaveStateForUndo();
+        
         var player = _players[playerIndex];
         player.Hand.Remove(card);
         _cardsOnTable.Add(card);
