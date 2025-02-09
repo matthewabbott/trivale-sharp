@@ -13,303 +13,131 @@ A hacker's interface that serves as both the game's menu system and a core gamep
 - Status monitors
 - Placeholder "dev art" aesthetic (designed to be replaceable)
 
-### 2. Window Management System
+### 2. Scene Management System
 Core functionality required for both gameplay and puzzle development:
 
-#### Window State Management
-- Serializable window states
-- State persistence between challenges
-- Window type system (Terminal, CardDisplay, ProcessViewer, etc.)
-- Inter-window communication
+#### Encounter Management
+- Pure game logic in IEncounter implementations
+- Scene managers for UI/presentation
+- State persistence between encounters
+- Resource management and validation
 
-#### Window Types
-- Base Terminal (text input/output)
-- Card Display (for hands/games)
-- Process Viewer (showing game state)
-- File Browser (for saved states/hands)
-- System Monitor (for meta-game state)
+#### Scene Types
+- Card Game Scene (hand viewer, play area)
+- Resource Market Scene
+- Process Viewer Scene
+- Memory Bank Scene
+- System Monitor Scene
 
-#### Window Interactions
+#### Window System
 - Drag and drop support
-- State copying/pasting
-- Window linking system
+- Window stacking and focus
+- CRT and terminal effects
 - State inspection tools
 
 ### 3. Puzzle Development Framework
 Tools that double as in-game "hacking programs":
 
 #### Challenge Builder
-- Card setup interface
+- Encounter configuration interface
 - Win condition editor
 - Initial state configuration
 - AI behavior configuration
 
-#### Meta-Puzzle Tools
-- Window state capture
-- State transfer between challenges
-- Puzzle chain editor
+#### Multi-Encounter Tools
+- State capture system
+- Resource sharing management
+- Encounter chain editor
 - Validation tools
 
 ## Development Phases
 
-### Phase 1: Core OS (Immediate Focus)
-1. Basic Terminal
-   - Command parsing
-   - File system navigation
-   - Process list display
+### Phase 1: Core Systems (Current Focus)
+1. Scene Manager System
+   - Clean separation of game logic and UI
+   - Scene manager base classes
+   - Resource validation system
+   - Multi-encounter support
 
-2. Window Manager
-   - Window creation/destruction
-   - Basic state management
-   - Window positioning
+2. Card Game Implementation
+   - Pure game logic layer
+   - UI/presentation layer
+   - Resource management
+   - Basic encounter types
 
-3. Simple Programs
-   - System status viewer
-   - Basic file browser
-   - Process monitor
+3. Window System Polish
+   - Window dragging and stacking
+   - Focus management
+   - Terminal effects
+   - UI consistency
 
-### Phase 2: Card Game Engine Integration
-1. Card Display Windows
-   - Hand viewer
-   - Play area
-   - Game state display
-
-2. Game State Management
-   - Serializable game states
-   - State transfer between windows
-   - State persistence
-
-3. Basic Challenge Framework
-   - Simple trick-taking games
-   - Win condition checking
-   - AI player system
-
-### Phase 3: Puzzle Development Tools
-1. Challenge Builder
-   - Setup interface
-   - Testing tools
-   - Save/load functionality
-
-2. Meta-Puzzle Framework
-   - State capture system
-   - Challenge linking
-   - Puzzle chain validation
-
-3. Debug Tools
-   - State inspector
-   - Window communication monitor
-   - Event logger
+[Rest of phases remain largely the same, just updated terminology from Scenario->Encounter]
 
 ## Technical Considerations
 
-### Window State System
+### Scene Management
 ```csharp
-public interface IWindowState
+public partial class EncounterScene : Node
 {
-    string Type { get; }
-    Dictionary<string, object> Data { get; }
-    void Serialize();
-    void Deserialize(Dictionary<string, object> data);
+    protected IEncounter Encounter { get; }
+    void Initialize(IEncounter encounter);
+    protected virtual void OnEncounterStateChanged(Dictionary<string, object> state);
 }
 
-public class CardGameState : IWindowState
+public class CardEncounterScene : EncounterScene
 {
-    public List<Card> Hand { get; set; }
-    public GameRules Rules { get; set; }
-    public WinCondition WinCondition { get; set; }
+    private CardTerminalWindow _handWindow;
+    private CardTerminalWindow _tableWindow;
+    protected override void OnEncounterStateChanged(Dictionary<string, object> state);
 }
 ```
 
-### Window Communication
+### Game Logic
 ```csharp
-public interface IWindowMessage
+public interface IEncounter
 {
+    string Id { get; }
     string Type { get; }
-    object Payload { get; }
-}
-
-public class WindowManager
-{
-    public void SendMessage(string sourceId, string targetId, IWindowMessage message);
-    public void BroadcastMessage(string sourceId, IWindowMessage message);
+    Dictionary<string, float> ResourceRequirements { get; }
+    void Initialize(Dictionary<string, object> initialState);
+    Dictionary<string, object> GetState();
 }
 ```
 
 ### State Persistence
 ```csharp
-public interface IStatePersistence
+public class EncounterManager : Node
 {
-    void SaveState(string id, IWindowState state);
-    IWindowState LoadState(string id);
-    bool StateExists(string id);
+    private Dictionary<string, (IEncounter encounter, EncounterScene scene)> _activeEncounters;
+    public bool StartEncounter(IEncounter encounter);
+    public IEncounter GetEncounter(string encounterId);
 }
 ```
 
 ## Implementation Priority
 
 ### Immediate Tasks
-1. Basic terminal window with command parsing
-2. Simple file system navigation
-3. Window management fundamentals
-4. Placeholder ASCII interface
+1. Complete scene manager system
+2. Resource validation and management
+3. Multi-encounter support
+4. CRT and terminal effects
 
 ### Near-Term Goals
-1. Window state serialization
-2. Basic card game window
-3. Simple puzzle creation tools
+1. Extended encounter types
+2. Resource market implementation
+3. Puzzle creation tools
 4. State persistence system
 
 ### Future Considerations
-1. Meta-puzzle mechanics
+1. AI encounter generation
 2. Advanced window interactions
 3. Complex state manipulation
 4. Achievement/progression system
 
 ## Notes
-- Focus on functionality over aesthetics initially
-- Design systems to be modular and replaceable
+- Focus on clean separation of concerns
+- Design systems to be AI-friendly
 - Keep ASCII art simple but thematic
 - Plan for future asset replacement
-- Document all window interaction mechanics for puzzle design
+- Document all window interaction mechanics
 - Consider achievement system tied to interface discovery
-
-
-o3 suggestions
-
----
-
-## **Phase 1: Core Systems & Polish**
-
-### **1. Solidify the Core Trick-Taking Mechanics**
-- **Refine Game Logic:**  
-  - Ensure that trick resolution, turn transitions, and rule enforcement (e.g., following suit) are robust.
-  - Expand testing around edge cases (e.g., what happens if a player misplays, or when multiple players have similar cards).
-- **Clean Up Game State Management:**  
-  - Review how your `GameManager` and `GameState` interact; consider whether these responsibilities should be further decoupled for clarity.
-  - Use signals consistently (as you already do) to communicate between game components.
-
-### **2. Enhance Card Visuals & Interaction**
-- **Implement Suit-Specific Effects:**  
-  - Flesh out the `SetupSuitEffects()` method in your `Card.cs`. For instance, apply distinct shaders or particle effects that correspond to each suit’s theme (e.g., a subtle data stream effect for Data Flow, market ticker overlays for Crypto, etc.).
-- **Polish Animations:**  
-  - Create animations for actions such as dealing cards, playing a card, and winning a trick.  
-  - Use Godot’s AnimationPlayer or Tween nodes to ensure smooth visual transitions.
-- **Improve UI Feedback:**  
-  - Add visual cues when cards are selected or hovered over.  
-  - Consider adding brief sound cues to reinforce the impact of key card interactions.
-
-### **3. Improve the Terminal Interface**
-- **Basic Terminal UI Polish:**  
-  - Enhance your terminal layout by adding CRT-style shaders (scanlines, phosphor glow, glitch effects).  
-  - Adjust the layout so that it feels more “hacked” and dynamic—consider layering effects and subtle animations.
-- **Command Processing (Minimal):**  
-  - Implement a rudimentary command parser in your `Terminal.cs` that echoes commands back, so you have a framework for later expansion.  
-  - Start with commands that might “log” game events or simulate system responses.
-
----
-
-## **Phase 2: Encounter Types, Special Cards & Expanded Game Modes**
-
-### **4. Differentiate Encounter Types**
-- **Implement Encounter Variations:**  
-  - **Secured Systems:** Fine-tune the current trick-taking logic.
-  - **Backdoor Access:** Develop a hand-selection phase where players choose cards from a pool (e.g., a UI that lets players pick their starting hand).
-  - **Firewall Breach:** Build mechanics that allow players to modify or “upgrade” their hand mid-game (for example, a phase where players can swap or enhance cards based on resource tokens).
-- **Modularize Encounter Logic:**  
-  - Structure your code so that the rules for each encounter type are encapsulated in separate modules or classes. This makes future balancing or rule changes easier.
-
-### **5. Integrate Special Cards & Abilities**
-- **Develop Special Card Types:**  
-  - Add special cards like Virus Cards, Buffer Overflow, Root Kit, and Zero-Day Exploits.  
-  - Determine how these cards interact with normal card rules (e.g., a Virus card might “corrupt” another card’s properties).
-- **Implement Special Effects:**  
-  - Use additional shaders or animations to highlight when a special card is played.
-  - Update your game logic to account for special card effects during trick resolution or state changes.
-
-### **6. Expand Game State for Resource Management**
-- **Resource Systems:**  
-  - Introduce variables for processing power, bandwidth, memory allocation, and security tokens.  
-  - Create a simple UI element (like resource meters) on the terminal or main play area.
-- **Link Resources to Gameplay:**  
-  - Make certain actions or special card plays consume resources.
-  - Use these resources as a gating mechanism for advanced moves or modifications during encounters.
-
----
-
-## **Phase 3: Audio, Advanced Visuals & Multi-Terminal Features**
-
-### **7. Implement Audio Design**
-- **Sound Effects:**  
-  - Integrate short, punchy sounds for key events (e.g., card flips, terminal keystrokes, system alerts).  
-  - Use Godot’s AudioStreamPlayer nodes and organize sounds by type (terminal, card effects, system events).
-- **Dynamic Music:**  
-  - Set up an ambient synthwave track that changes intensity based on the current security layer or encounter.
-  - Consider cues for system breaches or high-stakes moments.
-
-### **8. Refine Visual and Animation Effects**
-- **Terminal Effects:**  
-  - Fully implement CRT/glitch shaders on your terminals to reinforce the cyberpunk aesthetic.
-  - Experiment with particle systems and dynamic lighting to represent system breaches or special moves.
-- **Card & System Animations:**  
-  - Polish card animations for deployment, play, modification, and destruction.
-  - Consider adding “connection lines” or data stream effects when valid card plays occur.
-
-### **9. Introduce Multi-Terminal and System Manipulation**
-- **Multiple Terminal Support:**  
-  - Enable multiple terminal windows to be active simultaneously.  
-  - Allow for interactions between terminals (e.g., one terminal might modify the state of another).
-- **Advanced System Manipulation:**  
-  - Build mechanics that let players “hack” the game rules temporarily (e.g., using a System.dll card to change trump rules for a trick).
-  - Ensure these interactions are well encapsulated and use events/signals for clean communication.
-
----
-
-## **Phase 4: Content, Narrative & Final Polish**
-
-### **10. Build Out Security Layers & Narrative Integration**
-- **Design Distinct Security Layers:**  
-  - Create unique challenges and visual themes for each layer (Perimeter, Network Infrastructure, Core Systems, Data Vaults).
-  - Ensure each layer not only increases difficulty but also introduces new mechanics or narrative twists.
-- **Narrative & Meta-Progression:**  
-  - Integrate story elements that explain the netrunner’s journey, using terminal logs and in-game messages.
-  - Consider adding unlockable tools or abilities as part of a meta-progression system.
-
-### **11. Rigorous Testing and Balancing**
-- **Playtesting:**  
-  - Conduct thorough testing of trick-taking rules, resource management, and encounter variations.  
-  - Balance AI behavior and difficulty progression.
-- **Iterate on Feedback:**  
-  - Use feedback to refine UI, animations, and overall game flow.  
-  - Ensure that special card effects and resource management are engaging and not overly punishing.
-
-### **12. Final UI/UX Polish & Achievements**
-- **UI Consistency:**  
-  - Refine all HUD elements and ensure that information (like scores, resource meters, and terminal logs) is clear and well-integrated.
-- **Achievement and Replay Systems:**  
-  - Consider building an achievement system to reward creative play or successful hacks.
-  - Allow for replayability, especially in puzzle mode (Trick Breaker), where hand states and multiple solutions are emphasized.
-
----
-
-## **Best Practices Throughout Development**
-
-- **Modular Design:**  
-  - Keep your systems decoupled (e.g., separate card logic from UI, and game state from encounter logic).  
-  - This will make it easier to add new features without breaking existing functionality.
-
-- **Iterative Development:**  
-  - Start with simple implementations of each feature, then iterate and polish.  
-  - Use version control to experiment with new mechanics and easily roll back if necessary.
-
-- **Consistent Communication Between Systems:**  
-  - Rely on Godot’s signals to maintain clear communication channels between components (cards, terminal, game state, etc.).
-  
-- **Prototyping New Features:**  
-  - Before fully integrating a new mechanic (like resource management or multi-terminal switching), prototype it in isolation to validate the concept.
-
-- **Documentation & Code Comments:**  
-  - As you expand your codebase, maintain clear documentation and comments. This is especially helpful for complex interactions (like special card effects) and future you (or collaborators).
-
----
-
-By following this structured roadmap, you’ll gradually transform your early prototype into a rich, immersive cyberpunk card game that stays true to your original aspirations while remaining maintainable and scalable. Happy hacking!
