@@ -20,6 +20,8 @@ public partial class GameState : Node
     
     public bool IsGameOver => _game.IsGameOver;
     public int RequiredTricks { get; private set; }
+    public int Winner { get; private set; } = -1;  // -1 indicates no winner yet
+    public Suit TrumpSuit => (_game.Rules as GameRules)?.TrumpSuit ?? Suit.None;
     
     [Signal]
     public delegate void GameStateChangedEventHandler();
@@ -54,6 +56,7 @@ public partial class GameState : Node
         int numPlayers = 4, int handSize = 5, int requiredTricks = -1)
     {
         RequiredTricks = requiredTricks;
+        Winner = -1;  // Reset winner
         
         // Create and deal a deck
         var deck = CreateDeck();
@@ -156,6 +159,19 @@ public partial class GameState : Node
     public bool IsHumanPlayer(int playerId) => _playerManager.IsHuman(playerId);
     public int GetScore(int playerId) => _playerManager.GetPlayerScore(playerId);
     public int GetRequiredTricks(int playerId) => RequiredTricks;
+    public int GetWinner() => Winner;
+    public Suit GetTrumpSuit() => TrumpSuit;
+    
+    private void OnTrickCompleted(int winner)
+    {
+        EmitSignal(SignalName.TrickCompleted, winner);
+    }
+    
+    private void OnGameOver(int winner)
+    {
+        Winner = winner;
+        EmitSignal(SignalName.GameOver, winner);
+    }
     
     // Private helpers
     private List<Card> CreateDeck()

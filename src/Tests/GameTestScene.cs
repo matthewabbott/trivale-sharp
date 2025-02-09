@@ -89,12 +89,12 @@ public partial class GameTestScene : Node2D
         
         if (_gameState.IsGameOver)
         {
-            status = $"Game Over! Player {_gameState.GetWinner()} wins!\n\n";
+            status = $"Game Over! Player {_gameState.Winner} wins!\n\n";
         }
         
         status += $"Current Player: {_gameState.GetCurrentPlayer()}\n";
         status += $"Lead Suit: {_gameState.GetLeadSuit()}\n";
-        status += $"Trump Suit: {_gameState.GetTrumpSuit()}\n";
+        status += $"Trump Suit: {_gameState.TrumpSuit}\n";
         status += "\nTricks Won:\n";
         for (int i = 0; i < 4; i++)
         {
