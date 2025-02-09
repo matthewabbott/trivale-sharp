@@ -1,14 +1,13 @@
+// src/Tests/EncounterTestScene.cs
 using Godot;
 using System;
 using Trivale.Encounters;
-using Trivale.OS;
+using Trivale.Game;
 
 namespace Trivale.Tests;
 
 public partial class EncounterTestScene : Node
 {
-    private SystemDesktop _desktop;
-    private WindowManager _windowManager;
     private EncounterManager _encounterManager;
     private Button _createGameButton;
     private SpinBox _playerCountSpinner;
@@ -17,22 +16,6 @@ public partial class EncounterTestScene : Node
     public override void _Ready()
     {
         GD.Print("EncounterTestScene._Ready called");
-        
-        _desktop = GetParent<SystemDesktop>();
-        if (_desktop == null)
-        {
-            GD.PrintErr("EncounterTestScene must be a child of SystemDesktop");
-            return;
-        }
-        GD.Print("Found SystemDesktop");
-        
-        _windowManager = _desktop.GetNode<WindowManager>("WindowLayer");
-        if (_windowManager == null)
-        {
-            GD.PrintErr("Could not find WindowManager");
-            return;
-        }
-        GD.Print("Found WindowManager");
         
         // Create and add encounter manager
         _encounterManager = new EncounterManager();
@@ -47,7 +30,7 @@ public partial class EncounterTestScene : Node
     {
         var controlPanel = new Control
         {
-            Position = new Vector2(200, 20),  // Moved from (20,20) to (200,20)
+            Position = new Vector2(200, 20),  // Moved to avoid overlap with other UI
             CustomMinimumSize = new Vector2(200, 150)
         };
         AddChild(controlPanel);
@@ -55,7 +38,7 @@ public partial class EncounterTestScene : Node
         
         var container = new VBoxContainer
         {
-            CustomMinimumSize = new Vector2(200, 150)  // Give container a minimum size too
+            CustomMinimumSize = new Vector2(200, 150)
         };
         controlPanel.AddChild(container);
         
@@ -113,37 +96,13 @@ public partial class EncounterTestScene : Node
         };
         
         var encounterName = $"puzzle_{DateTime.Now.Ticks}";
-        var encounter = new PuzzleCardEncounter(encounterName, config);
+        var encounter = new CardGameEncounter(encounterName, config);
         
         GD.Print($"Created encounter: {encounterName}");
         
         if (_encounterManager.StartEncounter(encounter))
         {
-            GD.Print($"Started encounter: {encounterName}");
-            
-            // Get the windows from the encounter and add them to the window manager
-            var playerWindow = (encounter as PuzzleCardEncounter)?.GetWindow("hand");
-            var tableWindow = (encounter as PuzzleCardEncounter)?.GetWindow("table");
-            
-            if (playerWindow != null)
-            {
-                GD.Print("Adding player window");
-                _windowManager.AddWindow(playerWindow);
-            }
-            else
-            {
-                GD.PrintErr("Player window was null!");
-            }
-            
-            if (tableWindow != null)
-            {
-                GD.Print("Adding table window");
-                _windowManager.AddWindow(tableWindow);
-            }
-            else
-            {
-                GD.PrintErr("Table window was null!");
-            }
+            GD.Print($"Successfully started encounter: {encounterName}");
         }
         else
         {
