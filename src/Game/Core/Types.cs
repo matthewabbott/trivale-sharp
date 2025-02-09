@@ -2,13 +2,14 @@
 using System.Collections.Generic;
 using Trivale.Cards;
 
-namespace Trivale.Game.Core;
+namespace Trivale.Game.Core
+{
+    public record TrickResult(int Winner, List<Card> Cards);
 
-public record TrickResult(int Winner, List<Card> Cards);
-
-public record GameRules(
-    bool MustFollowSuit,
-    bool HasTrumpSuit,
-    Suit TrumpSuit,
-    int RequiredTricks
-);
+    public record GameRules(
+        bool MustFollowSuit,
+        bool HasTrumpSuit,
+        Suit TrumpSuit,
+        int RequiredTricks
+    );
+}
