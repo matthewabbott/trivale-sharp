@@ -22,6 +22,8 @@ public partial class CardEncounterScene : EncounterScene
     private CardTerminalWindow _controlWindow;
     private Dictionary<Card, List<Card>> _currentPreviews;
     private bool _isShowingPreview = false;
+    private Control _controlContainer;
+    private Label _statusLabel;
     
     public override void Initialize(IEncounter encounter)
     {
@@ -86,7 +88,8 @@ public partial class CardEncounterScene : EncounterScene
             BorderColor = new Color(1, 1, 0) // Yellow
         };
         
-        var container = new VBoxContainer();
+        // Create the control container and store reference
+        _controlContainer = new VBoxContainer();
         
         var undoButton = new Button
         {
@@ -94,7 +97,7 @@ public partial class CardEncounterScene : EncounterScene
             CustomMinimumSize = new Vector2(0, 30)
         };
         undoButton.Pressed += OnUndoPressed;
-        container.AddChild(undoButton);
+        _controlContainer.AddChild(undoButton);
         
         var aiTurnButton = new Button
         {
@@ -102,16 +105,16 @@ public partial class CardEncounterScene : EncounterScene
             CustomMinimumSize = new Vector2(0, 30)
         };
         aiTurnButton.Pressed += OnAITurnPressed;
-        container.AddChild(aiTurnButton);
+        _controlContainer.AddChild(aiTurnButton);
         
-        var statusLabel = new Label
+        // Create and store reference to status label
+        _statusLabel = new Label
         {
-            Name = "StatusLabel",
             Text = "Required Tricks: 0/0\nCurrent Turn: Player"
         };
-        container.AddChild(statusLabel);
+        _controlContainer.AddChild(_statusLabel);
         
-        _controlWindow.AddContent(container);
+        _controlWindow.AddContent(_controlContainer);
         _windowManager.AddWindow(_controlWindow);
     }
     
@@ -130,23 +133,15 @@ public partial class CardEncounterScene : EncounterScene
             _tableWindow?.DisplayCards(tableCards, "Cards on Table:");
         }
         
-        // Update control window status
-        if (_controlWindow != null)
+        // Update status label using stored reference
+        if (_statusLabel != null && _statusLabel.IsInsideTree())
         {
-            var container = _controlWindow.GetNode<VBoxContainer>("VBoxContainer");
-            if (container != null)
-            {
-                var statusLabel = container.GetNode<Label>("StatusLabel");
-                if (statusLabel != null)
-                {
-                    var playerScore = cardEncounter.GetPlayerScore();
-                    var requiredTricks = cardEncounter.GetRequiredTricks();
-                    var currentPlayer = cardEncounter.GetCurrentPlayer() == 0 ? "Player" : $"AI {cardEncounter.GetCurrentPlayer()}";
-                    
-                    statusLabel.Text = $"Required Tricks: {playerScore}/{requiredTricks}\n" +
-                                     $"Current Turn: {currentPlayer}";
-                }
-            }
+            var playerScore = cardEncounter.GetPlayerScore();
+            var requiredTricks = cardEncounter.GetRequiredTricks();
+            var currentPlayer = cardEncounter.GetCurrentPlayer() == 0 ? "Player" : $"AI {cardEncounter.GetCurrentPlayer()}";
+            
+            _statusLabel.Text = $"Required Tricks: {playerScore}/{requiredTricks}\n" +
+                               $"Current Turn: {currentPlayer}";
         }
     }
     
