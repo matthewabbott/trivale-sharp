@@ -1,8 +1,8 @@
-// src/Game/Core/IAIController.cs
+// src/Game/Services/IAIController.cs
 using System.Collections.Generic;
 using Trivale.Cards;
 
-namespace Trivale.Game.Core
+namespace Trivale.Game.Services
 {
     public interface IAIController
     {

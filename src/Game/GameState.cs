@@ -1,9 +1,12 @@
-// src/Game/GameState.cs
-using Godot;
+// src/Game/GameState.cs: (this stays at the root Game level since it's our main facade)
 using System;
 using System.Collections.Generic;
+using Godot;
 using Trivale.Cards;
 using Trivale.Game.Core;
+using Trivale.Game.Core.Interfaces;
+using Trivale.Game.Services;
+using Trivale.Game.Implementation;
 
 namespace Trivale.Game;
 

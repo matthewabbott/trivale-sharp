@@ -1,7 +1,8 @@
-// src/Game/Core/GameStateManager.cs
+// src/Game/Services/GameStateManager.cs:
 using System.Collections.Generic;
+using Trivale.Game.Core.Interfaces;
 
-namespace Trivale.Game.Core;
+namespace Trivale.Game.Services;
 
 // TODO: Enhance this class with:
 // - More sophisticated state diffing

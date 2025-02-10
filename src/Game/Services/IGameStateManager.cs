@@ -1,4 +1,4 @@
-// src/Game/Core/IGameStateManager.cs
+// src/Game/Services/IGameStateManager.cs
 public interface IGameStateManager
 {
     void SaveState();

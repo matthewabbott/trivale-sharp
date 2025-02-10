@@ -1,9 +1,9 @@
-// src/Game/Core/AIController.cs
+// src/Game/Services/AIController.cs
 using System.Collections.Generic;
 using System.Linq;
 using Trivale.Cards;
 
-namespace Trivale.Game.Core
+namespace Trivale.Game.Services
 {
     public class AIController : IAIController
     {

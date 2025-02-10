@@ -1,10 +1,12 @@
-// src/Game/Core/TrickTakingGame.cs
+// src/Game/Implementation/TrickTakingGame.cs:
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using Trivale.Cards;
+using Trivale.Game.Core;
+using Trivale.Game.Core.Interfaces;
 
-namespace Trivale.Game.Core
+namespace Trivale.Game.Implementation
 {
     public class TrickTakingGame : ITrickTakingGame
     {

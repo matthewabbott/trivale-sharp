@@ -1,10 +1,11 @@
-// src/Game/Core/PlayerManager.cs
+// src/Game/Implementation/PlayerManager.cs:
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using Trivale.Cards;
+using Trivale.Game.Core.Interfaces;
 
-namespace Trivale.Game.Core
+namespace Trivale.Game.Implementation
 {
     public class PlayerManager : IPlayerManager
     {

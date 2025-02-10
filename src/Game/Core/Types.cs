@@ -1,4 +1,4 @@
-// src/Game/Core/Types.cs
+// src/Game/Core/Types.cs:
 using System.Collections.Generic;
 using Trivale.Cards;
 

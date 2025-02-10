@@ -1,8 +1,8 @@
-// src/Game/Core/ITrickTakingGame.cs
+// src/Game/Core/Interfaces/ITrickTakingGame.cs:
 using System.Collections.Generic;
 using Trivale.Cards;
 
-namespace Trivale.Game.Core
+namespace Trivale.Game.Core.Interfaces
 {
     public interface ITrickTakingGame
     {

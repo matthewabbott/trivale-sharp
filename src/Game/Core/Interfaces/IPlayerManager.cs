@@ -1,8 +1,8 @@
-// src/Game/Core/IPlayerManager.cs
+// src/Game/Core/Interfaces/IPlayerManager.cs:
 using System.Collections.Generic;
 using Trivale.Cards;
 
-namespace Trivale.Game.Core
+namespace Trivale.Game.Core.Interfaces
 {
     public interface IPlayerManager
     {
