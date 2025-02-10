@@ -1,0 +1,352 @@
+# Trick Taker: Visual and Thematic Design Document
+
+## Core Theme
+A cyberpunk terminal-based card game where hacking is represented through trick-taking mechanics. Players, as netrunners, perceive cyberspace through a unique lens where security systems and hacking tools manifest as cards and card games. This perception filter provides an intuitive interface to complex system interactions.
+
+## Visual Style
+
+### Overall Aesthetic
+- Retro-futuristic terminal interface
+- Heavy CRT and digital artifacts
+- Multiple overlapping terminal windows
+- Color scheme:
+  - Primary: Phosphor green (#00FF00) for main terminal text
+  - Secondary: Deep blue (#003366) for system elements
+  - Accent: Neon red (#FF0033) for alerts and warnings
+  - Highlight: Cyan (#00FFFF) for user interaction
+  - Background: Near-black (#001100) for terminal background
+
+### Terminal Types
+
+#### Main Command Terminal
+- Primary interface for card gameplay
+- Monospace font with scan lines
+- Visible cursor blinking
+- Command history scrolling
+- Status line at bottom
+- Card hand displayed as process list
+
+#### Security Monitor
+- Multiple small windows
+- Security camera aesthetics
+- Scan line interference
+- Motion detection highlights
+- Timer displays
+- Alert status indicators
+
+#### Network Interface
+- Connection diagrams
+- Data flow visualization
+- Packet transfer effects
+- Protocol status displays
+- Bandwidth meters
+- Node connection status
+
+#### Debug Console
+- Matrix-style data streams
+- Memory dump aesthetics
+- Hex code displays
+- System log scrolling
+- Error message popups
+- Stack trace visuals
+
+### Card Design
+
+#### Standard Cards
+- Holographic program cards
+- Suit icons as system symbols:
+  - Cryptocurrency (♦): Digital coin with network connections
+  - Infrastructure (♣): Server rack or network node
+  - Data Flow (♥): Pulsing data stream or memory core
+  - Process Control (♠): CPU or command line interface
+- Numbers displayed in hex and binary
+- Digital artifacts and noise
+- Suit-specific visual effects:
+  - Cryptocurrency: Market data overlays
+  - Infrastructure: Blueprint-style gridlines
+  - Data Flow: Streaming data particles
+  - Process Control: Command line text
+- Scan line interference effects
+- Digital noise artifacts
+- Edge glow based on power level
+
+#### Special Cards
+- Unique digital artifacts
+- Glitch animation effects
+- Power surge visuals
+- Data corruption patterns
+- System alert overlays
+- Custom hack tool icons
+
+#### Encounter Type Visualization
+Each encounter type has distinct visual themes:
+
+1. Secured Systems
+   - Heavy Process Control aesthetics
+   - Rigid geometric patterns
+   - Security scan lines
+   - Restricted movement animations
+
+2. Backdoor Access
+   - Infrastructure-focused visuals
+   - Blueprint overlays
+   - System architecture diagrams
+   - Fluid access animations
+
+3. Firewall Breach
+   - Mixed Data Flow/Cryptocurrency elements
+   - Resource meters
+   - Data stream effects
+   - Modification visualizations
+
+## Implementation Notes
+
+### Suit-Specific Effects
+
+#### Cryptocurrency (♦)
+- Market data overlays
+- Transaction animations
+- Resource flow visualization
+- Digital asset effects
+
+#### Infrastructure (♣)
+- System architecture diagrams
+- Network connection lines
+- Power flow indicators
+- Structure stability effects
+
+#### Data Flow (♥)
+- Information stream particles
+- Memory allocation effects
+- Data corruption visualization
+- Neural network patterns
+
+#### Process Control (♠)
+- Command line interfaces
+- Program execution visualization
+- Logic flow diagrams
+- Security protocol effects
+
+### Encounter Type Effects
+
+#### Secured Systems
+- Rigid security grid overlays
+- Access restriction visualizations
+- Protocol matching effects
+- System constraint indicators
+
+#### Backdoor Access
+- System architecture overlays
+- Access point highlighting
+- Path visualization
+- Selection effects
+
+#### Firewall Breach
+- Modification interfaces
+- Resource management displays
+- System analysis overlays
+- Breach visualization
+
+### Visual Effects
+
+#### Card Animations
+1. Spawn Effects
+   - Digital materialization
+   - Data stream formation
+   - Binary rain convergence
+   - Matrix code assembly
+   - Packet reconstruction
+
+2. Play Effects
+   - Data transfer beams
+   - Protocol matching pulse
+   - System access granted
+   - Network packet transmission
+   - Memory allocation visualization
+
+3. Special Effects
+   - Buffer overflow cascade
+   - Root access granted
+   - Virus infection spread
+   - Firewall breach
+   - System crash visualization
+
+#### Terminal Effects
+1. Base Effects
+   - Constant scan lines
+   - Screen curvature
+   - Phosphor glow
+   - Digital noise
+   - Refresh flicker
+
+2. Interactive Effects
+   - Typing artifacts
+   - Cursor trails
+   - Selection highlighting
+   - Window movement blur
+   - Menu deployment glitch
+
+3. Status Effects
+   - Alert state changes
+   - Security level indicators
+   - Resource meter fluctuation
+   - Connection status updates
+   - System load visualization
+
+### UI Elements
+
+#### Core Interface
+- Command line input
+- System status bar
+- Resource meters
+- Alert indicators
+- Process list
+- Network status
+
+#### Card Interface
+- Hand display as process list
+- Play area as memory map
+- Trick stack as data buffer
+- Score as system resources
+- Trump suit as active protocol
+
+#### Information Display
+- Security clearance level
+- System response messages
+- Error notifications
+- Success confirmations
+- Resource allocation
+
+#### Navigation
+- Terminal selection interface
+- System node map
+- Security layer diagram
+- Access point list
+- Connection status
+
+## Audio Design
+
+### Terminal Sounds
+1. Interface
+   - Key clicks (mechanical, digital)
+   - System beeps
+   - Error tones
+   - Success chimes
+   - Alert signals
+
+2. Background
+   - System hum
+   - Fan noise
+   - Hard drive activity
+   - Network traffic
+   - Power fluctuation
+
+### Card Sounds
+1. Actions
+   - Digital deploy
+   - Program execution
+   - System access
+   - Protocol match
+   - Hack failure
+
+2. Special Effects
+   - Buffer overflow
+   - Root access
+   - Virus activation
+   - Firewall breach
+   - System crash
+
+### Music
+1. Base Themes
+   - Ambient synthwave
+   - System drone
+   - Digital texture
+   - Glitch beats
+   - Electronic pulse
+
+2. Dynamic Elements
+   - Security level intensity
+   - Alert status variation
+   - Success stingers
+   - Failure motifs
+   - Special card themes
+
+## Animation Guidelines
+
+### Terminal Animations
+1. State Changes
+   - Power on sequence
+   - Screen change static
+   - Window deployment
+   - Menu materialization
+   - Alert state transition
+
+2. Background Effects
+   - Scan line movement
+   - Phosphor decay
+   - Digital noise
+   - Refresh artifacts
+   - Power fluctuation
+
+### Card System
+1. Card Deployment
+   - Program initialization
+   - Memory allocation
+   - Process spawning
+   - System registration
+   - Resource commitment
+
+2. Card Interaction
+   - Selection highlight
+   - Play confirmation
+   - Protocol matching
+   - Trump activation
+   - Special ability trigger
+
+### Status Changes
+1. Security Levels
+   - Access granted
+   - Clearance upgrade
+   - Protocol change
+   - System lockdown
+   - Emergency override
+
+2. Alert States
+   - Warning activation
+   - Critical alert
+   - System compromise
+   - Security breach
+   - Recovery mode
+
+## Implementation Notes
+
+### Shader Effects
+1. Base Effects
+   - CRT simulation
+   - Scan line generation
+   - Phosphor glow
+   - Screen curvature
+   - Digital noise
+
+2. Card Effects
+   - Holographic overlay
+   - Data stream particles
+   - Protocol matching
+   - Power level indication
+   - Special ability visualization
+
+### Performance Considerations
+1. Effect Layering
+   - Base terminal always active
+   - Card effects on demand
+   - Special effects prioritized
+   - Background effects scalable
+   - Dynamic quality adjustment
+
+2. Optimization
+   - Effect batching
+   - Shader complexity levels
+   - Particle system limits
+   - Animation pooling
+   - Resource caching
+

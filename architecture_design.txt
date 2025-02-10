@@ -1,0 +1,194 @@
+# Trivale: A Terminal-Based Cyberpunk Card Game
+
+## Core Concept
+A hacker's interface that serves as both the game's menu system and a core gameplay mechanic. Players take on the role of netrunners who perceive cyberspace through the lens of card games, breaking into corporate systems through a series of terminal interfaces and security layers. The interface itself is part of the puzzle - learning to manipulate windows, save states, and combine tools is key to solving increasingly complex challenges.
+
+## Architecture Overview
+
+### Directory Structure
+```
+src/Game/
+  Core/           # Domain models and core interfaces
+    Types.cs      # Core game types (GameRules, TrickResult)
+    Enums.cs      # Core game enums (EncounterType)
+    Interfaces/   # Core game mechanics interfaces
+      ITrickTakingGame.cs
+      IPlayerManager.cs
+  Services/       # Management and coordination services
+    DeckManager.cs
+    GameLifecycleManager.cs
+    GameEventCoordinator.cs
+    GameStateManager.cs
+    AIController.cs
+  Implementation/ # Core interface implementations
+    TrickTakingGame.cs
+    PlayerManager.cs
+```
+
+### Component Architecture
+The game uses a service-based architecture with clear separation of concerns:
+
+#### Core Game Logic (Core/)
+Pure domain logic and interfaces with no external dependencies:
+```csharp
+public interface ITrickTakingGame
+{
+    GameRules Rules { get; }
+    bool IsGameOver { get; }
+    Suit LeadSuit { get; }
+    int CurrentPlayer { get; }
+    
+    bool IsValidPlay(int playerId, Card card);
+    bool PlayCard(int playerId, Card card);
+    TrickResult ResolveTrick();
+}
+
+public interface IPlayerManager
+{
+    int PlayerCount { get; }
+    List<Card> GetPlayerHand(int playerId);
+    int GetPlayerScore(int playerId);
+    bool IsHuman(int playerId);
+    void DealCards(Dictionary<int, List<Card>> hands);
+}
+```
+
+#### Service Layer (Services/)
+Manages game components and coordinates their interactions:
+```csharp
+public interface IGameLifecycleManager
+{
+    ITrickTakingGame Game { get; }
+    IPlayerManager PlayerManager { get; }
+    IGameStateManager StateManager { get; }
+    IAIController AIController { get; }
+    IDeckManager DeckManager { get; }
+    IGameEventCoordinator EventCoordinator { get; }
+    
+    void Initialize(Node signalSource);
+    void InitializeGame(EncounterType encounterType, int numPlayers, int handSize, int requiredTricks);
+    void Cleanup();
+}
+
+public interface IGameEventCoordinator
+{
+    void Initialize(Node signalSource);
+    void EmitGameStateChanged();
+    void EmitTrickCompleted(int winner);
+    void EmitGameOver(int winner);
+}
+```
+
+#### Facade (GameState)
+Provides a clean interface between Godot and the game systems:
+```csharp
+public partial class GameState : Node
+{
+    private readonly IGameLifecycleManager _lifecycleManager;
+    
+    public bool IsGameOver => _lifecycleManager.Game.IsGameOver;
+    public int RequiredTricks { get; private set; }
+    public int Winner { get; private set; }
+    
+    // Signals for UI communication
+    [Signal] public delegate void GameStateChangedEventHandler();
+    [Signal] public delegate void TrickCompletedEventHandler(int winner);
+    [Signal] public delegate void GameOverEventHandler(int winner);
+}
+```
+
+### Scene Management System
+The scene management system operates independently of game logic through the encounter interface:
+
+```csharp
+public interface IEncounter
+{
+    string Id { get; }
+    string Type { get; }
+    Dictionary<string, float> ResourceRequirements { get; }
+    bool IsComplete { get; }
+    
+    void Initialize(Dictionary<string, object> initialState);
+    void Update(float delta);
+    Dictionary<string, object> GetState();
+    
+    event Action<Dictionary<string, object>> StateChanged;
+    event Action<string> EncounterEvent;
+}
+
+public class CardGameEncounter : BaseEncounter
+{
+    private readonly GameState _gameState;
+    private readonly GameConfiguration _config;
+    
+    // Encounter implements game facade interface
+    public override string Type => "CardGame";
+    public override Dictionary<string, float> ResourceRequirements { get; }
+}
+```
+
+Scene managers handle UI representation:
+```csharp
+public partial class CardEncounterScene : EncounterScene
+{
+    private CardTerminalWindow _handWindow;
+    private CardTerminalWindow _tableWindow;
+    private CardTerminalWindow _controlWindow;
+    
+    protected override void OnEncounterStateChanged(Dictionary<string, object> state);
+}
+```
+
+## System Integration
+
+### Event Flow
+1. Core game events (ITrickTakingGame) -> GameEventCoordinator
+2. GameEventCoordinator -> GameState signals
+3. GameState signals -> EncounterScene
+4. EncounterScene -> UI updates
+
+### Component Lifecycle
+1. GameState creates GameLifecycleManager
+2. GameLifecycleManager initializes all components
+3. Components register with GameEventCoordinator
+4. GameLifecycleManager manages cleanup
+
+### State Management
+1. GameStateManager tracks game state
+2. DeckManager handles card operations
+3. PlayerManager maintains player state
+4. AIController manages AI behavior
+5. GameEventCoordinator bridges events to UI
+
+## Best Practices
+
+### Architecture Guidelines
+- Keep Core/ free of external dependencies
+- Services handle coordination between components
+- Use facades to isolate framework integration
+- Follow dependency injection patterns
+- Maintain clear component boundaries
+
+### Event Handling
+- Use GameEventCoordinator for all events
+- Keep event flow unidirectional
+- Isolate Godot signals to facades
+- Handle cleanup properly
+
+### Resource Management
+- Track component resources explicitly
+- Validate resource requirements at startup
+- Support cross-encounter resource sharing
+- Clean up resources on component disposal
+
+### Testing
+- Core logic should be fully testable in isolation
+- Mock services for component testing
+- Use dependency injection for test configurations
+- Validate state transitions
+
+### Future Extensibility
+- Design services for easy replacement
+- Keep component interfaces stable
+- Document extension points
+- Plan for cross-encounter features

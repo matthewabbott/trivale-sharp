@@ -1,4 +1,3 @@
-
 ## File Structure
 
 ```
@@ -14,7 +13,22 @@ trivale-sharp/
 │   ├── Cards/      # Card game system
 │   │   └── Card.cs
 │   ├── Game/       # Core game logic
-│   │   ├── GameState.cs
+│   │   ├── Core/   # Domain models and core interfaces
+│   │   │   ├── Types.cs
+│   │   │   ├── Enums.cs
+│   │   │   └── Interfaces/
+│   │   │       ├── ITrickTakingGame.cs
+│   │   │       └── IPlayerManager.cs
+│   │   ├── Services/   # Management and coordination services
+│   │   │   ├── DeckManager.cs
+│   │   │   ├── GameLifecycleManager.cs
+│   │   │   ├── GameEventCoordinator.cs
+│   │   │   ├── GameStateManager.cs
+│   │   │   └── AIController.cs
+│   │   ├── Implementation/   # Core interface implementations
+│   │   │   ├── TrickTakingGame.cs
+│   │   │   └── PlayerManager.cs
+│   │   ├── GameState.cs     # Main game facade
 │   │   └── GameConfiguration.cs
 │   ├── Encounters/ # Encounter system
 │   │   ├── IEncounter.cs

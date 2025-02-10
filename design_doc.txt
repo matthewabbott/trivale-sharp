@@ -1,0 +1,231 @@
+# Trivale: A Terminal-Based Cyberpunk Card Game
+
+## Core Concept
+A hacker's interface that serves as both the game's menu system and a core gameplay mechanic. Players take on the role of netrunners who perceive cyberspace through the lens of card games, breaking into corporate systems through a series of terminal interfaces and security layers. The interface itself is part of the puzzle - learning to manipulate windows, save states, and combine tools is key to solving increasingly complex challenges.
+
+## Core Architecture
+
+### Scene Manager Pattern
+The game uses a scene manager pattern to cleanly separate game logic from presentation:
+
+```csharp
+public interface IEncounter
+{
+    string Id { get; }
+    string Type { get; }
+    Dictionary ResourceRequirements { get; }
+    bool IsComplete { get; }
+    
+    void Initialize(Dictionary initialState);
+    void Update(float delta);
+    Dictionary GetState();
+    
+    event Action<Dictionary> StateChanged;
+    event Action EncounterEvent;
+}
+
+public partial class EncounterScene : Node
+{
+    protected IEncounter Encounter { get; }
+    void Initialize(IEncounter encounter);
+    protected virtual void OnEncounterStateChanged(Dictionary state);
+}
+```
+
+This pattern enables:
+- Clean separation between game logic and UI
+- Easy addition of new encounter types
+- AI-friendly encounter generation
+- Multiple visualization options for the same encounter
+
+### Encounter System
+The core of puzzle and challenge generation:
+
+```csharp
+public class CardGameEncounter : BaseEncounter
+{
+    protected GameState GameState { get; }
+    protected GameConfiguration Config { get; }
+    
+    // Pure game logic methods
+    public virtual bool PlayCard(Card card);
+    protected virtual void HandleGameStateChanged();
+    protected virtual void ApplyConfiguration();
+}
+```
+
+This system supports:
+- AI-generated puzzles
+- Cross-encounter state preservation
+- Resource management
+- Multiple simultaneous Encounters
+
+## Game Systems
+
+### Card System
+
+#### Suits (System Protocols)
+- Cryptocurrency (♦/Pentacles) - Digital financial systems, resource management
+- Infrastructure (♣/Wands) - System backbone, network architecture
+- Data Flow (♥/Cups) - Information streams, memory systems
+- Process Control (♠/Swords) - Program execution, system logic
+
+#### Card Values
+- Number Cards (2-10): Basic programs and scripts
+- Face Cards: System Access Levels
+  - Jack: System access scripts
+  - Queen: Admin privilege escalation
+  - King: Root access exploits
+  - Ace: Master security override
+
+#### Special Cards
+- Virus Cards: Corrupt and modify other cards
+- Buffer Overflow: Play multiple cards as one
+- Root Kit: Change card properties
+- Zero-Day Exploit: Wild cards
+- System.dll: Modify game rules
+- Firewall.exe: Block certain card effects
+
+### Resource Management
+Core system resources that limit player actions:
+- Memory (MEM): Limits active scenarios and windows
+- Processing (CPU): Affects card play and special abilities
+- Bandwidth (NET): Limits cross-scenario interactions
+- Security Tokens (SEC): Used for system overrides
+
+### Encounter Types
+
+#### Standard Encounters
+1. Secured Systems
+   - Traditional trick-taking mechanics
+   - Fixed hand of cards
+   - Process Control focus
+
+2. Backdoor Access
+   - Hand selection from card pool
+   - Infrastructure focus
+   - Strategic pre-planning
+
+3. Firewall Breach
+   - Hand modification mechanics
+   - Resource management
+   - Mixed suit focus
+
+#### Extended Encounters
+- Upgrade Stations: Modify card properties
+- Resource Markets: Trade system resources
+- Memory Banks: Store and retrieve game states
+- Process Injectors: Modify game rules
+
+### Multi-Encounter Mechanics
+- State preservation between scenarios
+- Resource sharing between encounters
+- Cross-scenario constraints and effects
+- Simultaneous puzzle solving
+
+## Visual Implementation
+
+### Terminal Interface
+- CRT screen effects (scanlines, phosphor glow)
+- Window management system
+- Resource visualization
+- Alert indicators
+- Command line interface
+
+### Card Visualization
+- Holographic card projections
+- Suit-specific effects
+- Power level indicators
+- State modification visuals
+
+### Resource Display
+- Memory usage meters
+- CPU load graphs
+- Network bandwidth indicators
+- Resource threshold warnings
+
+## Development Priorities
+
+### Phase 1: Core Systems
+1. Component Architecture
+   - Component/host interfaces
+   - State serialization
+   - Resource tracking
+   - Basic window management
+
+2. Basic Scenario System
+   - Hand configuration
+   - Player/AI setup
+   - Win condition editor
+   - Resource requirements
+
+3. Card Game Implementation
+   - Core trick-taking mechanics
+   - Basic AI behaviors
+   - Card effects system
+   - Resource costs
+
+### Phase 2: Extended Features
+1. Multi-Encounter Framework
+   - State preservation
+   - Cross-scenario communication
+   - Resource sharing
+   - Scenario linking
+
+2. Advanced Encounters
+   - Upgrade systems
+   - Resource markets
+   - Rule modification
+   - State manipulation
+
+3. AI and Puzzle Generation
+   - AI puzzle creation
+   - Difficulty scoring
+   - Solution validation
+   - Constraint generation
+
+### Phase 3: Polish and Content
+1. Visual Effects
+   - Terminal effects
+   - Card animations
+   - Resource visualization
+   - UI polish
+
+2. Content Creation
+   - Scenario chains
+   - Puzzle progressions
+   - Tutorial content
+   - Meta-progression
+
+## Implementation Notes
+
+### Component Design
+- Keep game logic separate from presentation
+- Use events for component communication
+- Implement resource tracking at component level
+- Support state serialization for all components
+
+### Resource Management
+- Track resource usage per window/component
+- Implement resource limits and costs
+- Visualize resource usage and thresholds
+- Support resource trading and optimization
+
+### Scenario Creation
+- Support both manual and AI creation
+- Enable cross-scenario state sharing
+- Allow for multiple solution paths
+- Track resource requirements
+
+### Future Considerations
+- Meta-progression systems
+- Achievement tracking
+- Community puzzle sharing
+- Advanced AI behaviors
+
+## Best Practices
+- Maintain strict component separation
+- Test cross-scenario interactions
+- Monitor resource usage
+- Document state management
+- Support future extensibility
