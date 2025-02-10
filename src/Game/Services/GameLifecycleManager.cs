@@ -1,5 +1,6 @@
 // src/Game/Services/GameLifecycleManager.cs
 using System;
+using Godot;
 using Trivale.Cards;
 using Trivale.Game.Core;
 using Trivale.Game.Core.Interfaces;
@@ -14,11 +15,10 @@ namespace Trivale.Game.Services
         IGameStateManager StateManager { get; }
         IAIController AIController { get; }
         IDeckManager DeckManager { get; }
+        IGameEventCoordinator EventCoordinator { get; }
         
-        void Initialize(int numPlayers = 4);
+        void Initialize(Node signalSource);
         void InitializeGame(EncounterType encounterType, int numPlayers, int handSize, int requiredTricks);
-        void RegisterGameEventHandlers(Action<int> onTrickCompleted, Action<int> onGameOver, Action onGameStateChanged);
-        void UnregisterGameEventHandlers(Action<int> onTrickCompleted, Action<int> onGameOver, Action onGameStateChanged);
         void Cleanup();
     }
 
@@ -29,18 +29,17 @@ namespace Trivale.Game.Services
         public IGameStateManager StateManager { get; private set; }
         public IAIController AIController { get; private set; }
         public IDeckManager DeckManager { get; private set; }
+        public IGameEventCoordinator EventCoordinator { get; private set; }
 
-        private Action<int> _onTrickCompleted;
-        private Action<int> _onGameOver;
-        private Action _onGameStateChanged;
-
-        public void Initialize(int numPlayers = 4)
+        public void Initialize(Node signalSource)
         {
             // Create core components
-            PlayerManager = new PlayerManager(numPlayers);
+            PlayerManager = new PlayerManager(4);  // Default to 4 players
             StateManager = new GameStateManager();
             AIController = new AIController();
             DeckManager = new DeckManager();
+            EventCoordinator = new GameEventCoordinator();
+            EventCoordinator.Initialize(signalSource);
 
             var rules = new GameRules(
                 MustFollowSuit: true,
@@ -67,39 +66,13 @@ namespace Trivale.Game.Services
             }
 
             StateManager.SaveState();
-            _onGameStateChanged?.Invoke();
-        }
-
-        public void RegisterGameEventHandlers(
-            Action<int> onTrickCompleted,
-            Action<int> onGameOver,
-            Action onGameStateChanged)
-        {
-            _onTrickCompleted = onTrickCompleted;
-            _onGameOver = onGameOver;
-            _onGameStateChanged = onGameStateChanged;
-        }
-
-        public void UnregisterGameEventHandlers(
-            Action<int> onTrickCompleted,
-            Action<int> onGameOver,
-            Action onGameStateChanged)
-        {
-            if (_onTrickCompleted == onTrickCompleted) _onTrickCompleted = null;
-            if (_onGameOver == onGameOver) _onGameOver = null;
-            if (_onGameStateChanged == onGameStateChanged) _onGameStateChanged = null;
+            EventCoordinator.HandleGameStateChanged();
         }
 
         public void Cleanup()
         {
-            _onTrickCompleted = null;
-            _onGameOver = null;
-            _onGameStateChanged = null;
+            EventCoordinator?.Cleanup();
+            EventCoordinator = null;
         }
-
-        // Internal event handlers that components can use
-        internal void HandleTrickCompleted(int winner) => _onTrickCompleted?.Invoke(winner);
-        internal void HandleGameOver(int winner) => _onGameOver?.Invoke(winner);
-        internal void HandleGameStateChanged() => _onGameStateChanged?.Invoke();
     }
 }

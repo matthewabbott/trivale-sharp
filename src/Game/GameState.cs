@@ -34,14 +34,7 @@ public partial class GameState : Node
     public GameState()
     {
         _lifecycleManager = new GameLifecycleManager();
-        _lifecycleManager.Initialize();
-        
-        // Register event handlers
-        _lifecycleManager.RegisterGameEventHandlers(
-            OnTrickCompleted,
-            OnGameOver,
-            () => EmitSignal(SignalName.GameStateChanged)
-        );
+        _lifecycleManager.Initialize(this);
     }
     
     public override void _ExitTree()
@@ -64,7 +57,7 @@ public partial class GameState : Node
         if (_lifecycleManager.Game.PlayCard(playerId, card))
         {
             _lifecycleManager.StateManager.SaveState();
-            EmitSignal(SignalName.GameStateChanged);
+            _lifecycleManager.EventCoordinator.HandleGameStateChanged();
             return true;
         }
         return false;
@@ -74,7 +67,7 @@ public partial class GameState : Node
     {
         if (_lifecycleManager.StateManager.Undo())
         {
-            EmitSignal(SignalName.GameStateChanged);
+            _lifecycleManager.EventCoordinator.HandleGameStateChanged();
             return true;
         }
         return false;
@@ -121,17 +114,6 @@ public partial class GameState : Node
         }
         
         return played;
-    }
-    
-    private void OnTrickCompleted(int winner)
-    {
-        EmitSignal(SignalName.TrickCompleted, winner);
-    }
-    
-    private void OnGameOver(int winner)
-    {
-        Winner = winner;
-        EmitSignal(SignalName.GameOver, winner);
     }
     
     // Public accessors
