@@ -14,19 +14,55 @@ src/Game/
     Interfaces/   # Core game mechanics interfaces
       ITrickTakingGame.cs
       IPlayerManager.cs
+  Memory/         # Memory slot management
+    Types.cs      # Slot types and states
+    Interfaces/   # Memory management interfaces
+      IMemorySlot.cs
+      IMemoryManager.cs
   Services/       # Management and coordination services
     DeckManager.cs
     GameLifecycleManager.cs
     GameEventCoordinator.cs
     GameStateManager.cs
     AIController.cs
+    MemorySlotManager.cs
   Implementation/ # Core interface implementations
     TrickTakingGame.cs
     PlayerManager.cs
+    MemorySlot.cs
 ```
 
 ### Component Architecture
 The game uses a service-based architecture with clear separation of concerns:
+
+#### Memory Management (Memory/)
+Core memory slot management with no external dependencies:
+```csharp
+public interface IMemorySlot
+{
+    string Id { get; }
+    SlotStatus Status { get; }
+    Vector2 Position { get; }
+    float MemoryUsage { get; }
+    float CpuUsage { get; }
+    
+    bool CanLoadEncounter(IEncounter encounter);
+    void LoadEncounter(IEncounter encounter);
+    void UnloadEncounter();
+    Dictionary<string, object> GetState();
+}
+
+public interface IMemoryManager
+{
+    int MaxSlots { get; }
+    IReadOnlyList<IMemorySlot> Slots { get; }
+    float TotalMemory { get; }
+    
+    bool TryAllocateSlot(IEncounter encounter, out IMemorySlot slot);
+    void DeallocateSlot(string slotId);
+    IMemorySlot GetSlot(string slotId);
+}
+```
 
 #### Core Game Logic (Core/)
 Pure domain logic and interfaces with no external dependencies:
@@ -54,7 +90,7 @@ public interface IPlayerManager
 ```
 
 #### Service Layer (Services/)
-Manages game components and coordinates their interactions:
+Extended to handle memory slot management:
 ```csharp
 public interface IGameLifecycleManager
 {
@@ -64,6 +100,7 @@ public interface IGameLifecycleManager
     IAIController AIController { get; }
     IDeckManager DeckManager { get; }
     IGameEventCoordinator EventCoordinator { get; }
+    IMemoryManager MemoryManager { get; }
     
     void Initialize(Node signalSource);
     void InitializeGame(EncounterType encounterType, int numPlayers, int handSize, int requiredTricks);
@@ -76,29 +113,32 @@ public interface IGameEventCoordinator
     void EmitGameStateChanged();
     void EmitTrickCompleted(int winner);
     void EmitGameOver(int winner);
+    void EmitSlotStateChanged(string slotId);
 }
 ```
 
 #### Facade (GameState)
-Provides a clean interface between Godot and the game systems:
+Enhanced to support memory slot management:
 ```csharp
 public partial class GameState : Node
 {
     private readonly IGameLifecycleManager _lifecycleManager;
+    private readonly IMemoryManager _memoryManager;
     
     public bool IsGameOver => _lifecycleManager.Game.IsGameOver;
     public int RequiredTricks { get; private set; }
     public int Winner { get; private set; }
+    public IReadOnlyList<IMemorySlot> MemorySlots => _memoryManager.Slots;
     
-    // Signals for UI communication
-    [Signal] public delegate void GameStateChangedEventHandler();
-    [Signal] public delegate void TrickCompletedEventHandler(int winner);
-    [Signal] public delegate void GameOverEventHandler(int winner);
+    // Additional signals for memory management
+    [Signal] public delegate void SlotStateChangedEventHandler(string slotId);
+    [Signal] public delegate void SlotAllocatedEventHandler(string slotId);
+    [Signal] public delegate void SlotDeallocatedEventHandler(string slotId);
 }
 ```
 
 ### Scene Management System
-The scene management system operates independently of game logic through the encounter interface:
+Modified to work within memory slots:
 
 ```csharp
 public interface IEncounter
@@ -107,6 +147,7 @@ public interface IEncounter
     string Type { get; }
     Dictionary<string, float> ResourceRequirements { get; }
     bool IsComplete { get; }
+    IMemorySlot Slot { get; }
     
     void Initialize(Dictionary<string, object> initialState);
     void Update(float delta);
@@ -120,20 +161,40 @@ public class CardGameEncounter : BaseEncounter
 {
     private readonly GameState _gameState;
     private readonly GameConfiguration _config;
+    private IMemorySlot _slot;
     
-    // Encounter implements game facade interface
     public override string Type => "CardGame";
-    public override Dictionary<string, float> ResourceRequirements { get; }
+    public override IMemorySlot Slot => _slot;
+    
+    public override bool LoadIntoSlot(IMemorySlot slot)
+    {
+        if (!slot.CanLoadEncounter(this))
+            return false;
+            
+        _slot = slot;
+        slot.LoadEncounter(this);
+        return true;
+    }
 }
 ```
 
-Scene managers handle UI representation:
+Scene managers handle UI representation within slots:
 ```csharp
 public partial class CardEncounterScene : EncounterScene
 {
+    private IMemorySlot _slot;
     private CardTerminalWindow _handWindow;
     private CardTerminalWindow _tableWindow;
     private CardTerminalWindow _controlWindow;
+    
+    public override void Initialize(IMemorySlot slot, IEncounter encounter)
+    {
+        _slot = slot;
+        base.Initialize(encounter);
+        
+        // Position windows within slot boundaries
+        PositionWindows(_slot.Position, _slot.Size);
+    }
     
     protected override void OnEncounterStateChanged(Dictionary<string, object> state);
 }
@@ -143,22 +204,25 @@ public partial class CardEncounterScene : EncounterScene
 
 ### Event Flow
 1. Core game events (ITrickTakingGame) -> GameEventCoordinator
-2. GameEventCoordinator -> GameState signals
-3. GameState signals -> EncounterScene
-4. EncounterScene -> UI updates
+2. Memory slot events -> GameEventCoordinator
+3. GameEventCoordinator -> GameState signals
+4. GameState signals -> EncounterScene
+5. EncounterScene -> UI updates
 
 ### Component Lifecycle
-1. GameState creates GameLifecycleManager
-2. GameLifecycleManager initializes all components
-3. Components register with GameEventCoordinator
-4. GameLifecycleManager manages cleanup
+1. GameState creates GameLifecycleManager and MemoryManager
+2. MemoryManager initializes available slots
+3. GameLifecycleManager initializes game components
+4. Components register with GameEventCoordinator
+5. GameLifecycleManager manages cleanup
 
 ### State Management
 1. GameStateManager tracks game state
-2. DeckManager handles card operations
-3. PlayerManager maintains player state
-4. AIController manages AI behavior
-5. GameEventCoordinator bridges events to UI
+2. MemoryManager tracks slot states
+3. DeckManager handles card operations
+4. PlayerManager maintains player state
+5. AIController manages AI behavior
+6. GameEventCoordinator bridges events to UI
 
 ## Best Practices
 
@@ -176,10 +240,10 @@ public partial class CardEncounterScene : EncounterScene
 - Handle cleanup properly
 
 ### Resource Management
-- Track component resources explicitly
-- Validate resource requirements at startup
-- Support cross-encounter resource sharing
-- Clean up resources on component disposal
+- Track component resources per slot
+- Validate slot resource requirements
+- Support cross-slot resource sharing
+- Clean up resources on slot deallocation
 
 ### Testing
 - Core logic should be fully testable in isolation

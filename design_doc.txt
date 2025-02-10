@@ -1,68 +1,40 @@
 # Trivale: A Terminal-Based Cyberpunk Card Game
 
 ## Core Concept
-A hacker's interface that serves as both the game's menu system and a core gameplay mechanic. Players take on the role of netrunners who perceive cyberspace through the lens of card games, breaking into corporate systems through a series of terminal interfaces and security layers. The interface itself is part of the puzzle - learning to manipulate windows, save states, and combine tools is key to solving increasingly complex challenges.
+A hacker's interface that serves as both the game's menu system and a core gameplay mechanic. Players take on the role of netrunners who perceive cyberspace through the lens of card games, breaking into corporate systems through a series of terminal interfaces and security layers. The interface itself is part of the puzzle - learning to manipulate system memory, manage resources, and combine tools is key to solving increasingly complex challenges.
 
 ## Core Architecture
 
-### Scene Manager Pattern
-The game uses a scene manager pattern to cleanly separate game logic from presentation:
+### Memory Slot System
+The game is organized around a fixed set of MEM slots - virtualized containers that can each run a single encounter:
 
-```csharp
-public interface IEncounter
-{
-    string Id { get; }
-    string Type { get; }
-    Dictionary ResourceRequirements { get; }
-    bool IsComplete { get; }
-    
-    void Initialize(Dictionary initialState);
-    void Update(float delta);
-    Dictionary GetState();
-    
-    event Action<Dictionary> StateChanged;
-    event Action EncounterEvent;
-}
+```plaintext
+┌─ SYSTEM RESOURCES ──────────────────────────────────┐
+│ MEM: [||||----] 4.2/8.0  CPU: [|||-----] 3.1/10.0  │
+└──────────────────────────────────────────────────┘
 
-public partial class EncounterScene : Node
-{
-    protected IEncounter Encounter { get; }
-    void Initialize(IEncounter encounter);
-    protected virtual void OnEncounterStateChanged(Dictionary state);
-}
+┌─ MEM SLOT 1 ─────┐ ┌─ MEM SLOT 2 ─────┐
+│ ACTIVE:          │ │ INACTIVE         │
+│ SecurityBreach   │ │ Click to Load    │
+└─────────────────┘ └─────────────────┘
 ```
 
-This pattern enables:
-- Clean separation between game logic and UI
-- Easy addition of new encounter types
-- AI-friendly encounter generation
-- Multiple visualization options for the same encounter
+Each MEM slot:
+- Can hold one active encounter
+- Has dedicated screen space in a fixed grid
+- Shows resource usage (MEM, CPU, NET)
+- Can be activated/deactivated
+- Displays encounter status and progress
 
-### Encounter System
-The core of puzzle and challenge generation:
-
-```csharp
-public class CardGameEncounter : BaseEncounter
-{
-    protected GameState GameState { get; }
-    protected GameConfiguration Config { get; }
-    
-    // Pure game logic methods
-    public virtual bool PlayCard(Card card);
-    protected virtual void HandleGameStateChanged();
-    protected virtual void ApplyConfiguration();
-}
-```
-
-This system supports:
-- AI-generated puzzles
-- Cross-encounter state preservation
-- Resource management
-- Multiple simultaneous Encounters
-
-## Game Systems
+### Resource Management
+Core system resources that limit player actions:
+- Memory (MEM): Determines number of active slots and complexity of encounters
+- Processing (CPU): Affects card play and special abilities
+- Bandwidth (NET): Limits cross-encounter interactions
+- Security Tokens (SEC): Used for system overrides
 
 ### Card System
+The card system remains unchanged, with each suit representing a different aspect of system intrusion:
 
 #### Suits (System Protocols)
 - Cryptocurrency (♦/Pentacles) - Digital financial systems, resource management
@@ -94,22 +66,26 @@ Core system resources that limit player actions:
 - Security Tokens (SEC): Used for system overrides
 
 ### Encounter Types
+Each encounter represents a different type of system intrusion, loaded into a MEM slot:
 
 #### Standard Encounters
 1. Secured Systems
    - Traditional trick-taking mechanics
    - Fixed hand of cards
    - Process Control focus
+   - Moderate MEM usage
 
 2. Backdoor Access
    - Hand selection from card pool
    - Infrastructure focus
    - Strategic pre-planning
+   - Low initial MEM usage, increases with hand size
 
 3. Firewall Breach
    - Hand modification mechanics
    - Resource management
    - Mixed suit focus
+   - High MEM usage, variable CPU load
 
 #### Extended Encounters
 - Upgrade Stations: Modify card properties
@@ -118,12 +94,21 @@ Core system resources that limit player actions:
 - Process Injectors: Modify game rules
 
 ### Multi-Encounter Mechanics
-- State preservation between scenarios
-- Resource sharing between encounters
-- Cross-scenario constraints and effects
-- Simultaneous puzzle solving
+The MEM slot system enables strategic use of multiple encounters:
+- Cross-slot resource sharing
+- State preservation between encounters
+- Strategic activation/deactivation of slots
+- Parallel puzzle solving
+- Resource optimization across slots
 
 ## Visual Implementation
+
+### Memory Slot Interface
+- Fixed grid layout for slots
+- Clear resource usage indicators
+- Status and progress displays
+- Activation/deactivation controls
+- Quick switching between slots
 
 ### Terminal Interface
 - CRT screen effects (scanlines, phosphor glow)
@@ -139,19 +124,20 @@ Core system resources that limit player actions:
 - State modification visuals
 
 ### Resource Display
-- Memory usage meters
-- CPU load graphs
+- Per-slot memory usage meters
+- System-wide resource graphs
 - Network bandwidth indicators
 - Resource threshold warnings
+- Cross-slot resource flow visualization
 
 ## Development Priorities
 
 ### Phase 1: Core Systems
-1. Component Architecture
-   - Component/host interfaces
-   - State serialization
+1. Memory Slot Framework
+   - Slot management system
    - Resource tracking
    - Basic window management
+   - Encounter loading/unloading
 
 2. Basic Scenario System
    - Hand configuration
@@ -167,10 +153,10 @@ Core system resources that limit player actions:
 
 ### Phase 2: Extended Features
 1. Multi-Encounter Framework
-   - State preservation
-   - Cross-scenario communication
+   - Cross-slot communication
    - Resource sharing
-   - Scenario linking
+   - State preservation
+   - Parallel optimization
 
 2. Advanced Encounters
    - Upgrade systems
@@ -198,6 +184,13 @@ Core system resources that limit player actions:
    - Meta-progression
 
 ## Implementation Notes
+
+### Memory Slot Management
+- Track resource usage per slot
+- Implement slot-specific limits
+- Enable cross-slot optimization
+- Support state preservation
+- Manage activation/deactivation
 
 ### Component Design
 - Keep game logic separate from presentation

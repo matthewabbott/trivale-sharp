@@ -18,29 +18,28 @@ A cyberpunk terminal-based card game where hacking is represented through trick-
 
 ### Terminal Types
 
-#### Main Command Terminal
-- Primary interface for card gameplay
-- Monospace font with scan lines
-- Visible cursor blinking
-- Command history scrolling
-- Status line at bottom
-- Card hand displayed as process list
+#### System Desktop / Memory Manager
+- Primary interface for managing MEM slots
+- Fixed grid layout with neon borders
+- Resource usage meters per slot
+- System status readouts
+- Slot activation controls
+- Memory allocation visuals
 
-#### Security Monitor
-- Multiple small windows
-- Security camera aesthetics
-- Scan line interference
-- Motion detection highlights
-- Timer displays
-- Alert status indicators
+#### Active Memory Slot
+- Fixed-position encounter container
+- CRT screen effects within bounds
+- Resource monitoring overlay
+- Status indicators
+- Quick-switch controls
+- Error state visualization
 
-#### Network Interface
-- Connection diagrams
-- Data flow visualization
-- Packet transfer effects
-- Protocol status displays
-- Bandwidth meters
-- Node connection status
+#### Memory Diagnostics
+- System resource graphs
+- Allocation tracking
+- Cross-slot resource flow
+- Error detection
+- Performance metrics
 
 #### Debug Console
 - Matrix-style data streams
@@ -49,6 +48,36 @@ A cyberpunk terminal-based card game where hacking is represented through trick-
 - System log scrolling
 - Error message popups
 - Stack trace visuals
+
+### Memory Slot States
+
+#### Active Slot
+- Bright neon borders
+- Clear content visibility
+- Active resource meters
+- Status indicators
+- Real-time updates
+
+#### Inactive Slot
+- Dimmed borders
+- Ghosted content
+- Static resource meters
+- Standby indicators
+- Power-save mode
+
+#### Locked Slot
+- Red warning borders
+- "Upgrade Required" overlay
+- Resource requirement display
+- Unlock conditions
+- Purchase prompts
+
+#### Corrupted Slot
+- Glitch effects
+- Error messages
+- Repair options
+- Warning indicators
+- Recovery status
 
 ### Card Design
 
@@ -101,6 +130,36 @@ Each encounter type has distinct visual themes:
 
 ## Implementation Notes
 
+### Memory Slot Effects
+
+#### Activation Sequence
+- Power-up animation
+- Resource allocation visual
+- System check display
+- Ready state indicator
+- Boot sequence text
+
+#### Resource Flow
+- Memory usage meters
+- CPU load indicators
+- Network traffic visualization
+- Cross-slot transfers
+- Resource warnings
+
+#### Status Changes
+- State transition effects
+- Alert notifications
+- Error indicators
+- Success confirmations
+- Progress updates
+
+#### Deactivation
+- Power-down sequence
+- Resource cleanup visual
+- State preservation effect
+- Shutdown confirmation
+- Status clear
+
 ### Suit-Specific Effects
 
 #### Cryptocurrency (♦)
@@ -149,6 +208,28 @@ Each encounter type has distinct visual themes:
 
 ### Visual Effects
 
+#### Memory Slot Animations
+1. Allocation Effects
+   - Resource meter fill
+   - Border energize
+   - System text scroll
+   - Ready state pulse
+   - Status indicator activation
+
+2. Status Effects
+   - Active/inactive transitions
+   - Resource warning flashes
+   - Error state glitches
+   - Success confirmations
+   - Alert notifications
+
+3. Resource Effects
+   - Memory usage flow
+   - CPU load fluctuation
+   - Network traffic pulses
+   - Cross-slot transfers
+   - Resource depletion
+
 #### Card Animations
 1. Spawn Effects
    - Digital materialization
@@ -195,13 +276,19 @@ Each encounter type has distinct visual themes:
 
 ### UI Elements
 
-#### Core Interface
-- Command line input
-- System status bar
+#### System Layout
+- Memory slot grid
 - Resource meters
-- Alert indicators
-- Process list
-- Network status
+- Status displays
+- Quick-access controls
+- System messages
+
+#### Memory Interface
+- Slot activation controls
+- Resource monitoring
+- State management
+- Error handling
+- Recovery tools
 
 #### Card Interface
 - Hand display as process list
@@ -225,6 +312,21 @@ Each encounter type has distinct visual themes:
 - Connection status
 
 ## Audio Design
+
+### System Sounds
+1. Memory Operations
+   - Slot activation
+   - Resource allocation
+   - State transitions
+   - Error alerts
+   - Success confirmation
+
+2. Background
+   - System ambient
+   - Resource flow
+   - Status indicators
+   - Warning tones
+   - Error signals
 
 ### Terminal Sounds
 1. Interface
@@ -272,6 +374,21 @@ Each encounter type has distinct visual themes:
    - Special card themes
 
 ## Animation Guidelines
+
+### Memory Slot Animations
+1. State Changes
+   - Activation sequence
+   - Deactivation flow
+   - Error state transition
+   - Recovery process
+   - Status updates
+
+2. Resource Effects
+   - Allocation visualization
+   - Usage monitoring
+   - Transfer sequences
+   - Warning indicators
+   - Error states
 
 ### Terminal Animations
 1. State Changes
@@ -321,14 +438,21 @@ Each encounter type has distinct visual themes:
 ## Implementation Notes
 
 ### Shader Effects
-1. Base Effects
+1. Memory Slot Effects
+   - Border glow
+   - Status indicators
+   - Resource flow
+   - Error states
+   - Transition effects
+
+2. Base Effects
    - CRT simulation
    - Scan line generation
    - Phosphor glow
    - Screen curvature
    - Digital noise
 
-2. Card Effects
+3. Card Effects
    - Holographic overlay
    - Data stream particles
    - Protocol matching
