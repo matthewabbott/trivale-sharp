@@ -62,10 +62,13 @@ public class CardGameEncounter : BaseEncounter
     
     // Public interface methods
     public List<Card> GetPlayerHand() => GameState.GetHand(0);
+    public List<Card> GetHand(int playerId) => GameState.GetHand(playerId);
     public List<Card> GetTableCards() => GameState.GetTableCards();
     public int GetCurrentPlayer() => GameState.GetCurrentPlayer();
     public int GetPlayerScore() => GameState.GetScore(0);
+    public int GetScore(int playerId) => GameState.GetScore(playerId);
     public int GetRequiredTricks() => GameState.GetRequiredTricks(0);
+    public int GetPlayerCount() => Config.NumPlayers;
     public Dictionary<Card, List<Card>> PreviewPlay(Card card) => GameState.PreviewPlay(card);
     public bool Undo() => GameState.Undo();
     public bool PlayAITurns() => GameState.PlayAITurns();

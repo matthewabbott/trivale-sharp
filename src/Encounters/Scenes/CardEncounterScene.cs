@@ -17,13 +17,23 @@ namespace Trivale.Encounters.Scenes;
 public partial class CardEncounterScene : EncounterScene
 {
     private WindowManager _windowManager;
-    private CardTerminalWindow _handWindow;
+    private CardTerminalWindow _playerHandWindow;  // renamed from _handWindow
+    private Dictionary<int, CardTerminalWindow> _aiHandWindows = new();
     private CardTerminalWindow _tableWindow;
     private CardTerminalWindow _controlWindow;
     private Dictionary<Card, List<Card>> _currentPreviews;
     private bool _isShowingPreview = false;
     private Control _controlContainer;
     private Label _statusLabel;
+
+    // Layout constants
+    private const float PLAYER_HAND_X = 50;
+    private const float TABLE_X = 300;
+    private const float AI_HANDS_X = 600;
+    private const float CONTROL_X = 850;
+    private const float INITIAL_Y = 50;
+    private const float AI_WINDOW_SPACING = 20;
+    private static readonly Vector2 AI_WINDOW_SIZE = new Vector2(200, 150);
     
     public override void Initialize(IEncounter encounter)
     {
@@ -32,7 +42,6 @@ public partial class CardEncounterScene : EncounterScene
             throw new ArgumentException($"Expected CardGameEncounter, got {encounter.GetType().Name}");
         }
         
-        // Find the window manager
         var desktop = GetNode<SystemDesktop>("/root/SystemDesktop");
         _windowManager = desktop.GetNode<WindowManager>("WindowLayer");
         
@@ -48,8 +57,12 @@ public partial class CardEncounterScene : EncounterScene
     {
         base._ExitTree();
         
-        // Clean up windows
-        _handWindow?.QueueFree();
+        _playerHandWindow?.QueueFree();
+        foreach (var window in _aiHandWindows.Values)
+        {
+            window?.QueueFree();
+        }
+        _aiHandWindows.Clear();
         _tableWindow?.QueueFree();
         _controlWindow?.QueueFree();
     }
@@ -57,38 +70,57 @@ public partial class CardEncounterScene : EncounterScene
     private void CreateWindows()
     {
         GD.Print($"Creating windows for {Encounter.Id}");
+        var cardEncounter = (CardGameEncounter)Encounter;
         
-        // Create player hand window
-        _handWindow = new CardTerminalWindow
+        // Create player hand window (left side)
+        _playerHandWindow = new CardTerminalWindow
         {
             WindowTitle = $"Your Hand - {Encounter.Id}",
-            Position = new Vector2(50, 50),
+            Position = new Vector2(PLAYER_HAND_X, INITIAL_Y),
             BorderColor = new Color(0, 1, 0) // Green
         };
-        _handWindow.CardSelected += OnCardSelected;
-        _handWindow.CardHovered += OnCardHovered;
-        _handWindow.CardUnhovered += OnCardUnhovered;
-        _windowManager.AddWindow(_handWindow);
+        _playerHandWindow.CardSelected += OnCardSelected;
+        _playerHandWindow.CardHovered += OnCardHovered;
+        _playerHandWindow.CardUnhovered += OnCardUnhovered;
+        _windowManager.AddWindow(_playerHandWindow);
         
-        // Create table cards window
+        // Create table cards window (center)
         _tableWindow = new CardTerminalWindow
         {
             WindowTitle = $"Table - {Encounter.Id}",
-            Position = new Vector2(300, 50),
+            Position = new Vector2(TABLE_X, INITIAL_Y),
             BorderColor = new Color(0, 0.7f, 1) // Cyan
         };
         _windowManager.AddWindow(_tableWindow);
         
-        // Add control window
+        // Create AI hand windows (right side)
+        int numPlayers = cardEncounter.GetPlayerCount();
+        float currentY = INITIAL_Y;
+        
+        for (int i = 1; i < numPlayers; i++)  // Start from 1 to skip player 0
+        {
+            var aiWindow = new CardTerminalWindow
+            {
+                WindowTitle = $"AI Player {i}",
+                Position = new Vector2(AI_HANDS_X, currentY),
+                MinSize = AI_WINDOW_SIZE,
+                BorderColor = new Color(1, 0, 0) // Red for AI
+            };
+            _aiHandWindows[i] = aiWindow;
+            _windowManager.AddWindow(aiWindow);
+            
+            currentY += AI_WINDOW_SIZE.Y + AI_WINDOW_SPACING;
+        }
+        
+        // Create control window (far right)
         _controlWindow = new CardTerminalWindow
         {
             WindowTitle = "Game Controls",
-            Position = new Vector2(550, 50),
+            Position = new Vector2(CONTROL_X, INITIAL_Y),
             MinSize = new Vector2(200, 150),
             BorderColor = new Color(1, 1, 0) // Yellow
         };
         
-        // Create the control container and store reference
         _controlContainer = new VBoxContainer();
         
         var undoButton = new Button
@@ -107,7 +139,6 @@ public partial class CardEncounterScene : EncounterScene
         aiTurnButton.Pressed += OnAITurnPressed;
         _controlContainer.AddChild(aiTurnButton);
         
-        // Create and store reference to status label
         _statusLabel = new Label
         {
             Text = "Required Tricks: 0/0\nCurrent Turn: Player"
@@ -124,7 +155,16 @@ public partial class CardEncounterScene : EncounterScene
         
         // Update player hand window
         var playerHand = cardEncounter.GetPlayerHand();
-        _handWindow?.DisplayCards(playerHand, "Your Hand:");
+        _playerHandWindow?.DisplayCards(playerHand, "Your Hand:");
+        
+        // Update AI hand windows
+        foreach (var (playerId, window) in _aiHandWindows)
+        {
+            var aiHand = cardEncounter.GetHand(playerId);
+            var playerScore = cardEncounter.GetScore(playerId);
+            var requiredTricks = cardEncounter.GetRequiredTricks();
+            window?.DisplayCards(aiHand, $"AI {playerId} (Tricks: {playerScore}/{requiredTricks})");
+        }
         
         // Update table cards window without preview
         if (!_isShowingPreview)
