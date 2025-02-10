@@ -1,12 +1,11 @@
-// src/Game/GameState.cs: (this stays at the root Game level since it's our main facade)
+// src/Game/GameState.cs
+using Godot;
 using System;
 using System.Collections.Generic;
-using Godot;
 using Trivale.Cards;
 using Trivale.Game.Core;
 using Trivale.Game.Core.Interfaces;
 using Trivale.Game.Services;
-using Trivale.Game.Implementation;
 
 namespace Trivale.Game;
 
@@ -16,15 +15,12 @@ namespace Trivale.Game;
 /// </summary>
 public partial class GameState : Node
 {
-    private readonly ITrickTakingGame _game;
-    private readonly IPlayerManager _playerManager;
-    private readonly IGameStateManager _stateManager;
-    private readonly IAIController _aiController;
+    private readonly IGameLifecycleManager _lifecycleManager;
     
-    public bool IsGameOver => _game.IsGameOver;
+    public bool IsGameOver => _lifecycleManager.Game.IsGameOver;
     public int RequiredTricks { get; private set; }
-    public int Winner { get; private set; } = -1;  // -1 indicates no winner yet
-    public Suit TrumpSuit => (_game.Rules as GameRules)?.TrumpSuit ?? Suit.None;
+    public int Winner { get; private set; } = -1;
+    public Suit TrumpSuit => (_lifecycleManager.Game.Rules as GameRules)?.TrumpSuit ?? Suit.None;
     
     [Signal]
     public delegate void GameStateChangedEventHandler();
@@ -37,64 +33,37 @@ public partial class GameState : Node
     
     public GameState()
     {
-        // Initialize core components
-        _playerManager = new PlayerManager(4);  // Default to 4 players
-        _stateManager = new GameStateManager();
-        _aiController = new AIController();
+        _lifecycleManager = new GameLifecycleManager();
+        _lifecycleManager.Initialize();
         
-        var rules = new GameRules(
-            MustFollowSuit: true,
-            HasTrumpSuit: false,
-            TrumpSuit: Suit.None,
-            RequiredTricks: -1
+        // Register event handlers
+        _lifecycleManager.RegisterGameEventHandlers(
+            OnTrickCompleted,
+            OnGameOver,
+            () => EmitSignal(SignalName.GameStateChanged)
         );
-        
-        _game = new TrickTakingGame(_playerManager, rules);
-        
-        // Hook up events
-        // TODO: Implement proper event handling
+    }
+    
+    public override void _ExitTree()
+    {
+        _lifecycleManager.Cleanup();
+        base._ExitTree();
     }
     
     public void InitializeGame(EncounterType encounterType = EncounterType.SecuredSystem,
         int numPlayers = 4, int handSize = 5, int requiredTricks = -1)
     {
         RequiredTricks = requiredTricks;
-        Winner = -1;  // Reset winner
+        Winner = -1;
         
-        // Create and deal a deck
-        var deck = CreateDeck();
-        ShuffleDeck(deck);
-        
-        var hands = new Dictionary<int, List<Card>>();
-        int cardsDealt = 0;
-        
-        for (int i = 0; i < numPlayers && cardsDealt < deck.Count; i++)
-        {
-            var hand = new List<Card>();
-            for (int j = 0; j < handSize && cardsDealt < deck.Count; j++)
-            {
-                hand.Add(deck[cardsDealt++]);
-            }
-            hands[i] = hand;
-        }
-        
-        _playerManager.DealCards(hands);
-        
-        // Set up AI behaviors
-        for (int i = 1; i < numPlayers; i++)
-        {
-            _aiController.SetBehavior(i, AIBehavior.OrderedPlay);
-        }
-        
-        _stateManager.SaveState();
-        EmitSignal(SignalName.GameStateChanged);
+        _lifecycleManager.InitializeGame(encounterType, numPlayers, handSize, requiredTricks);
     }
     
     public bool PlayCard(int playerId, Card card)
     {
-        if (_game.PlayCard(playerId, card))
+        if (_lifecycleManager.Game.PlayCard(playerId, card))
         {
-            _stateManager.SaveState();
+            _lifecycleManager.StateManager.SaveState();
             EmitSignal(SignalName.GameStateChanged);
             return true;
         }
@@ -103,7 +72,7 @@ public partial class GameState : Node
     
     public bool Undo()
     {
-        if (_stateManager.Undo())
+        if (_lifecycleManager.StateManager.Undo())
         {
             EmitSignal(SignalName.GameStateChanged);
             return true;
@@ -113,26 +82,26 @@ public partial class GameState : Node
     
     public Dictionary<Card, List<Card>> PreviewPlay(Card card)
     {
-        if (_game.CurrentPlayer != 0) return null;
-        if (!_game.IsValidPlay(0, card)) return null;
+        if (_lifecycleManager.Game.CurrentPlayer != 0) return null;
+        if (!_lifecycleManager.Game.IsValidPlay(0, card)) return null;
         
-        return _aiController.PreviewResponses(0, card);
+        return _lifecycleManager.AIController.PreviewResponses(0, card);
     }
     
     public bool PlayAITurns()
     {
-        var currentPlayer = _game.CurrentPlayer;
+        var currentPlayer = _lifecycleManager.Game.CurrentPlayer;
         if (currentPlayer == 0 || IsGameOver) return false;
         
         bool played = false;
         while (currentPlayer != 0 && !IsGameOver)
         {
-            var hand = _playerManager.GetPlayerHand(currentPlayer);
+            var hand = _lifecycleManager.PlayerManager.GetPlayerHand(currentPlayer);
             var validPlays = new List<Card>();
             
             foreach (var card in hand)
             {
-                if (_game.IsValidPlay(currentPlayer, card))
+                if (_lifecycleManager.Game.IsValidPlay(currentPlayer, card))
                 {
                     validPlays.Add(card);
                 }
@@ -140,7 +109,7 @@ public partial class GameState : Node
             
             if (validPlays.Count > 0)
             {
-                var cardToPlay = _aiController.GetNextPlay(currentPlayer, validPlays);
+                var cardToPlay = _lifecycleManager.AIController.GetNextPlay(currentPlayer, validPlays);
                 if (cardToPlay != null)
                 {
                     PlayCard(currentPlayer, cardToPlay);
@@ -148,22 +117,11 @@ public partial class GameState : Node
                 }
             }
             
-            currentPlayer = _game.CurrentPlayer;
+            currentPlayer = _lifecycleManager.Game.CurrentPlayer;
         }
         
         return played;
     }
-    
-    // Public accessors
-    public List<Card> GetHand(int playerId) => _playerManager.GetPlayerHand(playerId);
-    public List<Card> GetTableCards() => new(); // TODO: Implement table cards tracking
-    public int GetCurrentPlayer() => _game.CurrentPlayer;
-    public Suit GetLeadSuit() => _game.LeadSuit;
-    public bool IsHumanPlayer(int playerId) => _playerManager.IsHuman(playerId);
-    public int GetScore(int playerId) => _playerManager.GetPlayerScore(playerId);
-    public int GetRequiredTricks(int playerId) => RequiredTricks;
-    public int GetWinner() => Winner;
-    public Suit GetTrumpSuit() => TrumpSuit;
     
     private void OnTrickCompleted(int winner)
     {
@@ -176,33 +134,14 @@ public partial class GameState : Node
         EmitSignal(SignalName.GameOver, winner);
     }
     
-    // Private helpers
-    private List<Card> CreateDeck()
-    {
-        var deck = new List<Card>();
-        foreach (Suit suit in Enum.GetValues(typeof(Suit)))
-        {
-            if (suit == Suit.None || suit == Suit.NoTrump) continue;
-            
-            foreach (Value value in Enum.GetValues(typeof(Value)))
-            {
-                deck.Add(new Card { Suit = suit, Value = value });
-            }
-        }
-        return deck;
-    }
-    
-    private void ShuffleDeck(List<Card> deck)
-    {
-        var rng = new Random();
-        int n = deck.Count;
-        while (n > 1)
-        {
-            n--;
-            int k = rng.Next(n + 1);
-            var temp = deck[k];
-            deck[k] = deck[n];
-            deck[n] = temp;
-        }
-    }
+    // Public accessors
+    public List<Card> GetHand(int playerId) => _lifecycleManager.PlayerManager.GetPlayerHand(playerId);
+    public List<Card> GetTableCards() => new(); // TODO: Implement table cards tracking
+    public int GetCurrentPlayer() => _lifecycleManager.Game.CurrentPlayer;
+    public Suit GetLeadSuit() => _lifecycleManager.Game.LeadSuit;
+    public bool IsHumanPlayer(int playerId) => _lifecycleManager.PlayerManager.IsHuman(playerId);
+    public int GetScore(int playerId) => _lifecycleManager.PlayerManager.GetPlayerScore(playerId);
+    public int GetRequiredTricks(int playerId) => RequiredTricks;
+    public int GetWinner() => Winner;
+    public Suit GetTrumpSuit() => TrumpSuit;
 }
