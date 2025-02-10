@@ -11,6 +11,9 @@ public partial class CardTerminalWindow : TerminalWindow
 {
     private VBoxContainer _cardContainer;
     private Label _statusLabel;
+    private string _currentHeader = "";
+    private List<Card> _currentCards = new();
+    private bool _isPreviewMode = false;
     
     public override void _Ready()
     {
@@ -39,7 +42,9 @@ public partial class CardTerminalWindow : TerminalWindow
     [Signal]
     public delegate void CardUnhoveredEventHandler(Card card);
 
-    // Update the CreateCardButton method in CardTerminalWindow
+    [Signal]
+    public delegate void CardSelectedEventHandler(Card card);
+
     private Button CreateCardButton(Card card)
     {
         var button = new Button
@@ -74,18 +79,48 @@ public partial class CardTerminalWindow : TerminalWindow
         return button;
     }
     
-    public void DisplayCards(List<Card> cards, string header = "Available Cards:")
+    public void DisplayCards(List<Card> cards, string header = "Available Cards:", bool isPreview = false)
     {
-        _statusLabel.Text = header;
+        // If nothing has changed, don't update
+        if (_currentHeader == header && CardsMatch(cards) && _isPreviewMode == isPreview)
+        {
+            return;
+        }
+
+        _currentHeader = header;
+        _currentCards = new List<Card>(cards);
+        _isPreviewMode = isPreview;
         
+        CallDeferred(nameof(UpdateCardDisplay));
+    }
+
+    private bool CardsMatch(List<Card> newCards)
+    {
+        if (_currentCards.Count != newCards.Count) return false;
+        
+        for (int i = 0; i < _currentCards.Count; i++)
+        {
+            if (_currentCards[i].Id != newCards[i].Id) return false;
+        }
+        
+        return true;
+    }
+    
+    private void UpdateCardDisplay()
+    {
+        if (_cardContainer == null) return;
+
         // Clear existing cards except status label
         for (int i = _cardContainer.GetChildCount() - 1; i > 0; i--)
         {
             _cardContainer.GetChild(i).QueueFree();
         }
+
+        // Update header
+        _statusLabel.Text = _currentHeader;
         
         // Add each card as a styled button
-        foreach (var card in cards)
+        foreach (var card in _currentCards)
         {
             _cardContainer.AddChild(CreateCardButton(card));
         }
@@ -93,11 +128,11 @@ public partial class CardTerminalWindow : TerminalWindow
     
     private string FormatCardText(Card card)
     {
-        return $"[{card.GetSuitSymbol()}] {card.GetValueName()} of {card.GetSuitName()}";
+        string text = $"[{card.GetSuitSymbol()}] {card.GetValueName()} of {card.GetSuitName()}";
+        if (_isPreviewMode)
+        {
+            text = "(Preview) " + text;
+        }
+        return text;
     }
-    
-    [Signal]
-    public delegate void CardSelectedEventHandler(Card card);
-
-    
 }
