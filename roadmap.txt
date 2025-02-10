@@ -1,143 +1,168 @@
 # NetrunnerOS: System Design Document
 
 ## Core Concept
-A hacker's interface that serves as both the game's menu system and a core gameplay mechanic. The interface itself is part of the puzzle - learning to manipulate windows, save states, and combine tools is key to solving increasingly complex challenges.
+A hacker's interface that serves as both the game's menu system and a core gameplay mechanic. The interface itself is part of the puzzle - learning to manipulate MEM slots, resource allocation, and cross-process interactions is key to solving increasingly complex challenges.
 
 ## System Components
 
-### 1. Core OS Interface
-- Simple ASCII-art boot sequence
-- Basic command line interface
-- Filesystem navigation
+### 1. MEM Slot System (Current Focus)
+Core abstraction layer for all system interactions:
+- Fixed grid of resource-constrained containers
+- Resource tracking and validation
+- State preservation and restoration
+- Cross-slot communication
+- Process isolation and security
+
+### 2. Resource Management
+Built on top of MEM slot foundations:
+- Memory allocation and deallocation
+- CPU load balancing
+- Network bandwidth management
+- Security token validation
+- Resource threshold warnings
+
+### 3. Core OS Interface
+- System resource display
+- MEM slot grid visualization
 - Process/program list
-- Status monitors
-- Placeholder "dev art" aesthetic (designed to be replaceable)
+- Status monitoring
+- Terminal effects
 
-### 2. Scene Management System
-Core functionality required for both gameplay and puzzle development:
+### 4. Process Types
+Different types of programs that can run in MEM slots:
+- Card Game Processes (trick-taking games)
+- Resource Markets
+- Memory Banks
+- Process Viewers
+- System Monitors
 
-#### Encounter Management
-- Pure game logic in IEncounter implementations
-- Scene managers for UI/presentation
-- State persistence between encounters
-- Resource management and validation
-
-#### Scene Types
-- Card Game Scene (hand viewer, play area)
-- Resource Market Scene
-- Process Viewer Scene
-- Memory Bank Scene
-- System Monitor Scene
-
-#### Window System
-- Drag and drop support
-- Window stacking and focus
-- CRT and terminal effects
-- State inspection tools
-
-### 3. Puzzle Development Framework
-Tools that double as in-game "hacking programs":
-
-#### Challenge Builder
-- Encounter configuration interface
-- Win condition editor
-- Initial state configuration
-- AI behavior configuration
-
-#### Multi-Encounter Tools
-- State capture system
-- Resource sharing management
-- Encounter chain editor
+### 5. Cross-Process Framework
+Tools for complex puzzle development:
+- State sharing between slots
+- Resource flow management
+- Process chaining
+- Security breach patterns
 - Validation tools
 
 ## Development Phases
 
-### Phase 1: Core Systems (Current Focus)
-1. Scene Manager System
-   - Clean separation of game logic and UI
-   - Scene manager base classes
-   - Resource validation system
-   - Multi-encounter support
+### Phase 1: MEM Slot Foundation
+1. Core MEM System
+   - Basic slot grid
+   - Resource tracking
+   - State management
+   - Process isolation
 
-2. Card Game Implementation
-   - Pure game logic layer
-   - UI/presentation layer
-   - Resource management
-   - Basic encounter types
+2. Process Migration 
+   - Move existing card game to MEM format
+   - Resource requirement implementation
+   - State preservation
+   - Basic cross-slot API
 
-3. Window System Polish
-   - Window dragging and stacking
-   - Focus management
+3. Resource Management
+   - Resource allocation
+   - Load balancing
+   - Threshold warnings
+   - Security validation
+
+### Phase 2: Extended Features
+1. Process Types
+   - Convert existing encounters
+   - Resource market implementation
+   - Memory bank tools
+   - System monitors
+
+2. Cross-Process Tools
+   - State sharing system
+   - Resource flow
+   - Process chains
+   - Security breaches
+
+3. UI Polish
    - Terminal effects
-   - UI consistency
-
-[Rest of phases remain largely the same, just updated terminology from Scenario->Encounter]
+   - Resource visualization
+   - Alert system
+   - Focus management
 
 ## Technical Considerations
 
-### Scene Management
+### MEM Slot Management
 ```csharp
-public partial class EncounterScene : Node
+public interface IMemorySlot
 {
-    protected IEncounter Encounter { get; }
-    void Initialize(IEncounter encounter);
-    protected virtual void OnEncounterStateChanged(Dictionary<string, object> state);
+    string Id { get; }
+    SlotStatus Status { get; }
+    Vector2 Position { get; }
+    float MemoryUsage { get; }
+    float CpuUsage { get; }
+    
+    bool CanLoadProcess(IProcess process);
+    void LoadProcess(IProcess process);
+    void UnloadProcess();
+    Dictionary<string, object> GetState();
 }
 
-public class CardEncounterScene : EncounterScene
+public interface IMemoryManager
 {
-    private CardTerminalWindow _handWindow;
-    private CardTerminalWindow _tableWindow;
-    protected override void OnEncounterStateChanged(Dictionary<string, object> state);
+    int MaxSlots { get; }
+    IReadOnlyList<IMemorySlot> Slots { get; }
+    float TotalMemory { get; }
+    
+    bool TryAllocateSlot(IProcess process, out IMemorySlot slot);
+    void DeallocateSlot(string slotId);
+    IMemorySlot GetSlot(string slotId);
 }
 ```
 
-### Game Logic
+### Process Management
 ```csharp
-public interface IEncounter
+public interface IProcess
 {
     string Id { get; }
     string Type { get; }
     Dictionary<string, float> ResourceRequirements { get; }
-    void Initialize(Dictionary<string, object> initialState);
+    IMemorySlot Slot { get; }
+    
+    void Initialize(Dictionary<string, object> state);
     Dictionary<string, object> GetState();
+    void OnStateChanged(Dictionary<string, object> state);
 }
 ```
 
-### State Persistence
+### Cross-Process Communication
 ```csharp
-public class EncounterManager : Node
+public interface IProcessBridge
 {
-    private Dictionary<string, (IEncounter encounter, EncounterScene scene)> _activeEncounters;
-    public bool StartEncounter(IEncounter encounter);
-    public IEncounter GetEncounter(string encounterId);
+    bool CanConnect(IMemorySlot source, IMemorySlot target);
+    void ConnectSlots(IMemorySlot source, IMemorySlot target);
+    void ShareState(string sourceId, string targetId, string[] keys);
+    void TransferResource(string sourceId, string targetId, string resource, float amount);
 }
 ```
 
 ## Implementation Priority
 
 ### Immediate Tasks
-1. Complete scene manager system
-2. Resource validation and management
-3. Multi-encounter support
-4. CRT and terminal effects
+1. MEM slot grid implementation
+2. Resource tracking system
+3. Process loading/unloading
+4. State management
 
 ### Near-Term Goals
-1. Extended encounter types
-2. Resource market implementation
-3. Puzzle creation tools
-4. State persistence system
+1. Card game process migration
+2. Resource visualization
+3. Cross-slot basics
+4. Terminal effects
 
 ### Future Considerations
-1. AI encounter generation
-2. Advanced window interactions
-3. Complex state manipulation
-4. Achievement/progression system
+1. Advanced process types
+2. Multi-slot puzzles
+3. Security systems
+4. Achievement tracking
 
 ## Notes
-- Focus on clean separation of concerns
-- Design systems to be AI-friendly
-- Keep ASCII art simple but thematic
-- Plan for future asset replacement
-- Document all window interaction mechanics
-- Consider achievement system tied to interface discovery
+- Design MEM slots as the fundamental system abstraction
+- Keep process isolation and security in mind
+- Plan for complex cross-slot puzzles
+- Document resource management rules
+- Consider puzzle difficulty progression
