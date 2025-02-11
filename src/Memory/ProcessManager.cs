@@ -14,7 +14,7 @@ public partial class ProcessManager : Node
     private struct ProcessSceneInfo
     {
         public IProcess Process;
-        public EncounterScene Scene;  // TODO: Rename this to ProcessScene later
+        public ProcessScene Scene;
         public IMemorySlot Slot;
     }
     
@@ -45,9 +45,9 @@ public partial class ProcessManager : Node
         GD.Print("Memory slot allocated");
         
         // Create the appropriate scene manager based on process type
-        EncounterScene scene = process.Type switch
+        ProcessScene scene = process.Type switch
         {
-            "CardGame" => new CardEncounterScene(),
+            "CardGame" => new CardProcessScene(),
             _ => throw new ArgumentException($"Unknown process type: {process.Type}")
         };
         
@@ -64,7 +64,7 @@ public partial class ProcessManager : Node
         };
         
         // Hook up scene events
-        scene.EncounterClosed += OnProcessClosed;  // TODO: Rename this event later
+        scene.ProcessClosed += OnProcessClosed;
         
         GD.Print($"Process {process.Id} started successfully");
         return true;
@@ -91,7 +91,7 @@ public partial class ProcessManager : Node
         return _activeProcesses.TryGetValue(processId, out var info) ? info.Slot : null;
     }
     
-    public EncounterScene GetProcessScene(string processId)  // TODO: Rename return type later
+    public ProcessScene GetProcessScene(string processId)
     {
         return _activeProcesses.TryGetValue(processId, out var info) ? info.Scene : null;
     }

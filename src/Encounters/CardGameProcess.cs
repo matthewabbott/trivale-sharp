@@ -1,21 +1,17 @@
-// src/Encounters/CardGameEncounter.cs
+// src/Encounters/CardGameProcess.cs
 using System;
 using System.Collections.Generic;
 using Trivale.Cards;
 using Trivale.Game;
 using Trivale.Game.Core;
-using Trivale.Memory;
 
 namespace Trivale.Encounters;
 
-public class CardGameEncounter : IProcess
+public class CardGameProcess : BaseProcess
 {
-    public string Id { get; }
-    public string Type => "CardGame";
-    public bool IsComplete { get; protected set; }
-    public IMemorySlot Slot { get; private set; }
+    public override string Type => "CardGame";
 
-    public Dictionary<string, float> ResourceRequirements => new()
+    public override Dictionary<string, float> ResourceRequirements => new()
     {
         ["MEM"] = 1.0f,
         ["CPU"] = 0.5f
@@ -24,18 +20,15 @@ public class CardGameEncounter : IProcess
     protected GameState GameState { get; private set; }
     protected GameConfiguration Config { get; private set; }
     
-    public event Action<Dictionary<string, object>> StateChanged;
-    public event Action<string> ProcessEvent;  // renamed from EncounterEvent
     public event Action<Card> CardPlayed;
     public event Action<int> TrickWon;
     
-    public CardGameEncounter(string id, GameConfiguration config = null)
+    public CardGameProcess(string id, GameConfiguration config = null) : base(id)
     {
-        Id = id;
         Config = config ?? GameConfiguration.Default;
     }
     
-    public void Initialize(Dictionary<string, object> initialState)
+    public override void Initialize(Dictionary<string, object> initialState)
     {
         GameState = new GameState();
         
@@ -46,28 +39,16 @@ public class CardGameEncounter : IProcess
         
         // Initialize the game
         GameState.InitializeGame(
-            encounterType: Game.Core.EncounterType.SecuredSystem,
+            encounterType: EncounterType.SecuredSystem,
             numPlayers: Config.NumPlayers,
             handSize: Config.HandSize,
             requiredTricks: Config.RequiredTricks
         );
 
-        // Restore state if provided
-        if (initialState != null)
-        {
-            RestoreState(initialState);
-        }
-        
-        SaveCurrentState();
+        base.Initialize(initialState);
     }
 
-    public void Update(float delta)
-    {
-        // Add any per-frame update logic here if needed
-        // For example, AI thinking time, animations, etc.
-    }
-
-    public void Cleanup()
+    public override void Cleanup()
     {
         if (GameState != null)
         {
@@ -76,33 +57,21 @@ public class CardGameEncounter : IProcess
             GameState.GameOver -= OnGameOver;
             GameState = null;
         }
+        base.Cleanup();
     }
     
-    public Dictionary<string, object> GetState()
+    protected override void OnInitialize()
     {
-        var state = new Dictionary<string, object>();
-        
-        if (GameState != null)
+        // Restore state if provided
+        if (State.Count > 0)
         {
-            state["hand"] = GameState.GetHand(0);
-            state["tricks"] = GameState.GetScore(0);
-            state["isComplete"] = GameState.IsGameOver;
-            state["table"] = GameState.GetTableCards();
-            state["currentPlayer"] = GameState.GetCurrentPlayer();
-            
-            // Save scores for all players
-            var scores = new Dictionary<int, int>();
-            for (int i = 0; i < Config.NumPlayers; i++)
-            {
-                scores[i] = GameState.GetScore(i);
-            }
-            state["scores"] = scores;
+            RestoreState(State);
         }
         
-        return state;
+        SaveCurrentState();
     }
 
-    protected void RestoreState(Dictionary<string, object> state)
+    private void RestoreState(Dictionary<string, object> state)
     {
         // TODO: Implement state restoration
         // This will need careful consideration of how to restore
@@ -123,10 +92,28 @@ public class CardGameEncounter : IProcess
     public bool PlayAITurns() => GameState.PlayAITurns();
     public virtual bool PlayCard(Card card) => GameState.PlayCard(0, card);
     
-    protected void SaveCurrentState()
+    private void SaveCurrentState()
     {
         if (GameState == null) return;
-        StateChanged?.Invoke(GetState());
+        
+        var state = new Dictionary<string, object>
+        {
+            ["hand"] = GameState.GetHand(0),
+            ["tricks"] = GameState.GetScore(0),
+            ["isComplete"] = GameState.IsGameOver,
+            ["table"] = GameState.GetTableCards(),
+            ["currentPlayer"] = GameState.GetCurrentPlayer()
+        };
+        
+        // Save scores for all players
+        var scores = new Dictionary<int, int>();
+        for (int i = 0; i < Config.NumPlayers; i++)
+        {
+            scores[i] = GameState.GetScore(i);
+        }
+        state["scores"] = scores;
+        
+        EmitStateChanged();
     }
     
     protected virtual void HandleGameStateChanged()
@@ -137,12 +124,12 @@ public class CardGameEncounter : IProcess
     private void OnTrickCompleted(int winner)
     {
         TrickWon?.Invoke(winner);
-        ProcessEvent?.Invoke($"trick_won_{winner}");
+        EmitProcessEvent($"trick_won_{winner}");
     }
     
     private void OnGameOver(int winner)
     {
         IsComplete = true;
-        ProcessEvent?.Invoke($"game_over_{winner}");
+        EmitProcessEvent($"game_over_{winner}");
     }
 }

@@ -1,4 +1,4 @@
-// src/Encounters/Scenes/CardEncounterScene.cs
+// src/Encounters/Scenes/CardProcessScene.cs
 
 using Godot;
 using System;
@@ -12,10 +12,10 @@ using Trivale.Memory;
 namespace Trivale.Encounters.Scenes;
 
 /// <summary>
-/// Scene manager for card-based encounters. Handles the visualization and interaction
+/// Scene manager for card-based processes. Handles the visualization and interaction
 /// of card games through terminal windows.
 /// </summary>
-public partial class CardEncounterScene : EncounterScene
+public partial class CardProcessScene : ProcessScene
 {
     private WindowManager _windowManager;
     private CardTerminalWindow _playerHandWindow;
@@ -36,23 +36,23 @@ public partial class CardEncounterScene : EncounterScene
     private const float AI_WINDOW_SPACING = 20;
     private static readonly Vector2 AI_WINDOW_SIZE = new Vector2(200, 150);
     
-    public override void Initialize(IEncounter encounter)
+    public override void Initialize(IProcess process)
     {
-        if (!(encounter is CardGameEncounter))
+        if (!(process is CardGameProcess))
         {
-            throw new ArgumentException($"Expected CardGameEncounter, got {encounter.GetType().Name}");
+            throw new ArgumentException($"Expected CardGameProcess, got {process.GetType().Name}");
         }
         
         // Find the window manager
         var desktop = GetNode<SystemDesktop>("/root/SystemDesktop");
         _windowManager = desktop.GetNode<WindowManager>("WindowLayer");
         
-        base.Initialize(encounter);
+        base.Initialize(process);
         
         CreateWindows();
         UpdateDisplays();
         
-        GD.Print($"CardEncounterScene initialized for {encounter.Id}");
+        GD.Print($"CardProcessScene initialized for {process.Id}");
     }
     
     public override void _ExitTree()
@@ -71,13 +71,13 @@ public partial class CardEncounterScene : EncounterScene
     
     private void CreateWindows()
     {
-        GD.Print($"Creating windows for {Encounter.Id}");
-        var cardEncounter = (CardGameEncounter)Encounter;
+        GD.Print($"Creating windows for {Process.Id}");
+        var cardProcess = (CardGameProcess)Process;
         
         // Create player hand window (left side)
         _playerHandWindow = new CardTerminalWindow
         {
-            WindowTitle = $"Your Hand - {Encounter.Id}",
+            WindowTitle = $"Your Hand - {Process.Id}",
             Position = new Vector2(PLAYER_HAND_X, INITIAL_Y),
             BorderColor = new Color(0, 1, 0) // Green
         };
@@ -89,14 +89,14 @@ public partial class CardEncounterScene : EncounterScene
         // Create table cards window (center)
         _tableWindow = new CardTerminalWindow
         {
-            WindowTitle = $"Table - {Encounter.Id}",
+            WindowTitle = $"Table - {Process.Id}",
             Position = new Vector2(TABLE_X, INITIAL_Y),
             BorderColor = new Color(0, 0.7f, 1) // Cyan
         };
         _windowManager.AddWindow(_tableWindow);
         
         // Create AI hand windows (right side)
-        int numPlayers = cardEncounter.GetPlayerCount();
+        int numPlayers = cardProcess.GetPlayerCount();
         float currentY = INITIAL_Y;
         
         for (int i = 1; i < numPlayers; i++)  // Start from 1 to skip player 0
@@ -153,34 +153,34 @@ public partial class CardEncounterScene : EncounterScene
     
     private void UpdateDisplays()
     {
-        var cardEncounter = (CardGameEncounter)Encounter;
+        var cardProcess = (CardGameProcess)Process;
         
         // Update player hand window
-        var playerHand = cardEncounter.GetPlayerHand();
+        var playerHand = cardProcess.GetPlayerHand();
         _playerHandWindow?.DisplayCards(playerHand, "Your Hand:");
         
         // Update AI hand windows
         foreach (var (playerId, window) in _aiHandWindows)
         {
-            var aiHand = cardEncounter.GetHand(playerId);
-            var playerScore = cardEncounter.GetScore(playerId);
-            var requiredTricks = cardEncounter.GetRequiredTricks();
+            var aiHand = cardProcess.GetHand(playerId);
+            var playerScore = cardProcess.GetScore(playerId);
+            var requiredTricks = cardProcess.GetRequiredTricks();
             window?.DisplayCards(aiHand, $"AI {playerId} (Tricks: {playerScore}/{requiredTricks})");
         }
         
         // Update table cards window without preview
         if (!_isShowingPreview)
         {
-            var tableCards = cardEncounter.GetTableCards();
+            var tableCards = cardProcess.GetTableCards();
             _tableWindow?.DisplayCards(tableCards, "Cards on Table:");
         }
         
         // Update status label using stored reference
         if (_statusLabel != null && _statusLabel.IsInsideTree())
         {
-            var playerScore = cardEncounter.GetPlayerScore();
-            var requiredTricks = cardEncounter.GetRequiredTricks();
-            var currentPlayer = cardEncounter.GetCurrentPlayer() == 0 ? "Player" : $"AI {cardEncounter.GetCurrentPlayer()}";
+            var playerScore = cardProcess.GetPlayerScore();
+            var requiredTricks = cardProcess.GetRequiredTricks();
+            var currentPlayer = cardProcess.GetCurrentPlayer() == 0 ? "Player" : $"AI {cardProcess.GetCurrentPlayer()}";
             
             _statusLabel.Text = $"Required Tricks: {playerScore}/{requiredTricks}\n" +
                                $"Current Turn: {currentPlayer}";
@@ -189,8 +189,8 @@ public partial class CardEncounterScene : EncounterScene
     
     private void OnCardSelected(Card card)
     {
-        var cardEncounter = (CardGameEncounter)Encounter;
-        if (cardEncounter.PlayCard(card))
+        var cardProcess = (CardGameProcess)Process;
+        if (cardProcess.PlayCard(card))
         {
             GD.Print($"Played card: {card.GetFullName()}");
             _isShowingPreview = false;
@@ -204,10 +204,10 @@ public partial class CardEncounterScene : EncounterScene
     
     private void OnCardHovered(Card card)
     {
-        var cardEncounter = (CardGameEncounter)Encounter;
+        var cardProcess = (CardGameProcess)Process;
         
         // Get AI responses
-        _currentPreviews = cardEncounter.PreviewPlay(card);
+        _currentPreviews = cardProcess.PreviewPlay(card);
         if (_currentPreviews != null && _currentPreviews.ContainsKey(card))
         {
             HighlightAIResponses(_currentPreviews[card]);
@@ -223,10 +223,10 @@ public partial class CardEncounterScene : EncounterScene
     private void HighlightAIResponses(List<Card> responses)
     {
         var tableCards = new List<Card>();
-        var cardEncounter = (CardGameEncounter)Encounter;
+        var cardProcess = (CardGameProcess)Process;
         
         // Add the current table cards
-        tableCards.AddRange(cardEncounter.GetTableCards());
+        tableCards.AddRange(cardProcess.GetTableCards());
         
         // Add the predicted responses with a special display state
         foreach (var response in responses)
@@ -241,8 +241,8 @@ public partial class CardEncounterScene : EncounterScene
     
     private void OnUndoPressed()
     {
-        var cardEncounter = (CardGameEncounter)Encounter;
-        if (cardEncounter.Undo())
+        var cardProcess = (CardGameProcess)Process;
+        if (cardProcess.Undo())
         {
             _isShowingPreview = false;
             UpdateDisplays();
@@ -251,17 +251,17 @@ public partial class CardEncounterScene : EncounterScene
     
     private void OnAITurnPressed()
     {
-        var cardEncounter = (CardGameEncounter)Encounter;
-        if (cardEncounter.PlayAITurns())
+        var cardProcess = (CardGameProcess)Process;
+        if (cardProcess.PlayAITurns())
         {
             _isShowingPreview = false;
             UpdateDisplays();
         }
     }
     
-    protected override void OnEncounterStateChanged(Dictionary<string, object> state)
+    protected override void OnProcessStateChanged(Dictionary<string, object> state)
     {
-        base.OnEncounterStateChanged(state);
+        base.OnProcessStateChanged(state);
         _isShowingPreview = false;
         UpdateDisplays();
     }

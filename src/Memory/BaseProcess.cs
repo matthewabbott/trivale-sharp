@@ -1,22 +1,23 @@
-// src/Encounters/BaseEncounter.cs
+// src/Memory/BaseProcess.cs
 using System;
 using System.Collections.Generic;
 
-namespace Trivale.Encounters;
+namespace Trivale.Memory;
 
-public abstract class BaseEncounter : IEncounter
+public abstract class BaseProcess : IProcess
 {
     public string Id { get; }
     public abstract string Type { get; }
     public virtual Dictionary<string, float> ResourceRequirements => new();
     public bool IsComplete { get; protected set; }
+    public IMemorySlot Slot { get; set; }  // Added for IProcess implementation
     
     protected Dictionary<string, object> State { get; private set; }
     
     public event Action<Dictionary<string, object>> StateChanged;
-    public event Action<string> EncounterEvent;
+    public event Action<string> ProcessEvent;  // Renamed from EncounterEvent
     
-    protected BaseEncounter(string id)
+    protected BaseProcess(string id)
     {
         Id = id;
         State = new Dictionary<string, object>();
@@ -40,24 +41,17 @@ public abstract class BaseEncounter : IEncounter
     
     public Dictionary<string, object> GetState() => new(State);
     
-    public virtual void RestoreState(Dictionary<string, object> state)
-    {
-        State = new Dictionary<string, object>(state);
-        OnStateRestored();
-    }
-    
     protected virtual void OnInitialize() { }
     protected virtual void OnUpdate(float delta) { }
     protected virtual void OnCleanup() { }
-    protected virtual void OnStateRestored() { }
     
     protected void EmitStateChanged()
     {
         StateChanged?.Invoke(GetState());
     }
     
-    protected void EmitEncounterEvent(string eventType)
+    protected void EmitProcessEvent(string eventType)  // Renamed from EmitEncounterEvent
     {
-        EncounterEvent?.Invoke(eventType);
+        ProcessEvent?.Invoke(eventType);
     }
 }
