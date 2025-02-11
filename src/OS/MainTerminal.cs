@@ -169,13 +169,15 @@ public partial class MainTerminal : Control
         var title = new Label { Text = "RESOURCES" };
         container.AddChild(title);
         
-        _memoryLabel = new Label { Text = "Memory: 0%" };
+        _memoryLabel = new Label { Text = "MEMORY USAGE: 0%" };
         container.AddChild(_memoryLabel);
         
-        _cpuLabel = new Label { Text = "CPU: 0%" };
+        _cpuLabel = new Label { Text = "CPU USAGE: 0%" };
         container.AddChild(_cpuLabel);
         
-        _availableLabel = new Label { Text = "Available:\nMEM: 100%\nCPU: 100%" };
+        container.AddChild(new HSeparator());
+        
+        _availableLabel = new Label { Text = "AVAILABLE:\nMEMORY: 100%\nCPU: 100%" };
         container.AddChild(_availableLabel);
         
         return panel;
@@ -278,9 +280,9 @@ public partial class MainTerminal : Control
             totalCpu += slot.CpuUsage;
         }
         
-        _memoryLabel.Text = $"Memory: {totalMemory:P0}";
-        _cpuLabel.Text = $"CPU: {totalCpu:P0}";
-        _availableLabel.Text = $"Available:\nMEM: {_processManager.AvailableMemory:P0}\nCPU: {_processManager.AvailableCpu:P0}";
+        _memoryLabel.Text = $"MEMORY USAGE: {totalMemory:P0}";
+        _cpuLabel.Text = $"CPU USAGE: {totalCpu:P0}";
+        _availableLabel.Text = $"AVAILABLE:\nMEMORY: {_processManager.AvailableMemory:P0}\nCPU: {_processManager.AvailableCpu:P0}";
     }
     
     public override void _Process(double delta)
