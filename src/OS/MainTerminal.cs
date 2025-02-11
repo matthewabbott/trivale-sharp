@@ -259,10 +259,10 @@ public partial class MainTerminal : Control
         {
             Shader = shader
         };
-        material.SetShaderParameter("scan_line_count", 100.0f);
-        material.SetShaderParameter("scan_line_opacity", 0.2f);
+        material.SetShaderParameter("scan_line_count", 60.0f);
+        material.SetShaderParameter("scan_line_opacity", 0.1f);
         material.SetShaderParameter("base_color", new Color(0, 1, 0));  // Green
-        material.SetShaderParameter("brightness", 1.2f);
+        material.SetShaderParameter("brightness", 0.6f);
         material.SetShaderParameter("flicker_intensity", 0.03f);
         
         _scanlines.Material = material;
