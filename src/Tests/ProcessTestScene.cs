@@ -1,4 +1,4 @@
-// src/Tests/EncounterTestScene.cs
+// src/Tests/ProcessTestScene.cs
 using Godot;
 using System;
 using Trivale.Encounters;
@@ -7,7 +7,7 @@ using Trivale.Memory;
 
 namespace Trivale.Tests;
 
-public partial class EncounterTestScene : Node
+public partial class ProcessTestScene : Node
 {
     private ProcessManager _processManager;
     private Button _createGameButton;
@@ -16,7 +16,7 @@ public partial class EncounterTestScene : Node
     
     public override void _Ready()
     {
-        GD.Print("EncounterTestScene._Ready called");
+        GD.Print("ProcessTestScene._Ready called");
         
         // Create and add process manager
         _processManager = new ProcessManager();
@@ -97,7 +97,7 @@ public partial class EncounterTestScene : Node
         };
         
         var processName = $"game_{DateTime.Now.Ticks}";
-        var cardGame = new CardGameEncounter(processName, config);
+        var cardGame = new CardGameProcess(processName, config);
         
         GD.Print($"Created process: {processName}");
         

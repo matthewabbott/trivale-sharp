@@ -3,7 +3,7 @@
 [ext_resource type="Script" path="res://src/OS/SystemDesktop.cs" id="1_desktop"]
 [ext_resource type="Script" path="res://src/OS/WindowManager.cs" id="2_window_manager"]
 [ext_resource type="Script" path="res://src/Tests/WindowSystemTest.cs" id="3_window_test"]
-[ext_resource type="Script" path="res://src/Tests/EncounterTestScene.cs" id="4_encounter_test"]
+[ext_resource type="Script" path="res://src/Tests/ProcessTestScene.cs" id="4_process_test"]
 [ext_resource type="Shader" path="res://Assets/Shaders/crt_effect.gdshader" id="5_shader"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_crt"]
@@ -92,5 +92,5 @@ mouse_filter = 2
 [node name="WindowSystemTest" type="Node" parent="."]
 script = ExtResource("3_window_test")
 
-[node name="EncounterTestScene" type="Node" parent="."]
-script = ExtResource("4_encounter_test")
+[node name="ProcessTestScene" type="Node" parent="."]
+script = ExtResource("4_process_test")
