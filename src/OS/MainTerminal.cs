@@ -35,6 +35,9 @@ public partial class MainTerminal : Control
 		// Initialize ProcessManager with WindowManager
 		_processManager.Initialize(_windowManager);
 		
+		// Set WindowManager z-index
+		_windowManager.ZIndex = 10;  // Windows should be above base elements
+		
 		SetupLayout();
 		SetupEffects();
 	}
@@ -209,7 +212,8 @@ public partial class MainTerminal : Control
 		{
 			Text = $"MEM_{slot.Id}",
 			CustomMinimumSize = new Vector2(120, 80),
-			TooltipText = $"Memory: {slot.MemoryUsage:P0}\nCPU: {slot.CpuUsage:P0}"
+			TooltipText = $"Memory: {slot.MemoryUsage:P0}\nCPU: {slot.CpuUsage:P0}",
+			MouseFilter = MouseFilterEnum.Stop  // Add this line to ensure button captures input
 		};
 		
 		var style = new StyleBoxFlat
@@ -223,7 +227,11 @@ public partial class MainTerminal : Control
 		};
 		button.AddThemeStyleboxOverride("normal", style);
 		
-		button.Pressed += () => OnSlotSelected(slot);
+		// Add debug output to verify clicks
+		button.Pressed += () => {
+			GD.Print($"MEM slot {slot.Id} clicked");
+			OnSlotSelected(slot);
+		};
 		
 		return button;
 	}
@@ -243,6 +251,7 @@ public partial class MainTerminal : Control
 	
 	private void OnSlotSelected(IMemorySlot slot)
 	{
+		GD.Print($"Processing slot selection for {slot.Id}");
 		// If no process is found, create one
 		var existingProcess = _processManager.GetProcess(slot.Id);
 		if (existingProcess == null)
