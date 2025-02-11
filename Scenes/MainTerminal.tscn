@@ -1,0 +1,126 @@
+[gd_scene load_steps=5 format=3 uid="uid://b0rtnqpmxtoyk"]
+
+[ext_resource type="Script" path="res://src/OS/MainTerminal.cs" id="1_terminal"]
+[ext_resource type="Shader" path="res://Assets/Shaders/crt_effect.gdshader" id="2_shader"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bg"]
+bg_color = Color(0, 0.05, 0, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0, 0.3, 0, 1)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_crt"]
+shader = ExtResource("2_shader")
+shader_parameter/scan_line_count = 100.0
+shader_parameter/scan_line_opacity = 0.2
+shader_parameter/base_color = Color(0, 1, 0, 1)
+shader_parameter/brightness = 1.2
+shader_parameter/flicker_intensity = 0.03
+
+[node name="MainTerminal" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_terminal")
+
+[node name="Background" type="Panel" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_bg")
+
+[node name="MarginContainer" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 20
+
+[node name="MainLayout" type="VBoxContainer" parent="MarginContainer"]
+layout_mode = 2
+
+[node name="SystemInfoPanel" type="Panel" parent="MarginContainer/MainLayout"]
+custom_minimum_size = Vector2(0, 80)
+layout_mode = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/MainLayout/SystemInfoPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="TitleLabel" type="Label" parent="MarginContainer/MainLayout/SystemInfoPanel/VBoxContainer"]
+layout_mode = 2
+text = "NETRUNNER OS v1.0"
+
+[node name="StatusLabel" type="Label" parent="MarginContainer/MainLayout/SystemInfoPanel/VBoxContainer"]
+layout_mode = 2
+text = "SYSTEM STATUS: OPERATIONAL"
+
+[node name="ContentLayout" type="HBoxContainer" parent="MarginContainer/MainLayout"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="SlotContainer" type="VBoxContainer" parent="MarginContainer/MainLayout/ContentLayout"]
+custom_minimum_size = Vector2(250, 0)
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MarginContainer/MainLayout/ContentLayout/SlotContainer"]
+layout_mode = 2
+text = "SYSTEM MEMORY"
+
+[node name="MemSlotGrid" type="GridContainer" parent="MarginContainer/MainLayout/ContentLayout/SlotContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+columns = 2
+
+[node name="ViewportContainer" type="SubViewportContainer" parent="MarginContainer/MainLayout/ContentLayout"]
+layout_mode = 2
+size_flags_horizontal = 3
+stretch = true
+
+[node name="SubViewport" type="SubViewport" parent="MarginContainer/MainLayout/ContentLayout/ViewportContainer"]
+handle_input_locally = false
+size = Vector2i(654, 524)
+render_target_update_mode = 4
+
+[node name="ResourcePanel" type="Panel" parent="MarginContainer/MainLayout/ContentLayout"]
+custom_minimum_size = Vector2(200, 0)
+layout_mode = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/MainLayout/ContentLayout/ResourcePanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Label" type="Label" parent="MarginContainer/MainLayout/ContentLayout/ResourcePanel/VBoxContainer"]
+layout_mode = 2
+text = "RESOURCES"
+
+[node name="ScanLines" type="ColorRect" parent="."]
+material = SubResource("ShaderMaterial_crt")
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
