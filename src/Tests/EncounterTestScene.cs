@@ -3,12 +3,13 @@ using Godot;
 using System;
 using Trivale.Encounters;
 using Trivale.Game;
+using Trivale.Memory;
 
 namespace Trivale.Tests;
 
 public partial class EncounterTestScene : Node
 {
-    private EncounterManager _encounterManager;
+    private ProcessManager _processManager;
     private Button _createGameButton;
     private SpinBox _playerCountSpinner;
     private SpinBox _handSizeSpinner;
@@ -17,10 +18,10 @@ public partial class EncounterTestScene : Node
     {
         GD.Print("EncounterTestScene._Ready called");
         
-        // Create and add encounter manager
-        _encounterManager = new EncounterManager();
-        AddChild(_encounterManager);
-        GD.Print("Created EncounterManager");
+        // Create and add process manager
+        _processManager = new ProcessManager();
+        AddChild(_processManager);
+        GD.Print("Created ProcessManager");
         
         SetupControls();
         GD.Print("Setup complete");
@@ -95,18 +96,18 @@ public partial class EncounterTestScene : Node
             HandSize = (int)_handSizeSpinner.Value
         };
         
-        var encounterName = $"puzzle_{DateTime.Now.Ticks}";
-        var encounter = new CardGameEncounter(encounterName, config);
+        var processName = $"game_{DateTime.Now.Ticks}";
+        var cardGame = new CardGameEncounter(processName, config);
         
-        GD.Print($"Created encounter: {encounterName}");
+        GD.Print($"Created process: {processName}");
         
-        if (_encounterManager.StartEncounter(encounter))
+        if (_processManager.StartProcess(cardGame))
         {
-            GD.Print($"Successfully started encounter: {encounterName}");
+            GD.Print($"Successfully started process: {processName}");
         }
         else
         {
-            GD.PrintErr($"Failed to start encounter: {encounterName}");
+            GD.PrintErr($"Failed to start process: {processName}");
         }
     }
 }

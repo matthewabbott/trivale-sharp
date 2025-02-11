@@ -7,6 +7,7 @@ using Trivale.Terminal;
 using Trivale.Cards;
 using Trivale.OS;
 using Trivale.Game;
+using Trivale.Memory;
 
 namespace Trivale.Encounters.Scenes;
 
@@ -17,7 +18,7 @@ namespace Trivale.Encounters.Scenes;
 public partial class CardEncounterScene : EncounterScene
 {
     private WindowManager _windowManager;
-    private CardTerminalWindow _playerHandWindow;  // renamed from _handWindow
+    private CardTerminalWindow _playerHandWindow;
     private Dictionary<int, CardTerminalWindow> _aiHandWindows = new();
     private CardTerminalWindow _tableWindow;
     private CardTerminalWindow _controlWindow;
@@ -42,6 +43,7 @@ public partial class CardEncounterScene : EncounterScene
             throw new ArgumentException($"Expected CardGameEncounter, got {encounter.GetType().Name}");
         }
         
+        // Find the window manager
         var desktop = GetNode<SystemDesktop>("/root/SystemDesktop");
         _windowManager = desktop.GetNode<WindowManager>("WindowLayer");
         
