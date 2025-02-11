@@ -3,6 +3,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using Trivale.Memory;
+using Trivale.OS;
 
 namespace Trivale.Encounters.Scenes;
 
@@ -17,7 +18,7 @@ public partial class ProcessScene : Node
     [Signal]
     public delegate void ProcessClosedEventHandler(string processId);
     
-    public virtual void Initialize(IProcess process)
+    public virtual void Initialize(IProcess process, WindowManager windowManager)
     {
         GD.Print($"Initializing scene for process: {process.Id}");
         Process = process;

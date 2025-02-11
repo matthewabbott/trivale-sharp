@@ -3,12 +3,14 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using Trivale.Encounters.Scenes;
+using Trivale.OS;
 
 namespace Trivale.Memory;
 
 public partial class ProcessManager : Node
 {
     private IMemoryManager _memoryManager;
+    private WindowManager _windowManager;
     private Dictionary<string, ProcessSceneInfo> _activeProcesses = new();
     
     private struct ProcessSceneInfo
@@ -24,13 +26,20 @@ public partial class ProcessManager : Node
     [Signal]
     public delegate void ProcessEventEventHandler(string processId, string eventType);
     
-    public override void _Ready()
+    public void Initialize(WindowManager windowManager)
     {
-        _memoryManager = new MemoryManager();  // Could inject this later if needed
+        _windowManager = windowManager;
+        _memoryManager = new MemoryManager();
     }
     
     public bool StartProcess(IProcess process, Dictionary<string, object> initialState = null)
     {
+        if (_windowManager == null)
+        {
+            GD.PrintErr("WindowManager not initialized");
+            return false;
+        }
+        
         GD.Print($"Starting process: {process.Id}");
         
         if (!_memoryManager.TryAllocateSlot(process, out var slot))
@@ -51,9 +60,8 @@ public partial class ProcessManager : Node
             _ => throw new ArgumentException($"Unknown process type: {process.Type}")
         };
         
-        // Add scene to tree and initialize it
-        AddChild(scene);
-        scene.Initialize(process);
+        // Initialize the scene with both process and window manager
+        scene.Initialize(process, _windowManager);
         
         // Store process info
         _activeProcesses[process.Id] = new ProcessSceneInfo
