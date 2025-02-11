@@ -111,7 +111,7 @@ public partial class MainTerminal : Control
         _viewport = new SubViewport
         {
             HandleInputLocally = true,
-            Size = new Vector2(800, 600),
+            Size = new Vector2I(800, 600),
             RenderTargetUpdateMode = SubViewport.UpdateMode.Always
         };
         _mainViewport.AddChild(_viewport);
@@ -152,6 +152,10 @@ public partial class MainTerminal : Control
         return panel;
     }
     
+    private Label _memoryLabel;
+    private Label _cpuLabel;
+    private Label _availableLabel;
+
     private Control CreateResourcePanel()
     {
         var panel = new Panel
@@ -165,7 +169,14 @@ public partial class MainTerminal : Control
         var title = new Label { Text = "RESOURCES" };
         container.AddChild(title);
         
-        // TODO: Add resource displays (Memory, CPU, etc)
+        _memoryLabel = new Label { Text = "Memory: 0%" };
+        container.AddChild(_memoryLabel);
+        
+        _cpuLabel = new Label { Text = "CPU: 0%" };
+        container.AddChild(_cpuLabel);
+        
+        _availableLabel = new Label { Text = "Available:\nMEM: 100%\nCPU: 100%" };
+        container.AddChild(_availableLabel);
         
         return panel;
     }
@@ -213,18 +224,63 @@ public partial class MainTerminal : Control
     
     private void OnSlotSelected(IMemorySlot slot)
     {
-        // TODO: Handle slot activation and viewport content switching
-        GD.Print($"Selected slot: {slot.Id}");
+        // Clear existing viewport content
+        foreach (var child in _viewport.GetChildren())
+        {
+            child.QueueFree();
+        }
+
+        // Get the process and its scene
+        var process = _processManager.GetProcess(slot.Id);
+        if (process == null)
+        {
+            GD.PrintErr($"No process found for slot {slot.Id}");
+            return;
+        }
+
+        var scene = _processManager.GetProcessScene(slot.Id);
+        if (scene == null)
+        {
+            GD.PrintErr($"No scene found for process {process.Id}");
+            return;
+        }
+
+        // Add scene to viewport
+        _viewport.AddChild(scene);
+        GD.Print($"Loaded process {process.Id} into viewport");
     }
     
     private void SetupEffects()
     {
-        // TODO: Add CRT shader effect to scanlines panel
+        var shader = GD.Load<Shader>("res://Assets/Shaders/crt_effect.gdshader");
+        var material = new ShaderMaterial
+        {
+            Shader = shader
+        };
+        material.SetShaderParameter("scan_line_count", 100.0f);
+        material.SetShaderParameter("scan_line_opacity", 0.2f);
+        material.SetShaderParameter("base_color", new Color(0, 1, 0));  // Green
+        material.SetShaderParameter("brightness", 1.2f);
+        material.SetShaderParameter("flicker_intensity", 0.03f);
+        
+        _scanlines.Material = material;
     }
     
     private void UpdateResourceDisplay()
     {
-        // TODO: Update resource panel with current system stats
+        var slots = _processManager.GetAllSlots();
+        float totalMemory = 0;
+        float totalCpu = 0;
+        
+        foreach (var slot in slots)
+        {
+            totalMemory += slot.MemoryUsage;
+            totalCpu += slot.CpuUsage;
+        }
+        
+        _memoryLabel.Text = $"Memory: {totalMemory:P0}";
+        _cpuLabel.Text = $"CPU: {totalCpu:P0}";
+        _availableLabel.Text = $"Available:\nMEM: {_processManager.AvailableMemory:P0}\nCPU: {_processManager.AvailableCpu:P0}";
     }
     
     public override void _Process(double delta)

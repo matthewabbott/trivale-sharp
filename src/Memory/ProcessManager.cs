@@ -98,6 +98,9 @@ public partial class ProcessManager : Node
     
     public IReadOnlyList<IMemorySlot> GetAllSlots() => _memoryManager.Slots;
     
+    public float AvailableMemory => _memoryManager.AvailableMemory;
+    public float AvailableCpu => _memoryManager.AvailableCpu;
+    
     public override void _Process(double delta)
     {
         foreach (var (processId, info) in _activeProcesses)
