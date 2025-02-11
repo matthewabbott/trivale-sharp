@@ -1,11 +1,12 @@
 // Assets/Shaders/crt_effect.gdshader
 shader_type canvas_item;
 
-uniform float scan_line_count : hint_range(0, 1080) = 50.0;
-uniform float scan_line_opacity : hint_range(0, 1) = 0.4;
+// These defaults match TerminalConfig.CRTEffect
+uniform float scan_line_count : hint_range(0, 1080) = 60.0;
+uniform float scan_line_opacity : hint_range(0, 1) = 0.1;
 uniform vec4 base_color : source_color = vec4(0.0, 1.0, 0.0, 1.0);  // Green
-uniform float brightness : hint_range(0, 2) = 1.2;
-uniform float flicker_intensity : hint_range(0, 1) = 0.05;
+uniform float brightness : hint_range(0, 2) = 0.6;
+uniform float flicker_intensity : hint_range(0, 1) = 0.03;
 
 float random(vec2 uv) {
     return fract(sin(dot(uv, vec2(12.9898,78.233))) * 43758.5453123);

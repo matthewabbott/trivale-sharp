@@ -17,12 +17,10 @@ public partial class MainTerminal : Control
 	private Control _resourcePanel;
 	private Panel _background;
 	private Panel _scanlines;
-	private WindowManager _windowManager;  // Add WindowManager reference
-	
-	// Layout constants
-	private const int MARGIN = 20;
-	private const int INFO_HEIGHT = 80;
-	private const int SLOT_GRID_WIDTH = 250;
+	private WindowManager _windowManager;
+	private Label _memoryLabel;
+	private Label _cpuLabel;
+	private Label _availableLabel;
 	
 	public override void _Ready()
 	{
@@ -51,12 +49,12 @@ public partial class MainTerminal : Control
 		};
 		var bgStyle = new StyleBoxFlat
 		{
-			BgColor = new Color(0.0f, 0.05f, 0.0f, 1.0f),
-			BorderColor = new Color(0.0f, 0.3f, 0.0f),
-			BorderWidthBottom = 2,
-			BorderWidthLeft = 2,
-			BorderWidthRight = 2,
-			BorderWidthTop = 2
+			BgColor = TerminalConfig.Colors.Background,
+			BorderColor = TerminalConfig.Colors.DimBorder,
+			BorderWidthBottom = TerminalConfig.Layout.BorderWidth,
+			BorderWidthLeft = TerminalConfig.Layout.BorderWidth,
+			BorderWidthRight = TerminalConfig.Layout.BorderWidth,
+			BorderWidthTop = TerminalConfig.Layout.BorderWidth
 		};
 		_background.AddThemeStyleboxOverride("panel", bgStyle);
 		AddChild(_background);
@@ -67,10 +65,10 @@ public partial class MainTerminal : Control
 			LayoutMode = 1,
 			AnchorsPreset = (int)LayoutPreset.FullRect
 		};
-		marginContainer.AddThemeConstantOverride("margin_left", MARGIN);
-		marginContainer.AddThemeConstantOverride("margin_right", MARGIN);
-		marginContainer.AddThemeConstantOverride("margin_top", MARGIN);
-		marginContainer.AddThemeConstantOverride("margin_bottom", MARGIN);
+		marginContainer.AddThemeConstantOverride("margin_left", TerminalConfig.Layout.WindowMargin);
+		marginContainer.AddThemeConstantOverride("margin_right", TerminalConfig.Layout.WindowMargin);
+		marginContainer.AddThemeConstantOverride("margin_top", TerminalConfig.Layout.WindowMargin);
+		marginContainer.AddThemeConstantOverride("margin_bottom", TerminalConfig.Layout.WindowMargin);
 		AddChild(marginContainer);
 		
 		// Main vertical layout
@@ -95,7 +93,7 @@ public partial class MainTerminal : Control
 		// MEM slot grid (left)
 		var slotContainer = new VBoxContainer
 		{
-			CustomMinimumSize = new Vector2(SLOT_GRID_WIDTH, 0)
+			CustomMinimumSize = new Vector2(TerminalConfig.Layout.MemSlotWidth, 0)
 		};
 		contentLayout.AddChild(slotContainer);
 		
@@ -105,7 +103,7 @@ public partial class MainTerminal : Control
 		_memSlotGrid = new GridContainer
 		{
 			SizeFlagsVertical = SizeFlags.Fill,
-			Columns = 2
+			Columns = TerminalConfig.Layout.MemSlotColumns
 		};
 		slotContainer.AddChild(_memSlotGrid);
 		
@@ -129,8 +127,8 @@ public partial class MainTerminal : Control
 		// Resource panel (right)
 		_resourcePanel = CreateResourcePanel();
 		contentLayout.AddChild(_resourcePanel);
-
-		// Create scanlines panel before applying the effect
+		
+		// Scanline effect overlay
 		_scanlines = new Panel
 		{
 			LayoutMode = 1,
@@ -138,7 +136,7 @@ public partial class MainTerminal : Control
 			MouseFilter = MouseFilterEnum.Ignore
 		};
 		AddChild(_scanlines);
-
+		
 		// Initial MEM slot display
 		UpdateMemoryDisplay();
 	}
@@ -147,7 +145,7 @@ public partial class MainTerminal : Control
 	{
 		var panel = new Panel
 		{
-			CustomMinimumSize = new Vector2(0, INFO_HEIGHT)
+			CustomMinimumSize = new Vector2(0, 80)
 		};
 		
 		var container = new VBoxContainer();
@@ -162,10 +160,6 @@ public partial class MainTerminal : Control
 		return panel;
 	}
 	
-	private Label _memoryLabel;
-	private Label _cpuLabel;
-	private Label _availableLabel;
-
 	private Control CreateResourcePanel()
 	{
 		var panel = new Panel
@@ -221,7 +215,7 @@ public partial class MainTerminal : Control
 		var style = new StyleBoxFlat
 		{
 			BgColor = new Color(0.1f, 0.1f, 0.1f, 0.95f),
-			BorderColor = new Color(0.0f, 0.8f, 0.0f, 0.7f),
+			BorderColor = TerminalConfig.Colors.DimBorder,
 			BorderWidthBottom = 1,
 			BorderWidthLeft = 1,
 			BorderWidthRight = 1,
@@ -246,7 +240,7 @@ public partial class MainTerminal : Control
 		}
 		return true;
 	}
-
+	
 	private void OnSlotSelected(IMemorySlot slot)
 	{
 		// If no process is found, create one
@@ -304,12 +298,8 @@ public partial class MainTerminal : Control
 			Shader = shader
 		};
 
-		// Set shader parameters
-		material.SetShaderParameter("scan_line_count", 60.0f);
-		material.SetShaderParameter("scan_line_opacity", 0.1f);
-		material.SetShaderParameter("base_color", new Color(0, 1, 0));  // Green
-		material.SetShaderParameter("brightness", 0.6f);
-		material.SetShaderParameter("flicker_intensity", 0.03f);
+		// Apply standard CRT settings from config
+		TerminalConfig.CRTEffect.ApplyToMaterial(material);
 		
 		_scanlines.Material = material;
 		
