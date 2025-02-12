@@ -1,5 +1,33 @@
 # NetrunnerOS: System Design Document
 
+## Human Notes: Core Game Feature Roadmap
+
+- Finish MEM slot implementation
+- Finish basic card game encounter/process
+- Main Menu
+  - Roguelite mode
+  - Puzzle mode
+  - Encounter/Process editor
+  - Scenario editor
+  - Glossary/Achievements
+  - Settings
+- Encounter editor
+  - Nice editor UI
+  - JSON output
+  - Readily extensible for new powers and interactions
+  - Repository of bespoke encounters
+    - Lookup should be straightforward
+  - Allow procedural generation within encounters(?)
+- Scenario Editor
+  - STS-esque tree of encounters
+  - Extra-encounter resource manament
+  - Should also have a JSON output (mermaid-esque?)
+  - And a pretty editor UI
+  - Some sort of grid, looks like a tree
+- (All throughout development) add mechanics to encounters
+
+TODO: add roadmaps for visual and audio development.
+
 ## Core Concept
 A hacker's interface that serves as both the game's menu system and a core gameplay mechanic. The interface itself is part of the puzzle - learning to manipulate MEM slots, resource allocation, and cross-process interactions is key to solving increasingly complex challenges.
 
