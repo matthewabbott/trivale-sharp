@@ -21,7 +21,7 @@ public partial class MainTerminal : Control
 	private Label _memoryLabel;
 	private Label _cpuLabel;
 	private Label _availableLabel;
-	
+		
 	public override void _Ready()
 	{
 		// Create managers
@@ -31,7 +31,13 @@ public partial class MainTerminal : Control
 		AddChild(_processManager);
 		AddChild(_windowManager);
 		
+		// Set WindowManager to ignore input by default
+		_windowManager.MouseFilter = MouseFilterEnum.Ignore;
+		
 		_processManager.Initialize(_windowManager);
+		
+		// Add input debugging to MainTerminal
+		GuiInput += OnGuiInput;
 		
 		SetupLayout();
 		SetupEffects();
@@ -44,7 +50,8 @@ public partial class MainTerminal : Control
 		{
 			LayoutMode = 1,
 			AnchorsPreset = (int)LayoutPreset.FullRect,
-			MouseFilter = MouseFilterEnum.Ignore
+			MouseFilter = MouseFilterEnum.Ignore,
+			ZIndex = -1  // Put background behind everything
 		};
 		var bgStyle = new StyleBoxFlat
 		{
@@ -63,7 +70,8 @@ public partial class MainTerminal : Control
 		{
 			LayoutMode = 1,
 			AnchorsPreset = (int)LayoutPreset.FullRect,
-			MouseFilter = MouseFilterEnum.Pass
+			MouseFilter = MouseFilterEnum.Pass,
+			ZIndex = 0  // Normal UI elements
 		};
 		marginContainer.AddThemeConstantOverride("margin_left", TerminalConfig.Layout.WindowMargin);
 		marginContainer.AddThemeConstantOverride("margin_right", TerminalConfig.Layout.WindowMargin);
@@ -76,7 +84,7 @@ public partial class MainTerminal : Control
 		{
 			LayoutMode = 1,
 			AnchorsPreset = (int)LayoutPreset.FullRect,
-			MouseFilter = MouseFilterEnum.Pass
+			MouseFilter = MouseFilterEnum.Pass  // Allow clicks to pass through to children
 		};
 		marginContainer.AddChild(mainLayout);
 		
@@ -88,16 +96,18 @@ public partial class MainTerminal : Control
 		var contentLayout = new HBoxContainer
 		{
 			SizeFlagsVertical = SizeFlags.Fill,
-			MouseFilter = MouseFilterEnum.Pass
+			MouseFilter = MouseFilterEnum.Pass  // Allow clicks to pass through to children
 		};
 		mainLayout.AddChild(contentLayout);
 		
 		// Memory grid on left
 		_memoryGrid = new MemoryGridView
 		{
-			CustomMinimumSize = new Vector2(TerminalConfig.Layout.MemSlotWidth, 0)
+			CustomMinimumSize = new Vector2(TerminalConfig.Layout.MemSlotWidth, 0),
+			ZIndex = 1,
+			MouseFilter = MouseFilterEnum.Stop  // Ensure the grid can receive input
 		};
-		_memoryGrid.MemorySlotSelected += OnSlotSelected; 
+		_memoryGrid.MemorySlotSelected += OnSlotSelected;
 		contentLayout.AddChild(_memoryGrid);
 		
 		// Setup viewport in center
@@ -112,7 +122,8 @@ public partial class MainTerminal : Control
 		{
 			LayoutMode = 1,
 			AnchorsPreset = (int)LayoutPreset.FullRect,
-			MouseFilter = MouseFilterEnum.Ignore
+			MouseFilter = MouseFilterEnum.Ignore,  // Important: ignore input
+			ZIndex = 100  // Put scanlines on top
 		};
 		AddChild(_scanlines);
 		
@@ -224,6 +235,14 @@ public partial class MainTerminal : Control
 		
 		_viewport.AddChild(scene);
 		GD.Print($"Loaded process {process.Id} into viewport");
+	}
+	
+	private void OnGuiInput(InputEvent @event)
+	{
+		if (@event is InputEventMouse mouseEvent)
+		{
+			GD.Print($"MainTerminal received mouse event at: {mouseEvent.Position}");
+		}
 	}
 	
 	private void SetupEffects()

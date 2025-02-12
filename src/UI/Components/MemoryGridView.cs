@@ -44,6 +44,14 @@ public partial class MemoryGridView : VBoxContainer
         MouseFilter = MouseFilterEnum.Pass;
     }
     
+    public override void _Input(InputEvent @event)
+    {
+        if (@event is InputEventMouse mouseEvent)
+        {
+            GD.Print($"MemoryGridView received mouse event: {mouseEvent.GetType()}");
+        }
+    }
+
     private Button CreateSlotButton(IMemorySlot slot)
     {
         var button = new Button
@@ -51,8 +59,13 @@ public partial class MemoryGridView : VBoxContainer
             Text = $"MEM_{slot.Id}",
             CustomMinimumSize = new Vector2(120, 80),
             TooltipText = $"Memory: {slot.MemoryUsage:P0}\nCPU: {slot.CpuUsage:P0}",
-            MouseFilter = MouseFilterEnum.Stop  // Ensure button captures mouse input
+            MouseFilter = MouseFilterEnum.Stop,  // Ensure button captures mouse input
+            FocusMode = FocusModeEnum.All  // Allow button to receive focus
         };
+        
+        // Add hover debug
+        button.MouseEntered += () => GD.Print($"Mouse entered button for slot {slot.Id}");
+        button.MouseExited += () => GD.Print($"Mouse exited button for slot {slot.Id}");
         
         var style = new StyleBoxFlat
         {
@@ -64,6 +77,15 @@ public partial class MemoryGridView : VBoxContainer
             BorderWidthTop = 1
         };
         button.AddThemeStyleboxOverride("normal", style);
+        
+        // Add hover state style
+        var hoverStyle = style.Duplicate() as StyleBoxFlat;
+        if (hoverStyle != null)
+        {
+            hoverStyle.BgColor = new Color(0.2f, 0.2f, 0.2f, 0.95f);
+            hoverStyle.BorderColor = TerminalConfig.Colors.Border;
+        }
+        button.AddThemeStyleboxOverride("hover", hoverStyle);
         
         button.Pressed += () => {
             GD.Print($"MEM slot {slot.Id} clicked");
