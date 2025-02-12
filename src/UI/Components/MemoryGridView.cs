@@ -1,6 +1,6 @@
-// src/UI/Components/MemoryGridView.cs
 using Godot;
-using System;
+using System.Collections.Generic;
+using System.Linq;
 using Trivale.Memory;
 using Trivale.OS;
 
@@ -8,8 +8,9 @@ namespace Trivale.UI.Components;
 
 public partial class MemoryGridView : VBoxContainer
 {
-    private GridContainer _gridContainer;
+    private VBoxContainer _slotsContainer;
     private ProcessManager _processManager;
+    private Dictionary<string, MemorySlotDisplay> _slotDisplays = new();
     
     [Signal]
     public delegate void MemorySlotSelectedEventHandler(string slotId);
@@ -17,6 +18,11 @@ public partial class MemoryGridView : VBoxContainer
     public override void _Ready()
     {
         SetupLayout();
+        
+        // Set up periodic updates
+        var timer = new Timer { WaitTime = 0.5, Autostart = true };
+        timer.Timeout += UpdateDisplay;
+        AddChild(timer);
     }
     
     public void Initialize(ProcessManager processManager)
@@ -28,77 +34,62 @@ public partial class MemoryGridView : VBoxContainer
     private void SetupLayout()
     {
         // Title label at top
-        var label = new Label { Text = "SYSTEM MEMORY" };
+        var label = new Label 
+        { 
+            Text = "SYSTEM MEMORY",
+            HorizontalAlignment = HorizontalAlignment.Left
+        };
         AddChild(label);
         
-        // Grid for memory slots
-        _gridContainer = new GridContainer
+        // Container for memory slots
+        _slotsContainer = new VBoxContainer
         {
             SizeFlagsVertical = SizeFlags.Fill,
-            Columns = TerminalConfig.Layout.MemSlotColumns,
-            MouseFilter = MouseFilterEnum.Pass
+            Theme = UIThemeManager.Instance.CreateTheme()
         };
-        AddChild(_gridContainer);
+        AddChild(_slotsContainer);
         
         // Set this container to pass through mouse events
         MouseFilter = MouseFilterEnum.Pass;
     }
-
-    private Button CreateSlotButton(IMemorySlot slot)
-    {
-        var button = new Button
-        {
-            Text = $"MEM_{slot.Id}",
-            CustomMinimumSize = new Vector2(120, 80),
-            TooltipText = $"Memory: {slot.MemoryUsage:P0}\nCPU: {slot.CpuUsage:P0}",
-            MouseFilter = MouseFilterEnum.Stop,  // Ensure button captures mouse input
-            FocusMode = FocusModeEnum.All  // Allow button to receive focus
-        };
-        
-        var style = new StyleBoxFlat
-        {
-            BgColor = new Color(0.1f, 0.1f, 0.1f, 0.95f),
-            BorderColor = TerminalConfig.Colors.DimBorder,
-            BorderWidthBottom = 1,
-            BorderWidthLeft = 1,
-            BorderWidthRight = 1,
-            BorderWidthTop = 1
-        };
-        button.AddThemeStyleboxOverride("normal", style);
-        
-        // Add hover state style
-        var hoverStyle = style.Duplicate() as StyleBoxFlat;
-        if (hoverStyle != null)
-        {
-            hoverStyle.BgColor = new Color(0.2f, 0.2f, 0.2f, 0.95f);
-            hoverStyle.BorderColor = TerminalConfig.Colors.Border;
-        }
-        button.AddThemeStyleboxOverride("hover", hoverStyle);
-        
-        button.Pressed += () => {
-            GD.Print($"MEM slot {slot.Id} clicked");
-            EmitSignal(SignalName.MemorySlotSelected, slot.Id);
-        };
-        
-        return button;
-    }
     
     public void UpdateDisplay()
     {
-        if (_processManager == null || _gridContainer == null) return;
+        if (_processManager == null || _slotsContainer == null) return;
         
-        // Clear existing buttons
-        foreach (var child in _gridContainer.GetChildren())
+        var slots = _processManager.GetAllSlots().ToList();
+        
+        // Remove displays for slots that no longer exist
+        var toRemove = new List<string>();
+        foreach (var kvp in _slotDisplays)
         {
-            child.QueueFree();
+            if (!slots.Any(s => s.Id == kvp.Key))
+            {
+                toRemove.Add(kvp.Key);
+            }
         }
         
-        // Create new buttons for each slot
-        var slots = _processManager.GetAllSlots();
+        foreach (var id in toRemove)
+        {
+            _slotDisplays[id].QueueFree();
+            _slotDisplays.Remove(id);
+        }
+        
+        // Create or update displays for current slots
         foreach (var slot in slots)
         {
-            var button = CreateSlotButton(slot);
-            _gridContainer.AddChild(button);
+            if (!_slotDisplays.TryGetValue(slot.Id, out var display))
+            {
+                // Create new display
+                display = new MemorySlotDisplay();
+                display.SlotSelected += (slotId) => 
+                    EmitSignal(SignalName.MemorySlotSelected, slotId);
+                
+                _slotDisplays[slot.Id] = display;
+                _slotsContainer.AddChild(display);
+            }
+            
+            display.UpdateSlot(slot);
         }
     }
 }
