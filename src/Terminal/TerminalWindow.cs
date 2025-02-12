@@ -218,7 +218,7 @@ public partial class TerminalWindow : Control
 	private void OnTitleBarInput(InputEvent @event)
 	{
 		// Print debug info to verify the handler is being called
-		GD.Print($"Title bar input received: {@event.GetType()}");
+		// GD.Print($"Title bar input received: {@event.GetType()}");
 		
 		if (@event is InputEventMouseButton mouseButton)
 		{

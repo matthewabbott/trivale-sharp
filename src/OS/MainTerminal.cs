@@ -36,9 +36,6 @@ public partial class MainTerminal : Control
 		
 		_processManager.Initialize(_windowManager);
 		
-		// Add input debugging to MainTerminal
-		GuiInput += OnGuiInput;
-		
 		SetupLayout();
 		SetupEffects();
 	}

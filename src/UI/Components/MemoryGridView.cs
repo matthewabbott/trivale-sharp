@@ -43,14 +43,6 @@ public partial class MemoryGridView : VBoxContainer
         // Set this container to pass through mouse events
         MouseFilter = MouseFilterEnum.Pass;
     }
-    
-    public override void _Input(InputEvent @event)
-    {
-        if (@event is InputEventMouse mouseEvent)
-        {
-            GD.Print($"MemoryGridView received mouse event: {mouseEvent.GetType()}");
-        }
-    }
 
     private Button CreateSlotButton(IMemorySlot slot)
     {
@@ -62,10 +54,6 @@ public partial class MemoryGridView : VBoxContainer
             MouseFilter = MouseFilterEnum.Stop,  // Ensure button captures mouse input
             FocusMode = FocusModeEnum.All  // Allow button to receive focus
         };
-        
-        // Add hover debug
-        button.MouseEntered += () => GD.Print($"Mouse entered button for slot {slot.Id}");
-        button.MouseExited += () => GD.Print($"Mouse exited button for slot {slot.Id}");
         
         var style = new StyleBoxFlat
         {
