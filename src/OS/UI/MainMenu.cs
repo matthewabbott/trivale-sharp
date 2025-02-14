@@ -57,7 +57,7 @@ public partial class MainMenu : Control
         {
             IconText = AsciiStyle.CreateBox(20, 6, "PLAY")[0],
             ButtonText = "CARD GAME",
-            CustomMinimumSize = new Vector2(0, 120)  // Taller buttons
+            CustomMinimumSize = new Vector2(200, 80)  // More reasonable size
         };
         _playButton.Pressed += () => EmitSignal(SignalName.OptionSelected, "CardGame");
         _mainContainer.AddChild(_playButton);

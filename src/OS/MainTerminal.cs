@@ -139,11 +139,12 @@ namespace Trivale.OS
 			var contentLayout = new HBoxContainer
 			{
 				SizeFlagsVertical = SizeFlags.Fill,
+				SizeFlagsHorizontal = SizeFlags.Fill,  // Added this to ensure proper filling
 				MouseFilter = MouseFilterEnum.Pass
 			};
 			mainLayout.AddChild(contentLayout);
 
-			// Memory grid on left
+			// Memory grid on left with fixed width
 			_memoryGrid = new MemoryGridView
 			{
 				CustomMinimumSize = new Vector2(TerminalConfig.Layout.MemSlotWidth, 0),
@@ -151,13 +152,13 @@ namespace Trivale.OS
 				MouseFilter = MouseFilterEnum.Stop
 			};
 			_memoryGrid.MemorySlotSelected += OnSlotSelected;
-			_memoryGrid.ShowAdditionalSlots = false; // Start with only Slot 0
+			_memoryGrid.ShowAdditionalSlots = false;
 			contentLayout.AddChild(_memoryGrid);
 
-			// Setup subviewport in center
+			// Setup viewport in center - should expand to fill available space
 			SetupViewport(contentLayout);
 
-			// Resource panel on right
+			// Resource panel on right with fixed width
 			_resourcePanel = CreateResourcePanel();
 			contentLayout.AddChild(_resourcePanel);
 
@@ -181,7 +182,7 @@ namespace Trivale.OS
 			{
 				SizeFlagsHorizontal = SizeFlags.Expand | SizeFlags.Fill,
 				SizeFlagsVertical = SizeFlags.Expand | SizeFlags.Fill,
-				CustomMinimumSize = new Vector2(600, 500),  // Taller than wide for our menu
+				CustomMinimumSize = new Vector2(800, 600),  // Minimum size to ensure content fits
 				StretchShrink = 1,
 				MouseFilter = MouseFilterEnum.Pass
 			};
@@ -191,8 +192,7 @@ namespace Trivale.OS
 			{
 				HandleInputLocally = false,
 				GuiDisableInput = false,
-				RenderTargetUpdateMode = SubViewport.UpdateMode.Always,
-				Size = new Vector2I(600, 500)
+				RenderTargetUpdateMode = SubViewport.UpdateMode.Always
 			};
 			_mainViewport.AddChild(_viewport);
 		}
@@ -312,11 +312,11 @@ namespace Trivale.OS
 
 			if (_mainViewport != null && _viewport != null)
 			{
-				// Update viewport size based on container size while maintaining minimum dimensions
-				var containerSize = _mainViewport.Size;
+				// Match viewport size to container size, but never smaller than 800x600
+				Vector2 size = _mainViewport.Size;
 				_viewport.Size = new Vector2I(
-					Mathf.Max((int)containerSize.X, 400),  // Changed from 600
-					Mathf.Max((int)containerSize.Y, 300)   // Changed from 400
+					Mathf.Max((int)size.X, 800),
+					Mathf.Max((int)size.Y, 600)
 				);
 			}
 		}
