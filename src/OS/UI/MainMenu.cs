@@ -16,7 +16,32 @@ public partial class MainMenu : Control
     
     public override void _Ready()
     {
+        GD.Print("[MainMenu] _Ready called");
         SetupLayout();
+    }
+
+    public override void _GuiInput(InputEvent @event)
+    {
+        if (@event is InputEventMouse mouseEvent)
+        {
+            GD.Print($"[MainMenu] _GuiInput: {mouseEvent.GetType()} at {mouseEvent.Position}");
+        }
+        else
+        {
+            GD.Print($"[MainMenu] _GuiInput: {@event}");
+        }
+    }
+
+    public override void _UnhandledInput(InputEvent @event)
+    {
+        if (@event is InputEventMouse mouseEvent)
+        {
+            GD.Print($"[MainMenu] _UnhandledInput: {mouseEvent.GetType()} at {mouseEvent.Position}");
+        }
+        else
+        {
+            GD.Print($"[MainMenu] _UnhandledInput: {@event}");
+        }
     }
     
     private void SetupLayout()

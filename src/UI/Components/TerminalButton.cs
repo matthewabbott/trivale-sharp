@@ -94,8 +94,15 @@ public partial class TerminalButton : Button
         AddThemeStyleboxOverride("pressed", stylePressed);
     }
     
+    public override void _GuiInput(InputEvent @event)
+    {
+        GD.Print($"[TerminalButton] _GuiInput: {@event}");
+        base._GuiInput(@event);
+    }
+
     private void OnMouseEntered()
     {
+        GD.Print($"[TerminalButton] Mouse entered: {ButtonText}");
         _iconDisplay.Modulate = new Color(0.0f, 1.0f, 0.0f, 1.0f);
         _textDisplay.Modulate = new Color(0.0f, 1.0f, 0.0f, 1.0f);
     }

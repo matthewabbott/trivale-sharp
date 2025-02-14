@@ -181,8 +181,13 @@ public partial class MainTerminal : Control
 		{
 			SizeFlagsHorizontal = SizeFlags.Expand | SizeFlags.Fill,
 			SizeFlagsVertical = SizeFlags.Expand | SizeFlags.Fill,
-			StretchShrink = 1
+			StretchShrink = 1,
+			MouseFilter = MouseFilterEnum.Stop  // Capture and forward input to children
 		};
+        _mainViewport.GuiInput += (@event) => 
+        {
+            GD.Print($"[SubViewportContainer] GuiInput: {@event}");
+        };
 		parent.AddChild(_mainViewport);
 		
 		_viewport = new SubViewport
@@ -192,6 +197,10 @@ public partial class MainTerminal : Control
 			Size = new Vector2I(800, 600),
 			RenderTargetUpdateMode = SubViewport.UpdateMode.Always
 		};
+        _viewport.GuiInput += (@event) =>
+        {
+            GD.Print($"[SubViewport] GuiInput: {@event}");
+        };
 		_mainViewport.AddChild(_viewport);
 	}
 	
@@ -302,6 +311,30 @@ public partial class MainTerminal : Control
 		TerminalConfig.CRTEffect.ApplyToMaterial(material);
 		_scanlines.Material = material;
 	}
+    
+    public override void _UnhandledInput(InputEvent @event)
+    {
+        if (@event is InputEventMouse mouseEvent)
+        {
+            GD.Print($"[MainTerminal] _UnhandledInput: {mouseEvent.GetType()} at {mouseEvent.Position}");
+        }
+        else
+        {
+            GD.Print($"[MainTerminal] _UnhandledInput: {@event}");
+        }
+    }
+
+    public override void _GuiInput(InputEvent @event)
+    {
+        if (@event is InputEventMouse mouseEvent)
+        {
+            GD.Print($"[MainTerminal] _GuiInput: {mouseEvent.GetType()} at {mouseEvent.Position}");
+        }
+        else
+        {
+            GD.Print($"[MainTerminal] _GuiInput: {@event}");
+        }
+    }
 	
 	public override void _ExitTree()
 	{
