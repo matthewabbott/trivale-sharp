@@ -179,14 +179,10 @@ namespace Trivale.OS
 		{
 			_mainViewport = new SubViewportContainer
 			{
-				// Make it expand to fill available space but respect minimum size
 				SizeFlagsHorizontal = SizeFlags.Expand | SizeFlags.Fill,
 				SizeFlagsVertical = SizeFlags.Expand | SizeFlags.Fill,
-				// Set a reasonable minimum size
-				CustomMinimumSize = new Vector2(600, 400),
-				// Ensure it scales properly
+				CustomMinimumSize = new Vector2(600, 500),  // Taller than wide for our menu
 				StretchShrink = 1,
-				// Let input pass through
 				MouseFilter = MouseFilterEnum.Pass
 			};
 			parent.AddChild(_mainViewport);
@@ -196,8 +192,7 @@ namespace Trivale.OS
 				HandleInputLocally = false,
 				GuiDisableInput = false,
 				RenderTargetUpdateMode = SubViewport.UpdateMode.Always,
-				// Set a default size that will be updated in _Process
-				Size = new Vector2I(600, 400)
+				Size = new Vector2I(600, 500)
 			};
 			_mainViewport.AddChild(_viewport);
 		}
@@ -320,8 +315,8 @@ namespace Trivale.OS
 				// Update viewport size based on container size while maintaining minimum dimensions
 				var containerSize = _mainViewport.Size;
 				_viewport.Size = new Vector2I(
-					Mathf.Max((int)containerSize.X, 600),
-					Mathf.Max((int)containerSize.Y, 400)
+					Mathf.Max((int)containerSize.X, 400),  // Changed from 600
+					Mathf.Max((int)containerSize.Y, 300)   // Changed from 400
 				);
 			}
 		}
