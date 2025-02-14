@@ -92,7 +92,7 @@ public partial class MainTerminal : Control
 		_background = new Panel
 		{
 			LayoutMode = 1,
-			AnchorsPreset = (int)LayoutPreset.FullRect,
+			AnchorsPreset = (int)Control.LayoutPreset.FullRect,
 			MouseFilter = MouseFilterEnum.Ignore,
 			ZIndex = -1  // Put background behind everything
 		};
@@ -112,7 +112,7 @@ public partial class MainTerminal : Control
 		var marginContainer = new MarginContainer
 		{
 			LayoutMode = 1,
-			AnchorsPreset = (int)LayoutPreset.FullRect,
+			AnchorsPreset = (int)Control.LayoutPreset.FullRect,
 			MouseFilter = MouseFilterEnum.Pass,
 			ZIndex = 0  // Normal UI elements
 		};
@@ -126,7 +126,7 @@ public partial class MainTerminal : Control
 		var mainLayout = new VBoxContainer
 		{
 			LayoutMode = 1,
-			AnchorsPreset = (int)LayoutPreset.FullRect,
+			AnchorsPreset = (int)Control.LayoutPreset.FullRect,
 			MouseFilter = MouseFilterEnum.Pass  // Allow clicks to pass through to children
 		};
 		marginContainer.AddChild(mainLayout);
@@ -165,7 +165,7 @@ public partial class MainTerminal : Control
 		_scanlines = new Panel
 		{
 			LayoutMode = 1,
-			AnchorsPreset = (int)LayoutPreset.FullRect,
+			AnchorsPreset = (int)Control.LayoutPreset.FullRect,
 			MouseFilter = MouseFilterEnum.Ignore,  // Important: ignore input
 			ZIndex = 100  // Put scanlines on top
 		};
@@ -188,6 +188,7 @@ public partial class MainTerminal : Control
 		_viewport = new SubViewport
 		{
 			HandleInputLocally = true,
+			GuiDisableInput = false,  // Enable GUI input for buttons and UI elements
 			Size = new Vector2I(800, 600),
 			RenderTargetUpdateMode = SubViewport.UpdateMode.Always
 		};
