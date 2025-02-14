@@ -1,0 +1,192 @@
+Below is an example “map” of your revised goals and a set of guiding principles, abstractions, functions, and strategies you can use to ground yourself as you move from your current (complex) codebase to a simpler, focused main‐menu implementation. You can use this as raw material for building a proper implementation roadmap.
+
+---
+
+## 1. High-Level Goals
+
+- **Simplify the Main Menu & MEM Slot UI:**  
+  • Strip out advanced process management and drag/drop interactions for now.  
+  • Make a minimal visual system that “looks like” processes are being loaded into a MEM slot.
+
+- **Separate Visual Presentation from Game Logic:**  
+  • The MEM slot display is now just a UI component that reflects state changes (e.g., empty vs. loaded).  
+  • The main viewport will simply switch between scenes (like a card game scene or settings scene) based on menu button presses.
+
+- **Prepare for Future Extensions:**  
+  • Once the minimal UI is working, you can later add adaptive resizing, drag and drop between viewport and memslots, process previews, etc.
+
+---
+
+## 2. Desired Features & Functionality
+
+### Main Menu Screen
+- **Visual MEM Slot UI:**  
+  - When the game starts, display a single MEM slot that appears empty (e.g., using text like:  
+    ```
+    └── □ [       ]
+    ```  
+    ).
+  - When a menu button is clicked, update the slot to show that it’s loaded (e.g.,  
+    ```
+    └── ■  [LOADED: SETTINGS]
+        ├── □  [          ]
+        ├── □  [          ]
+        └── □  [          ]
+    ```  
+    ).
+
+- **Menu Options:**  
+  - At least two buttons (e.g., “Play Card Game”, “Settings”).  
+  - When pressed, each button updates the MEM slot UI and loads the appropriate scene in the viewport.
+
+- **Main Viewport:**  
+  - A viewport container that takes up most of the screen.
+  - The viewport displays the loaded scene (for now, simply a card game or a placeholder settings scene).
+
+- **Adaptive UI:**  
+  - The layout should adapt (resize) as the window size changes.
+
+### Future (Advanced) Features (for later roadmap steps)
+- **Process Previews:**  
+  - Preview small versions of other card game instances or processes.
+  - Option to expand preview size on demand.
+- **Drag-and-Drop Process Management:**  
+  - In the future, allow dragging items from the viewport to the memslots.
+- **Dynamic MEM Slot Expansion:**  
+  - Unlock additional slots (beyond slot 0) when a process is loaded.
+- **Refined Process Management:**  
+  - Gradually reintroduce a simplified version of your ProcessManager and its interactions with MEM slots.
+
+---
+
+## 3. Key Abstractions & Functions to Add
+
+### Abstractions
+
+- **Visual MEM Slot Component:**  
+  - A dedicated node (or set of nodes) that represents a MEM slot in the UI.  
+  - Functions to set the state (empty vs. loaded, with a label).
+
+- **Main Menu Scene:**  
+  - A scene (e.g., `SimpleMainMenu.tscn`) that contains:  
+    • The MEM slot UI (likely just a Label or custom Control).  
+    • Menu buttons for selecting processes.  
+    • A viewport container that will later host the chosen scene.
+
+- **Scene Switcher:**  
+  - A small utility function (or set of functions) that clears the current viewport and loads a new scene (e.g., for the card game or settings).
+
+### Functions & Methods
+
+- **UI Update Functions:**  
+  - `UpdateMemSlotUI(empty: bool, loadedText: string)`  
+    • Updates the textual or graphical representation of the MEM slot based on whether it’s empty or loaded.
+
+- **Button Callbacks:**  
+  - `OnSettingsPressed()`  
+  - `OnPlayPressed()`  
+    • These functions will update the MEM slot UI (calling `UpdateMemSlotUI`) and then switch the main viewport’s content.
+
+- **Scene Loading Functions:**  
+  - `LoadSceneInViewport(string scenePath)`  
+    • Loads and instantiates a scene from a given path and adds it to the viewport container.
+  - `ClearViewport()`  
+    • Clears out any existing children from the viewport container.
+
+- **Adaptive Resizing Helpers:**  
+  - Functions or signals that listen for window size changes and update the size/position of the viewport container and MEM slot UI accordingly.
+
+---
+
+## 4. Strategies for Managing/Reducing Complexity
+
+- **Start Minimal & Incremental:**  
+  • Use the simpler branch as your starting point.  
+  • Only implement the features needed for the basic main menu.
+  
+- **Isolate Concerns:**  
+  • Separate UI code from process/game logic.  
+  • For now, the main menu is purely about visual state changes and scene switching—ignore the full complexity of process management.
+
+- **Follow the YAGNI Principle:**  
+  • “You Aren’t Gonna Need It” – avoid adding features (like drag-and-drop, dynamic resource sharing) until you have the basic functionality working.
+
+- **Use Clear, Small Functions:**  
+  • Break down tasks into small, reusable functions (e.g., updating UI, loading scenes, clearing viewport).
+
+- **Document As You Go:**  
+  • Keep your roadmap and inline comments updated so you can remember the purpose of each abstraction.
+  • Write brief documentation for each new function and module.
+
+- **Testing in Isolation:**  
+  • Create temporary test scenes for individual components (e.g., one scene for testing just the MEM slot UI, one for viewport switching).  
+  • Once confirmed, integrate them into the main menu scene.
+
+- **Plan for Refactoring Later:**  
+  • Once the minimal version is stable, create a plan to gradually reintroduce advanced features without mixing them into the basic UI code.
+
+---
+
+## 5. Implementation Roadmap Outline
+
+### Phase 1: Build the Minimal Main Menu
+1. **Create the SimpleMainMenu Scene:**  
+   - Build a new scene with a basic layout:
+     - A MEM slot display node (initially “empty”).
+     - Two buttons: “Play Card Game” and “Settings”.
+     - A viewport container (fills most of the screen).
+
+2. **Implement UI Update Functions:**  
+   - Write `UpdateMemSlotUI(empty, loadedText)` to update the display.
+   - Implement button callbacks (`OnSettingsPressed`, `OnPlayPressed`) that call this function and then trigger a scene switch.
+
+3. **Scene Switching:**  
+   - Write functions to clear the current viewport and load a new scene (e.g., `LoadSceneInViewport`).
+
+4. **Test & Tweak Layout:**  
+   - Ensure the viewport resizes with the window.
+   - Verify that clicking a button updates the MEM slot display and loads the correct scene.
+
+### Phase 2: Integrate Minimal Process Management (Optional)
+1. **Simplified Process Abstraction:**  
+   - Create a very basic “process” type that can be loaded into memslot 0.
+   - Integrate this with your main menu UI so that button presses “load” a process into the memslot (visually).
+
+2. **Minimal ProcessManager:**  
+   - Either adapt a stripped-down version of your existing ProcessManager or create new functions that only support loading a process for the main menu.
+   
+3. **Signal Integration:**  
+   - Connect a signal from the process (or main menu UI) to update the MEM slot UI when a process is loaded.
+
+### Phase 3: Gradually Reintroduce Advanced Features
+1. **Additional MEM Slot Display:**  
+   - When a process is loaded, update the display to show additional slots unlocked.
+   
+2. **Preview and Adaptive Resizing:**  
+   - Add simple preview features for loaded processes (if desired).  
+   - Enhance adaptive resizing functions to improve the UI experience.
+
+3. **Reinforce Separation:**  
+   - Once stable, refactor the UI code to further isolate UI elements from game logic.
+
+### Phase 4: Testing and Refinement
+1. **Unit & Integration Tests:**  
+   - Write tests for your UI update functions and scene-switching logic.
+   
+2. **User Testing:**  
+   - Interact with the main menu and adjust spacing, responsiveness, and clarity.
+
+3. **Documentation & Comments:**  
+   - Document each new function and module so future you (or collaborators) can easily extend the code.
+
+---
+
+## Summary
+
+- **Start from the simpler branch:** It has less complexity and is more focused.
+- **Aim for a minimal MVP:** A main menu that visually updates a MEM slot UI and switches the main viewport.
+- **Key abstractions:** A MEM slot UI component, a main menu scene, and simple scene switching functions.
+- **Reduce complexity by isolating concerns:** Keep UI logic separate, avoid premature features, and use small, testable functions.
+- **Roadmap phases:** Start minimal, integrate minimal process management if needed, then gradually add advanced features while continuously refactoring and testing.
+
+This outline should serve as the “raw material” for building a detailed implementation roadmap. You can now use it to prioritize your tasks and guide your refactoring toward a maintainable, scalable solution.
