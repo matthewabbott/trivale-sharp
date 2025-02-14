@@ -11,11 +11,12 @@ public partial class TerminalButton : Button
     private Label _textDisplay;
     private VBoxContainer _container;
     
-    [Export]
-    public string IconText { get; set; } = "";
-    
-    [Export]
-    public string ButtonText { get; set; } = "";
+    [Export] public string IconText { get; set; } = "";
+    [Export] public string ButtonText { get; set; } = "";
+
+    // Additional fields for dragging:
+    private bool _isDragging = false;
+    private Vector2 _dragStart;
     
     public override void _Ready()
     {
@@ -96,8 +97,28 @@ public partial class TerminalButton : Button
     
     public override void _GuiInput(InputEvent @event)
     {
-        GD.Print($"[TerminalButton] _GuiInput: {@event}");
         base._GuiInput(@event);
+
+        if (@event is InputEventMouseButton mouseButtonEvent)
+        {
+            // If left-click is pressed down
+            if (mouseButtonEvent.ButtonIndex == MouseButton.Left && mouseButtonEvent.Pressed)
+            {
+                _isDragging = true;
+                // Capture where on the button the user first clicked
+                _dragStart = mouseButtonEvent.Position;
+            }
+            // If left-click is released
+            else if (mouseButtonEvent.ButtonIndex == MouseButton.Left && !mouseButtonEvent.Pressed)
+            {
+                _isDragging = false;
+            }
+        }
+        else if (@event is InputEventMouseMotion mouseMotionEvent && _isDragging)
+        {
+            // While dragging, move the button by the mouse’s relative movement
+            Position += mouseMotionEvent.Relative;
+        }
     }
 
     private void OnMouseEntered()
