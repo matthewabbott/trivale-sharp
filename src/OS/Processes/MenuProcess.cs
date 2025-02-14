@@ -36,6 +36,7 @@ public class MenuProcess : BaseProcess
         // Create the menu scene
         _menuScene = new MainMenu();
         _menuScene.OptionSelected += OnMenuOptionSelected;
+        State["menuScene"] = _menuScene;
     }
     
     private void OnMenuOptionSelected(string option)

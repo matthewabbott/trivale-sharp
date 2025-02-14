@@ -57,14 +57,20 @@ public partial class MainTerminal : Control
 		_menuProcess.Initialize(null);
 		_menuProcess.ProcessEvent += OnMenuProcessEvent;
 		
-		// Get the menu scene and add it to viewport
-		var menuScene = _menuProcess.GetState()["menuScene"] as Node;
-		if (menuScene != null)
+		// Clear the viewport
+		foreach (var child in _viewport.GetChildren())
+			child.QueueFree();
+
+		// Get the menu scene from process state
+		var state = _menuProcess.GetState();
+		if (state.TryGetValue("menuScene", out var sceneObj) && sceneObj is Node menuScene)
 		{
-			foreach (var child in _viewport.GetChildren())
-				child.QueueFree();
-			
 			_viewport.AddChild(menuScene);
+			GD.Print("Added menu scene to viewport");
+		}
+		else
+		{
+			GD.PrintErr("Failed to get menu scene from process state");
 		}
 	}
 	
