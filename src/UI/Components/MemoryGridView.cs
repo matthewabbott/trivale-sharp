@@ -1,3 +1,4 @@
+// src/UI/Components/MemoryGridView.cs
 using Godot;
 using System.Collections.Generic;
 using System.Linq;
@@ -14,6 +15,8 @@ public partial class MemoryGridView : VBoxContainer
     
     [Signal]
     public delegate void MemorySlotSelectedEventHandler(string slotId);
+    
+    public bool ShowAdditionalSlots { get; set; } = false;
     
     public override void _Ready()
     {
@@ -76,8 +79,13 @@ public partial class MemoryGridView : VBoxContainer
         }
         
         // Create or update displays for current slots
-        foreach (var slot in slots)
+        for (int i = 0; i < slots.Count; i++)
         {
+            var slot = slots[i];
+            
+            // Skip additional slots if not showing them
+            if (i > 0 && !ShowAdditionalSlots) continue;
+            
             if (!_slotDisplays.TryGetValue(slot.Id, out var display))
             {
                 // Create new display
@@ -85,11 +93,17 @@ public partial class MemoryGridView : VBoxContainer
                 display.SlotSelected += (slotId) => 
                     EmitSignal(SignalName.MemorySlotSelected, slotId);
                 
+                // Set margin for indentation of additional slots
+                if (i > 0)
+                {
+                    display.AddThemeConstantOverride("margin_left", 20);
+                }
+                
                 _slotDisplays[slot.Id] = display;
                 _slotsContainer.AddChild(display);
             }
             
-            display.UpdateSlot(slot);
+            display.UpdateSlot(slot, i == 0); // Pass isSlot0 flag
         }
     }
 }

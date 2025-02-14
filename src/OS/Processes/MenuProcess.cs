@@ -7,14 +7,18 @@ using Trivale.OS.UI;
 
 namespace Trivale.OS.Processes;
 
+/// <summary>
+/// MenuProcess handles the main menu UI and facilitates loading other processes
+/// into Slot 0. This process itself doesn't go into a memory slot.
+/// </summary>
 public class MenuProcess : BaseProcess
 {
     public override string Type => "MainMenu";
     
     public override Dictionary<string, float> ResourceRequirements => new()
     {
-        ["MEM"] = 0.1f,  // Minimal memory requirement
-        ["CPU"] = 0.1f   // Minimal CPU requirement
+        ["MEM"] = 0.1f,
+        ["CPU"] = 0.1f
     };
     
     private MainMenu _menuScene;
@@ -36,40 +40,51 @@ public class MenuProcess : BaseProcess
     
     private void OnMenuOptionSelected(string option)
     {
-        switch (option)
+        // Create the appropriate process based on selection
+        IProcess processToLoad = option switch
         {
-            case "CardGame":
-                LoadCardGame();
-                break;
-            case "Debug":
-                LoadDebugSandbox();
-                break;
+            "CardGame" => CreateCardGameMetaProcess(),
+            "Debug" => CreateDebugSandboxProcess(),
+            _ => null
+        };
+        
+        if (processToLoad != null)
+        {
+            // Try to load the process into Slot 0
+            if (_processManager.StartProcess(processToLoad))
+            {
+                GD.Print($"Successfully loaded {option} into Slot 0");
+                EmitProcessEvent($"loaded_{option.ToLower()}");
+            }
+            else
+            {
+                GD.PrintErr($"Failed to load {option} into Slot 0");
+            }
         }
         
-        // Notify that state has changed
         EmitStateChanged();
-        
-        // Emit a process event that can be used to update the UI
-        EmitProcessEvent($"option_selected_{option}");
     }
     
-    private void LoadCardGame()
+    private IProcess CreateCardGameMetaProcess()
     {
-        var cardGame = new Encounters.CardGameProcess($"card_game_{DateTime.Now.Ticks}");
-        if (_processManager.StartProcess(cardGame))
-        {
-            IsComplete = true;  // Menu process is done once we load a game
-        }
+        // TODO: Implement proper CardGameMetaProcess
+        // For now, return a placeholder that just shows "Card Game Meta Menu Coming Soon"
+        return new PlaceholderProcess(
+            "card_meta",
+            "Card Game Configuration", 
+            "Card Game meta menu functionality coming soon!"
+        );
     }
     
-    private void LoadDebugSandbox()
+    private IProcess CreateDebugSandboxProcess()
     {
-        // For now, we'll treat the debug sandbox similarly to a process
-        var debugProcess = new DebugSandboxProcess($"debug_{DateTime.Now.Ticks}");
-        if (_processManager.StartProcess(debugProcess))
-        {
-            IsComplete = true;
-        }
+        // TODO: Implement proper DebugSandboxProcess
+        // For now, return a placeholder that shows some debug info
+        return new PlaceholderProcess(
+            "debug_sandbox",
+            "Debug Sandbox", 
+            "Debug sandbox functionality coming soon!\nWill include:\n- Window tests\n- Process tests\n- Memory management tests"
+        );
     }
     
     public override void Cleanup()

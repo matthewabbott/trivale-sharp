@@ -5,6 +5,7 @@ using Trivale.Memory;
 using Trivale.Encounters;
 using Trivale.UI.Components;
 using Trivale.OS.Processes;
+using Trivale.OS.UI;
 
 namespace Trivale.OS;
 
@@ -22,6 +23,10 @@ public partial class MainTerminal : Control
 	private Label _memoryLabel;
 	private Label _cpuLabel;
 	private Label _availableLabel;
+	
+	// Keep track of menu state
+	private MenuProcess _menuProcess;
+	private bool _isSlot0Loaded = false;
 		
 	public override void _Ready()
 	{
@@ -47,14 +52,31 @@ public partial class MainTerminal : Control
 	
 	private void InitializeMainMenu()
 	{
-		var menuProcess = new MenuProcess("menu_main", _processManager);
-		if (_processManager.StartProcess(menuProcess))
+		// Create menu process (this doesn't go in a slot)
+		_menuProcess = new MenuProcess("menu_main", _processManager);
+		_menuProcess.Initialize(null);
+		_menuProcess.ProcessEvent += OnMenuProcessEvent;
+		
+		// Get the menu scene and add it to viewport
+		var menuScene = _menuProcess.GetState()["menuScene"] as Node;
+		if (menuScene != null)
 		{
-			GD.Print("Main menu initialized");
+			foreach (var child in _viewport.GetChildren())
+				child.QueueFree();
+			
+			_viewport.AddChild(menuScene);
 		}
-		else
+	}
+	
+	private void OnMenuProcessEvent(string eventType)
+	{
+		if (eventType.StartsWith("loaded_"))
 		{
-			GD.PrintErr("Failed to initialize main menu");
+			// A process was loaded into slot 0
+			_isSlot0Loaded = true;
+			
+			// Update memory grid to show additional slots
+			_memoryGrid?.UpdateDisplay();
 		}
 	}
 	
@@ -120,9 +142,10 @@ public partial class MainTerminal : Control
 		{
 			CustomMinimumSize = new Vector2(TerminalConfig.Layout.MemSlotWidth, 0),
 			ZIndex = 1,
-			MouseFilter = MouseFilterEnum.Stop  // Ensure the grid can receive input
+			MouseFilter = MouseFilterEnum.Stop
 		};
 		_memoryGrid.MemorySlotSelected += OnSlotSelected;
+		_memoryGrid.ShowAdditionalSlots = false; // Start with only Slot 0
 		contentLayout.AddChild(_memoryGrid);
 		
 		// Setup viewport in center
@@ -223,65 +246,62 @@ public partial class MainTerminal : Control
 	{
 		GD.Print($"Processing slot selection for {slotId}");
 		
-		// If no process exists, check if this is slot 0 (menu slot)
+		// Get existing process for this slot
 		var process = _processManager.GetProcess(slotId);
 		if (process == null)
 		{
 			if (slotId == "SLOT_0_0")
 			{
-				// For slot 0, we initialize the menu
-				InitializeMainMenu();
+				// Slot 0 is empty, do nothing (main menu is already showing)
+				return;
 			}
-			else
+			
+			// Only allow loading into other slots if Slot 0 is loaded
+			if (!_isSlot0Loaded)
 			{
-				// For other slots, create a card game as before
-				var cardGameProcess = new CardGameProcess($"card_game_{slotId}");
-				if (!_processManager.StartProcess(cardGameProcess))
-				{
-					GD.PrintErr($"Failed to start card game in slot: {slotId}");
-					return;
-				}
-				process = cardGameProcess;
+				GD.Print("Cannot load process - Slot 0 is empty");
+				return;
 			}
-		}
-		
-		// Get and show the process scene
-		var scene = _processManager.GetProcessScene(process.Id);
-		if (scene == null)
-		{
-			GD.PrintErr($"No ProcessScene found for {process.Id}");
+			
+			// TODO: Handle loading appropriate process type based on what's in Slot 0
+			GD.Print("TODO: Load appropriate process based on Slot 0 contents");
 			return;
 		}
 		
-		// Clear viewport and add new scene
-		foreach (var child in _viewport.GetChildren())
-			child.QueueFree();
-		
-		_viewport.AddChild(scene);
-		GD.Print($"Loaded process {process.Id} into viewport");
-	}
-	
-	private void OnGuiInput(InputEvent @event)
-	{
-		if (@event is InputEventMouse mouseEvent)
+		// Show the process scene in viewport
+		var scene = _processManager.GetProcessScene(process.Id);
+		if (scene != null)
 		{
-			GD.Print($"MainTerminal received mouse event at: {mouseEvent.Position}");
+			foreach (var child in _viewport.GetChildren())
+				child.QueueFree();
+			
+			_viewport.AddChild(scene);
+			GD.Print($"Loaded process {process.Id} into viewport");
 		}
 	}
 	
 	private void SetupEffects()
 	{
 		if (_scanlines == null) return;
-
+		
 		var shader = GD.Load<Shader>("res://Assets/Shaders/crt_effect.gdshader");
 		if (shader == null)
 		{
 			GD.PrintErr("Failed to load CRT shader");
 			return;
 		}
-
+		
 		var material = new ShaderMaterial { Shader = shader };
 		TerminalConfig.CRTEffect.ApplyToMaterial(material);
 		_scanlines.Material = material;
+	}
+	
+	public override void _ExitTree()
+	{
+		if (_menuProcess != null)
+		{
+			_menuProcess.ProcessEvent -= OnMenuProcessEvent;
+			_menuProcess.Cleanup();
+		}
 	}
 }
