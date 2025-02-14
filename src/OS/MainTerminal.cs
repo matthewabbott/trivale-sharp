@@ -4,6 +4,7 @@ using System;
 using Trivale.Memory;
 using Trivale.Encounters;
 using Trivale.UI.Components;
+using Trivale.OS.Processes;
 
 namespace Trivale.OS;
 
@@ -28,6 +29,7 @@ public partial class MainTerminal : Control
 		_processManager = new ProcessManager();
 		_windowManager = new WindowManager();
 		
+		// Initialize managers
 		AddChild(_processManager);
 		AddChild(_windowManager);
 		
@@ -38,6 +40,22 @@ public partial class MainTerminal : Control
 		
 		SetupLayout();
 		SetupEffects();
+		
+		// Start with the main menu
+		InitializeMainMenu();
+	}
+	
+	private void InitializeMainMenu()
+	{
+		var menuProcess = new MenuProcess("menu_main", _processManager);
+		if (_processManager.StartProcess(menuProcess))
+		{
+			GD.Print("Main menu initialized");
+		}
+		else
+		{
+			GD.PrintErr("Failed to initialize main menu");
+		}
 	}
 	
 	private void SetupLayout()
@@ -205,17 +223,26 @@ public partial class MainTerminal : Control
 	{
 		GD.Print($"Processing slot selection for {slotId}");
 		
-		// If no process exists, create one
+		// If no process exists, check if this is slot 0 (menu slot)
 		var process = _processManager.GetProcess(slotId);
 		if (process == null)
 		{
-			var cardGameProcess = new CardGameProcess($"card_game_{slotId}");
-			if (!_processManager.StartProcess(cardGameProcess))
+			if (slotId == "SLOT_0_0")
 			{
-				GD.PrintErr($"Failed to start card game in slot: {slotId}");
-				return;
+				// For slot 0, we initialize the menu
+				InitializeMainMenu();
 			}
-			process = cardGameProcess;
+			else
+			{
+				// For other slots, create a card game as before
+				var cardGameProcess = new CardGameProcess($"card_game_{slotId}");
+				if (!_processManager.StartProcess(cardGameProcess))
+				{
+					GD.PrintErr($"Failed to start card game in slot: {slotId}");
+					return;
+				}
+				process = cardGameProcess;
+			}
 		}
 		
 		// Get and show the process scene
