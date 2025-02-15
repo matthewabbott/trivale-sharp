@@ -61,6 +61,16 @@ public partial class SimpleMainMenu : Control
 			CustomMinimumSize = new Vector2(200, 0),
 			SizeFlagsVertical = SizeFlags.Fill
 		};
+		var leftStyle = new StyleBoxFlat
+		{
+			BgColor = new Color(0, 0.05f, 0, 0.9f),  // Very dark green
+			BorderColor = new Color(0, 1, 0),         // Bright green
+			BorderWidthLeft = 1,
+			BorderWidthTop = 1,
+			BorderWidthRight = 1,
+			BorderWidthBottom = 1
+		};
+		leftPanel.AddThemeStyleboxOverride("panel", leftStyle);
 		mainContainer.AddChild(leftPanel);
 
 		var leftContent = new VBoxContainer();
