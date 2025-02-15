@@ -13,8 +13,8 @@ public partial class SimpleMainMenu : Control
 	private Panel _resourcePanel;
 	private Control _mainContent;
 	
-	private const string CardGameScenePath = "res://Scenes/MainMenu/CardGameScene.tscn";
-	private const string DebugScenePath = "res://Scenes/MainMenu/DebugScene.tscn";
+private const string CardGameScenePath = "res://Scenes/MainMenu/CardGameScene.tscn";
+private const string DebugScenePath = "res://Scenes/MainMenu/DebugScene.tscn";
 
 	public override void _Ready()
 	{
@@ -27,6 +27,19 @@ public partial class SimpleMainMenu : Control
 		SetupLayout();
 		ConnectSignals();
 		UpdateMemSlotUI(true, "");
+	}
+
+	private StyleBoxFlat CreatePanelStyle()
+	{
+		return new StyleBoxFlat
+		{
+			BgColor = new Color(0, 0.05f, 0, 0.9f),  // Very dark green
+			BorderColor = new Color(0, 1, 0),         // Bright green
+			BorderWidthLeft = 1,
+			BorderWidthTop = 1,
+			BorderWidthRight = 1,
+			BorderWidthBottom = 1
+		};
 	}
 
 	private void SetupLayout()
@@ -99,8 +112,10 @@ public partial class SimpleMainMenu : Control
 			SizeFlagsHorizontal = SizeFlags.Expand,
 			SizeFlagsVertical = SizeFlags.Fill
 		};
+		centerPanel.AddThemeStyleboxOverride("panel", CreatePanelStyle());  // Add style here
 		mainContainer.AddChild(centerPanel);
 
+		// Container for central content
 		_mainContent = new MarginContainer();
 		_mainContent.AddThemeConstantOverride("margin_left", 10);
 		_mainContent.AddThemeConstantOverride("margin_right", 10);
@@ -108,15 +123,21 @@ public partial class SimpleMainMenu : Control
 		_mainContent.AddThemeConstantOverride("margin_bottom", 10);
 		centerPanel.AddChild(_mainContent);
 
-		// Menu buttons container
+		// Main menu container (shown by default)
+		var menuContainer = new CenterContainer
+		{
+			SizeFlagsHorizontal = SizeFlags.Fill,
+			SizeFlagsVertical = SizeFlags.Fill
+		};
+		_mainContent.AddChild(menuContainer);
+
 		var buttonContainer = new VBoxContainer
 		{
 			CustomMinimumSize = new Vector2(300, 0)
 		};
 		buttonContainer.AddThemeConstantOverride("separation", 10);
-		_mainContent.AddChild(buttonContainer);
+		menuContainer.AddChild(buttonContainer);
 
-		// Buttons
 		_cardGameButton = new Button 
 		{ 
 			Text = "CARD GAME PLACEHOLDER",
@@ -131,10 +152,10 @@ public partial class SimpleMainMenu : Control
 		};
 		buttonContainer.AddChild(_debugButton);
 
-		// Viewport container for loaded scenes
-		_viewportContainer = new PanelContainer
+		// Separate viewport container for loaded scenes (hidden by default)
+		_viewportContainer = new Control
 		{
-			Visible = false, // Hidden until scene is loaded
+			Visible = false,
 			SizeFlagsHorizontal = SizeFlags.Fill,
 			SizeFlagsVertical = SizeFlags.Fill
 		};
@@ -146,6 +167,7 @@ public partial class SimpleMainMenu : Control
 			CustomMinimumSize = new Vector2(150, 0),
 			SizeFlagsVertical = SizeFlags.Fill
 		};
+		rightPanel.AddThemeStyleboxOverride("panel", CreatePanelStyle());  // Add style here
 		mainContainer.AddChild(rightPanel);
 
 		var rightContent = new VBoxContainer();
