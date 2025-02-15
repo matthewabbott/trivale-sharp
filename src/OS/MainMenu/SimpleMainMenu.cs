@@ -1,6 +1,8 @@
 // src/OS/MainMenu/SimpleMainMenu.cs
 using Godot;
 using System;
+using Trivale.Memory;
+using Trivale.OS.MainMenu.Processes;
 
 namespace Trivale.OS;
 
@@ -13,8 +15,12 @@ public partial class SimpleMainMenu : Control
 	private Panel _resourcePanel;
 	private Control _mainContent;
 	
-private const string CardGameScenePath = "res://Scenes/MainMenu/CardGameScene.tscn";
-private const string DebugScenePath = "res://Scenes/MainMenu/DebugScene.tscn";
+	// Process management
+	private IProcess _currentProcess;
+	private MemorySlot _memSlot;  // We'll just use a single slot for now
+	
+	private const string CardGameScenePath = "res://Scenes/MainMenu/CardGameScene.tscn";
+	private const string DebugScenePath = "res://Scenes/MainMenu/DebugScene.tscn";
 
 	public override void _Ready()
 	{
@@ -24,9 +30,21 @@ private const string DebugScenePath = "res://Scenes/MainMenu/DebugScene.tscn";
 		GrowHorizontal = GrowDirection.Both;
 		GrowVertical = GrowDirection.Both;
 
+		InitializeMemorySlot();
 		SetupLayout();
 		ConnectSignals();
 		UpdateMemSlotUI(true, "");
+	}
+
+	private void InitializeMemorySlot()
+	{
+		// Create a single memory slot for the main menu
+		_memSlot = new MemorySlot(
+			id: "SLOT_0",
+			position: new Vector2(0, 0),  // Position doesn't matter for now
+			maxMemory: 1.0f,
+			maxCpu: 1.0f
+		);
 	}
 
 	private StyleBoxFlat CreatePanelStyle()
@@ -74,16 +92,7 @@ private const string DebugScenePath = "res://Scenes/MainMenu/DebugScene.tscn";
 			CustomMinimumSize = new Vector2(200, 0),
 			SizeFlagsVertical = SizeFlags.Fill
 		};
-		var leftStyle = new StyleBoxFlat
-		{
-			BgColor = new Color(0, 0.05f, 0, 0.9f),  // Very dark green
-			BorderColor = new Color(0, 1, 0),         // Bright green
-			BorderWidthLeft = 1,
-			BorderWidthTop = 1,
-			BorderWidthRight = 1,
-			BorderWidthBottom = 1
-		};
-		leftPanel.AddThemeStyleboxOverride("panel", leftStyle);
+		leftPanel.AddThemeStyleboxOverride("panel", CreatePanelStyle());
 		mainContainer.AddChild(leftPanel);
 
 		var leftContent = new VBoxContainer();
@@ -112,7 +121,7 @@ private const string DebugScenePath = "res://Scenes/MainMenu/DebugScene.tscn";
 			SizeFlagsHorizontal = SizeFlags.Expand,
 			SizeFlagsVertical = SizeFlags.Fill
 		};
-		centerPanel.AddThemeStyleboxOverride("panel", CreatePanelStyle());  // Add style here
+		centerPanel.AddThemeStyleboxOverride("panel", CreatePanelStyle());
 		mainContainer.AddChild(centerPanel);
 
 		// Container for central content
@@ -167,7 +176,7 @@ private const string DebugScenePath = "res://Scenes/MainMenu/DebugScene.tscn";
 			CustomMinimumSize = new Vector2(150, 0),
 			SizeFlagsVertical = SizeFlags.Fill
 		};
-		rightPanel.AddThemeStyleboxOverride("panel", CreatePanelStyle());  // Add style here
+		rightPanel.AddThemeStyleboxOverride("panel", CreatePanelStyle());
 		mainContainer.AddChild(rightPanel);
 
 		var rightContent = new VBoxContainer();
@@ -192,8 +201,34 @@ private const string DebugScenePath = "res://Scenes/MainMenu/DebugScene.tscn";
 
 	private void OnSceneButtonPressed(string scenePath, string displayName)
 	{
-		UpdateMemSlotUI(false, displayName);
-		LoadSceneInViewport(scenePath);
+		// Clear any existing process
+		if (_currentProcess != null)
+		{
+			_memSlot?.UnloadProcess();
+			_currentProcess = null;
+		}
+
+		// Create and load new process
+		IProcess newProcess = displayName switch
+		{
+			"CARD GAME" => new CardGameMenuProcess($"menu_cardgame_{DateTime.Now.Ticks}"),
+			"DEBUG" => new DebugMenuProcess($"menu_debug_{DateTime.Now.Ticks}"),
+			_ => null
+		};
+
+		if (newProcess != null && _memSlot.CanLoadProcess(newProcess))
+		{
+			_memSlot.LoadProcess(newProcess);
+			_currentProcess = newProcess;
+			UpdateMemSlotUI(false, displayName);
+			LoadSceneInViewport(scenePath);
+			GD.Print($"Loaded process {newProcess.Id} of type {newProcess.Type}");
+		}
+		else
+		{
+			GD.PrintErr($"Failed to load process for {displayName}");
+			UpdateMemSlotUI(true, "");
+		}
 	}
 
 	private void UpdateMemSlotUI(bool isEmpty, string loadedText)
