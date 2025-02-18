@@ -324,10 +324,10 @@ public partial class SimpleMainMenu : Control
 		}
 		_viewportContainer.Visible = false;
 
-		// Show menu buttons again
+		// Show menu buttons again (but not the viewport)
 		foreach (var child in _mainContent.GetChildren())
 		{
-			if (child is Control control)
+			if (child != _viewportContainer && child is Control control)
 			{
 				control.Visible = true;
 			}
