@@ -32,7 +32,7 @@ public partial class SlotGridDisplay : Control
         }
     }
     
-    private void OnSlotStateChanged(int slotIndex, SlotState state)
+    private void OnSlotStateChanged(int slotIndex, bool isActive, bool isUnlocked, string loadedText)
     {
         UpdateDisplay();
     }

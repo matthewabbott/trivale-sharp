@@ -1,7 +1,7 @@
 // src/OS/MainMenu/SimpleMainMenu.cs
 using Godot;
-using System;
 using Trivale.Memory;
+using Trivale.UI.Components;
 using Trivale.OS.MainMenu.Processes;
 
 namespace Trivale.OS;
@@ -31,68 +31,35 @@ namespace Trivale.OS;
 /// </summary>
 public partial class SimpleMainMenu : Control
 {
-	private Label _memSlotDisplay;
+	private SlotGridSystem _slotSystem;
 	private Button _cardGameButton;
 	private Button _debugButton;
 	private Control _viewportContainer;
-	private Panel _resourcePanel;
 	private Control _mainContent;
 	
 	// Process management
 	private IProcess _currentProcess;
-	private MemorySlot _memSlot;  // We'll just use a single slot for now
 	
 	private const string CardGameScenePath = "res://Scenes/MainMenu/CardGameScene.tscn";
 	private const string DebugScenePath = "res://Scenes/MainMenu/DebugScene.tscn";
 
 	public override void _Ready()
 	{
-		// Set up the root Control node (this node) to fill the window
-		LayoutMode = 1;  // Important: Use anchors
+		CustomMinimumSize = new Vector2(800, 600);
+		SetLayout();
+		ConnectSignals();
+	}
+
+	private void SetLayout()
+	{
+		// Set up the root Control node to fill the window
+		LayoutMode = 1;  // Use anchors
 		AnchorsPreset = (int)LayoutPreset.FullRect;
 		GrowHorizontal = GrowDirection.Both;
 		GrowVertical = GrowDirection.Both;
 
-		InitializeMemorySlot();
-		SetupLayout();
-		ConnectSignals();
-		UpdateMemSlotUI(true, "");
-	}
-
-	private void InitializeMemorySlot()
-	{
-		// Create a single memory slot for the main menu
-		_memSlot = new MemorySlot(
-			id: "SLOT_0",
-			position: new Vector2(0, 0),  // Position doesn't matter for now
-			maxMemory: 1.0f,
-			maxCpu: 1.0f
-		);
-	}
-
-	private StyleBoxFlat CreatePanelStyle()
-	{
-		return new StyleBoxFlat
-		{
-			BgColor = new Color(0, 0.05f, 0, 0.9f),  // Very dark green
-			BorderColor = new Color(0, 1, 0),         // Bright green
-			BorderWidthLeft = 1,
-			BorderWidthTop = 1,
-			BorderWidthRight = 1,
-			BorderWidthBottom = 1
-		};
-	}
-
-	private void SetupLayout()
-	{
 		// Main container with margins
-		var marginContainer = new MarginContainer
-		{
-			LayoutMode = 1,
-			AnchorsPreset = (int)LayoutPreset.FullRect,
-			GrowHorizontal = GrowDirection.Both,
-			GrowVertical = GrowDirection.Both
-		};
+		var marginContainer = new MarginContainer();
 		marginContainer.AddThemeConstantOverride("margin_left", 20);
 		marginContainer.AddThemeConstantOverride("margin_right", 20);
 		marginContainer.AddThemeConstantOverride("margin_top", 20);
@@ -104,50 +71,41 @@ public partial class SimpleMainMenu : Control
 		{
 			AnchorsPreset = (int)LayoutPreset.FullRect,
 			GrowHorizontal = GrowDirection.Both,
-			GrowVertical = GrowDirection.Both,
-			Theme = new Theme() // We'll customize this later
+			GrowVertical = GrowDirection.Both
 		};
 		marginContainer.AddChild(mainContainer);
 
-		// Left panel (MEM slots) with panel background
+		// Left panel (Slot Grid) with panel background
 		var leftPanel = new PanelContainer
 		{
 			CustomMinimumSize = new Vector2(200, 0),
 			SizeFlagsVertical = SizeFlags.Fill
 		};
-		leftPanel.AddThemeStyleboxOverride("panel", CreatePanelStyle());
 		mainContainer.AddChild(leftPanel);
 
 		var leftContent = new VBoxContainer();
 		leftPanel.AddChild(leftContent);
 
 		// MEM header
-		var memHeader = new Label 
-		{ 
-			Text = "MEM",
-			CustomMinimumSize = new Vector2(0, 30)
-		};
+		var memHeader = new Label { Text = "MEM" };
 		leftContent.AddChild(memHeader);
 
-		// MEM slot display
-		_memSlotDisplay = new Label 
-		{ 
-			Text = "└── □ [          ]",
-			CustomMinimumSize = new Vector2(0, 100),
-			Theme = new Theme() // We'll set custom font here later
-		};
-		leftContent.AddChild(_memSlotDisplay);
+		// Slot grid system (with unique name for lookups)
+		_slotSystem = new SlotGridSystem { Name = "%SlotGridSystem" };
+		leftContent.AddChild(_slotSystem);
 
-		// Center panel (main content) with panel background
+		// Slot grid display
+		var slotDisplay = new SlotGridDisplay();
+		leftContent.AddChild(slotDisplay);
+
+		// Center panel (main content)
 		var centerPanel = new PanelContainer
 		{
 			SizeFlagsHorizontal = SizeFlags.Expand,
 			SizeFlagsVertical = SizeFlags.Fill
 		};
-		centerPanel.AddThemeStyleboxOverride("panel", CreatePanelStyle());
 		mainContainer.AddChild(centerPanel);
 
-		// Container for central content
 		_mainContent = new MarginContainer();
 		_mainContent.AddThemeConstantOverride("margin_left", 10);
 		_mainContent.AddThemeConstantOverride("margin_right", 10);
@@ -155,7 +113,12 @@ public partial class SimpleMainMenu : Control
 		_mainContent.AddThemeConstantOverride("margin_bottom", 10);
 		centerPanel.AddChild(_mainContent);
 
-		// Main menu container (shown by default)
+		SetupMainMenuButtons();
+		SetupViewportContainer();
+	}
+
+	private void SetupMainMenuButtons()
+	{
 		var menuContainer = new CenterContainer
 		{
 			SizeFlagsHorizontal = SizeFlags.Fill,
@@ -167,24 +130,25 @@ public partial class SimpleMainMenu : Control
 		{
 			CustomMinimumSize = new Vector2(300, 0)
 		};
-		buttonContainer.AddThemeConstantOverride("separation", 10);
 		menuContainer.AddChild(buttonContainer);
 
-		_cardGameButton = new Button 
-		{ 
+		_cardGameButton = new Button
+		{
 			Text = "CARD GAME PLACEHOLDER",
 			CustomMinimumSize = new Vector2(0, 40)
 		};
 		buttonContainer.AddChild(_cardGameButton);
 
-		_debugButton = new Button 
-		{ 
+		_debugButton = new Button
+		{
 			Text = "DEBUG SANDBOX",
 			CustomMinimumSize = new Vector2(0, 40)
 		};
 		buttonContainer.AddChild(_debugButton);
+	}
 
-		// Separate viewport container for loaded scenes (hidden by default)
+	private void SetupViewportContainer()
+	{
 		_viewportContainer = new Control
 		{
 			Visible = false,
@@ -192,28 +156,6 @@ public partial class SimpleMainMenu : Control
 			SizeFlagsVertical = SizeFlags.Fill
 		};
 		_mainContent.AddChild(_viewportContainer);
-
-		// Right panel (resources)
-		var rightPanel = new PanelContainer
-		{
-			CustomMinimumSize = new Vector2(150, 0),
-			SizeFlagsVertical = SizeFlags.Fill
-		};
-		rightPanel.AddThemeStyleboxOverride("panel", CreatePanelStyle());
-		mainContainer.AddChild(rightPanel);
-
-		var rightContent = new VBoxContainer();
-		rightPanel.AddChild(rightContent);
-
-		var resourceHeader = new Label 
-		{ 
-			Text = "Resources:",
-			CustomMinimumSize = new Vector2(0, 30)
-		};
-		rightContent.AddChild(resourceHeader);
-
-		var resourceLabel = new Label { Text = "MEM\nHealth\netc." };
-		rightContent.AddChild(resourceLabel);
 	}
 
 	private void ConnectSignals()
@@ -224,49 +166,27 @@ public partial class SimpleMainMenu : Control
 
 	private void OnSceneButtonPressed(string scenePath, string displayName)
 	{
-		// Clear any existing process
-		if (_currentProcess != null)
-		{
-			_memSlot?.UnloadProcess();
-			_currentProcess = null;
-		}
+		// Set slot 0 state
+		_slotSystem.SetSlotState(0, true, displayName);
 
 		// Create and load new process
 		IProcess newProcess = displayName switch
 		{
-			"CARD GAME" => new CardGameMenuProcess($"menu_cardgame_{DateTime.Now.Ticks}"),
-			"DEBUG" => new DebugMenuProcess($"menu_debug_{DateTime.Now.Ticks}"),
+			"CARD GAME" => new CardGameMenuProcess($"menu_cardgame_{System.DateTime.Now.Ticks}"),
+			"DEBUG" => new DebugMenuProcess($"menu_debug_{System.DateTime.Now.Ticks}"),
 			_ => null
 		};
 
-		if (newProcess != null && _memSlot.CanLoadProcess(newProcess))
+		if (newProcess != null)
 		{
-			_memSlot.LoadProcess(newProcess);
 			_currentProcess = newProcess;
-			UpdateMemSlotUI(false, displayName);
 			LoadSceneInViewport(scenePath);
 			GD.Print($"Loaded process {newProcess.Id} of type {newProcess.Type}");
 		}
 		else
 		{
-			GD.PrintErr($"Failed to load process for {displayName}");
-			UpdateMemSlotUI(true, "");
-		}
-	}
-
-	private void UpdateMemSlotUI(bool isEmpty, string loadedText)
-	{
-		if (isEmpty)
-		{
-			_memSlotDisplay.Text = "└── □ [          ]";
-		}
-		else
-		{
-			_memSlotDisplay.Text = 
-				$"└── ■ [LOADED: {loadedText}]\n" +
-				"    ├── □ [          ]\n" +
-				"    ├── □ [          ]\n" +
-				"    └── □ [          ]";
+			GD.PrintErr($"Failed to create process for {displayName}");
+			_slotSystem.SetSlotState(0, false, "");
 		}
 	}
 
@@ -310,12 +230,8 @@ public partial class SimpleMainMenu : Control
 
 	private void HandleSceneUnloadRequest()
 	{
-		// Clear the current process
-		if (_currentProcess != null)
-		{
-			_memSlot?.UnloadProcess();
-			_currentProcess = null;
-		}
+		_currentProcess = null;
+		_slotSystem.SetSlotState(0, false, "");
 
 		// Clear viewport
 		foreach (Node child in _viewportContainer.GetChildren())
@@ -324,7 +240,7 @@ public partial class SimpleMainMenu : Control
 		}
 		_viewportContainer.Visible = false;
 
-		// Show menu buttons again (but not the viewport)
+		// Show menu buttons again
 		foreach (var child in _mainContent.GetChildren())
 		{
 			if (child != _viewportContainer && child is Control control)
@@ -332,7 +248,5 @@ public partial class SimpleMainMenu : Control
 				control.Visible = true;
 			}
 		}
-
-		UpdateMemSlotUI(true, "");
 	}
 }

@@ -20,8 +20,9 @@ public partial class SlotGridSystem : Control
     private int _rows = 2;
     private int _columns = 2;
     
+    // Pass individual slot state components (Can't send the state itself in a signal)
     [Signal]
-    public delegate void SlotStateChangedEventHandler(int slotIndex, SlotState newState);
+    public delegate void SlotStateChangedEventHandler(int slotIndex, bool isActive, bool isUnlocked, string loadedText);
     
     public override void _Ready()
     {
@@ -57,7 +58,7 @@ public partial class SlotGridSystem : Control
         state.LoadedText = loadedText;
         _slots[slotIndex] = state;
         
-        EmitSignal(SignalName.SlotStateChanged, slotIndex, state);
+        EmitSignal(SignalName.SlotStateChanged, slotIndex, state.IsActive, state.IsUnlocked, state.LoadedText);
     }
     
     public void UnlockSlot(int slotIndex)
@@ -68,14 +69,15 @@ public partial class SlotGridSystem : Control
         state.IsUnlocked = true;
         _slots[slotIndex] = state;
         
-        EmitSignal(SignalName.SlotStateChanged, slotIndex, state);
+        EmitSignal(SignalName.SlotStateChanged, slotIndex, state.IsActive, state.IsUnlocked, state.LoadedText);
     }
     
     private void EmitSlotUpdates()
     {
         foreach (var kvp in _slots)
         {
-            EmitSignal(SignalName.SlotStateChanged, kvp.Key, kvp.Value);
+            var state = kvp.Value;
+            EmitSignal(SignalName.SlotStateChanged, kvp.Key, state.IsActive, state.IsUnlocked, state.LoadedText);
         }
     }
     
