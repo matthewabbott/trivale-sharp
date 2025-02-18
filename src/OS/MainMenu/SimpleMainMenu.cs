@@ -6,6 +6,29 @@ using Trivale.OS.MainMenu.Processes;
 
 namespace Trivale.OS;
 
+/// <summary>
+/// Main menu system that manages processes, memory slots, and scene loading.
+/// 
+/// Process/Scene Lifecycle:
+/// 1. Button Press -> Creates process -> Loads into memory slot -> Loads scene
+/// 2. Scene signals unload -> Process unloaded -> Memory slot cleared -> UI restored
+/// 
+/// System Responsibilities:
+/// - Process Management: Creating, loading, and unloading processes
+/// - Memory Management: Managing the memory slot state and resources
+/// - Scene Management: Loading scenes and handling their unload requests
+/// - UI State: Maintaining menu state and MEM slot visualization
+/// 
+/// Loaded Scene Contracts:
+/// - Scenes must implement SceneUnloadRequested signal
+/// - Scenes should not manage their own unloading
+/// - Scenes can expect proper cleanup when signaling unload
+/// 
+/// Memory/Process Management:
+/// - All process and memory management is centralized here
+/// - Processes are created/destroyed with their corresponding scenes
+/// - Memory slot state is maintained and visualized
+/// </summary>
 public partial class SimpleMainMenu : Control
 {
 	private Label _memSlotDisplay;
@@ -260,12 +283,56 @@ public partial class SimpleMainMenu : Control
 		if (sceneResource != null)
 		{
 			var instance = sceneResource.Instantiate();
+			
+			// Connect to the scene's unload signal
+			if (instance.HasSignal("SceneUnloadRequested"))
+			{
+				instance.Connect("SceneUnloadRequested", new Callable(this, nameof(HandleSceneUnloadRequest)));
+			}
+			
 			_viewportContainer.AddChild(instance);
 			_viewportContainer.Visible = true;
+
+			// Hide menu buttons when showing scene
+			foreach (var child in _mainContent.GetChildren())
+			{
+				if (child != _viewportContainer && child is Control control)
+				{
+					control.Visible = false;
+				}
+			}
 		}
 		else
 		{
 			GD.PrintErr($"Failed to load scene: {scenePath}");
 		}
+	}
+
+	private void HandleSceneUnloadRequest()
+	{
+		// Clear the current process
+		if (_currentProcess != null)
+		{
+			_memSlot?.UnloadProcess();
+			_currentProcess = null;
+		}
+
+		// Clear viewport
+		foreach (Node child in _viewportContainer.GetChildren())
+		{
+			child.QueueFree();
+		}
+		_viewportContainer.Visible = false;
+
+		// Show menu buttons again
+		foreach (var child in _mainContent.GetChildren())
+		{
+			if (child is Control control)
+			{
+				control.Visible = true;
+			}
+		}
+
+		UpdateMemSlotUI(true, "");
 	}
 }
