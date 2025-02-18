@@ -1,3 +1,4 @@
+// src/UI/Components/MemorySlotDisplay.cs
 using Godot;
 using Trivale.Memory;
 using Trivale.OS;
