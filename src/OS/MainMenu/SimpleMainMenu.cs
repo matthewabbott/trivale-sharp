@@ -60,6 +60,11 @@ public partial class SimpleMainMenu : Control
 	public override void _Ready()
 	{
 		CustomMinimumSize = new Vector2(800, 600);
+
+		// Create managers
+		_slotManager = new SlotManager(2, 2);  // 2x2 grid of slots
+		_processManager = new ProcessManager(_slotManager);
+
 		SetLayout();
 		ConnectSignals();
 	}
@@ -106,11 +111,12 @@ public partial class SimpleMainMenu : Control
 
 		// Slot grid system
 		_slotSystem = new SlotGridSystem();
+		_slotSystem.Initialize(_slotManager);
 		leftContent.AddChild(_slotSystem);
 
 		// Slot grid display
 		var slotDisplay = new SlotGridDisplay();
-		slotDisplay.Initialize(_slotSystem);  // Pass the reference directly
+		slotDisplay.Initialize(_slotSystem);
 		leftContent.AddChild(slotDisplay);
 
 		// Center panel (main content)
