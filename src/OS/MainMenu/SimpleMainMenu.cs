@@ -84,6 +84,19 @@ public partial class SimpleMainMenu : Control
 		}
 	}
 
+	private StyleBoxFlat CreatePanelStyle()
+	{
+		return new StyleBoxFlat
+		{
+			BgColor = new Color(0, 0.05f, 0, 0.9f),  // Very dark green
+			BorderColor = new Color(0, 1, 0),         // Bright green
+			BorderWidthLeft = 1,
+			BorderWidthTop = 1,
+			BorderWidthRight = 1,
+			BorderWidthBottom = 1
+		};
+	}
+
 	private void SetLayout()
 	{
 		// Set up the root Control node to fill the window
@@ -93,7 +106,13 @@ public partial class SimpleMainMenu : Control
 		GrowVertical = GrowDirection.Both;
 
 		// Main container with margins
-		var marginContainer = new MarginContainer();
+		var marginContainer = new MarginContainer
+		{
+			LayoutMode = 1,
+			AnchorsPreset = (int)LayoutPreset.FullRect,
+			GrowHorizontal = GrowDirection.Both,
+			GrowVertical = GrowDirection.Both
+		};
 		marginContainer.AddThemeConstantOverride("margin_left", 20);
 		marginContainer.AddThemeConstantOverride("margin_right", 20);
 		marginContainer.AddThemeConstantOverride("margin_top", 20);
@@ -105,23 +124,29 @@ public partial class SimpleMainMenu : Control
 		{
 			AnchorsPreset = (int)LayoutPreset.FullRect,
 			GrowHorizontal = GrowDirection.Both,
-			GrowVertical = GrowDirection.Both
+			GrowVertical = GrowDirection.Both,
+			Theme = new Theme()
 		};
 		marginContainer.AddChild(mainContainer);
 
-		// Left panel (Slot Grid) with panel background
+		// Left panel (MEM slots) with panel background
 		var leftPanel = new PanelContainer
 		{
 			CustomMinimumSize = new Vector2(200, 0),
 			SizeFlagsVertical = SizeFlags.Fill
 		};
+		leftPanel.AddThemeStyleboxOverride("panel", CreatePanelStyle());
 		mainContainer.AddChild(leftPanel);
 
 		var leftContent = new VBoxContainer();
 		leftPanel.AddChild(leftContent);
 
 		// MEM header
-		var memHeader = new Label { Text = "MEM" };
+		var memHeader = new Label
+		{
+			Text = "MEM",
+			CustomMinimumSize = new Vector2(0, 30)
+		};
 		leftContent.AddChild(memHeader);
 
 		// Slot grid system
@@ -134,12 +159,13 @@ public partial class SimpleMainMenu : Control
 		slotDisplay.Initialize(_slotSystem);
 		leftContent.AddChild(slotDisplay);
 
-		// Center panel (main content)
+		// Center panel (main content) with panel background
 		var centerPanel = new PanelContainer
 		{
 			SizeFlagsHorizontal = SizeFlags.Expand,
 			SizeFlagsVertical = SizeFlags.Fill
 		};
+		centerPanel.AddThemeStyleboxOverride("panel", CreatePanelStyle());
 		mainContainer.AddChild(centerPanel);
 
 		_mainContent = new MarginContainer();
@@ -151,22 +177,40 @@ public partial class SimpleMainMenu : Control
 
 		SetupMainMenuButtons();
 		SetupViewportContainer();
+
+		// Right panel (resources)
+		var rightPanel = new PanelContainer
+		{
+			CustomMinimumSize = new Vector2(150, 0),
+			SizeFlagsVertical = SizeFlags.Fill
+		};
+		rightPanel.AddThemeStyleboxOverride("panel", CreatePanelStyle());
+		mainContainer.AddChild(rightPanel);
+
+		var rightContent = new VBoxContainer();
+		rightPanel.AddChild(rightContent);
+
+		var resourceHeader = new Label
+		{
+			Text = "Resources:",
+			CustomMinimumSize = new Vector2(0, 30)
+		};
+		rightContent.AddChild(resourceHeader);
+
+		var resourceLabel = new Label { Text = "MEM\nHealth\netc." };
+		rightContent.AddChild(resourceLabel);
 	}
 
 	private void SetupMainMenuButtons()
 	{
-		var menuContainer = new CenterContainer
-		{
-			SizeFlagsHorizontal = SizeFlags.Fill,
-			SizeFlagsVertical = SizeFlags.Fill
-		};
-		_mainContent.AddChild(menuContainer);
-
 		var buttonContainer = new VBoxContainer
 		{
-			CustomMinimumSize = new Vector2(300, 0)
+			CustomMinimumSize = new Vector2(300, 0),
+			SizeFlagsHorizontal = 0,  // Don't expand horizontally
+			SizeFlagsVertical = SizeFlags.Fill
 		};
-		menuContainer.AddChild(buttonContainer);
+		buttonContainer.AddThemeConstantOverride("separation", 10);
+		_mainContent.AddChild(buttonContainer);
 
 		_cardGameButton = new Button
 		{
