@@ -6,7 +6,13 @@ using Trivale.Memory.SlotManagement;
 
 namespace Trivale.UI.Components;
 
-// Represents the state of a single slot in the grid
+/// <summary>
+/// UI representation of the slot system that manages slot grid visualization
+/// and user interaction. Observes SlotManager events to update its display
+/// and maintains its own simplified state for UI purposes.
+/// 
+/// Decouples the slot management system from its visual representation.
+/// </summary>
 public struct SlotState
 {
     public bool IsActive;

@@ -5,8 +5,12 @@ using System.Collections.Generic;
 namespace Trivale.Memory.ProcessManagement;
 
 /// <summary>
-/// Represents a process that can be loaded into a slot.
-/// This is the base interface that all runnable processes must implement.
+/// Core unit of execution in the memory system. A process represents any program
+/// that can be loaded into a memory slot, with defined resource requirements and
+/// state management capabilities.
+/// 
+/// Processes are slot-agnostic and can be loaded into any slot meeting their
+/// resource requirements. They handle their own state preservation and restoration.
 /// </summary>
 public interface IProcess
 {
