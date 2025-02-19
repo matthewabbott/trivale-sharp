@@ -90,12 +90,13 @@ public partial class SimpleMainMenu : Control
 		var memHeader = new Label { Text = "MEM" };
 		leftContent.AddChild(memHeader);
 
-		// Slot grid system (with unique name for lookups)
-		_slotSystem = new SlotGridSystem { Name = "%SlotGridSystem" };
+		// Slot grid system
+		_slotSystem = new SlotGridSystem();
 		leftContent.AddChild(_slotSystem);
 
 		// Slot grid display
 		var slotDisplay = new SlotGridDisplay();
+		slotDisplay.Initialize(_slotSystem);  // Pass the reference directly
 		leftContent.AddChild(slotDisplay);
 
 		// Center panel (main content)

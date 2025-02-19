@@ -10,6 +10,12 @@ public partial class SlotGridDisplay : Control
     private SlotGridSystem _slotSystem;
     private Label _displayLabel;
     
+    public void Initialize(SlotGridSystem slotSystem)
+    {
+        _slotSystem = slotSystem;
+        _slotSystem.SlotStateChanged += OnSlotStateChanged;
+    }
+    
     public override void _Ready()
     {
         _displayLabel = new Label
@@ -18,18 +24,6 @@ public partial class SlotGridDisplay : Control
             HorizontalAlignment = HorizontalAlignment.Left
         };
         AddChild(_displayLabel);
-        
-        // Find and connect to slot system
-        // Note: The SlotGridSystem node needs a unique name set in the scene
-        _slotSystem = GetNode<SlotGridSystem>("%SlotGridSystem");
-        if (_slotSystem != null)
-        {
-            _slotSystem.SlotStateChanged += OnSlotStateChanged;
-        }
-        else
-        {
-            GD.PrintErr("SlotGridDisplay: Could not find SlotGridSystem node");
-        }
     }
     
     private void OnSlotStateChanged(int slotIndex, bool isActive, bool isUnlocked, string loadedText)
@@ -39,7 +33,11 @@ public partial class SlotGridDisplay : Control
     
     private void UpdateDisplay()
     {
-        if (_slotSystem == null) return;
+        if (_slotSystem == null)
+        {
+            _displayLabel.Text = "└── □ [ERROR: NO SLOT SYSTEM]";
+            return;
+        }
         
         // Build display string
         var display = new StringBuilder();
