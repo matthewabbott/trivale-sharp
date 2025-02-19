@@ -4,6 +4,7 @@ using Trivale.Memory;
 using Trivale.UI.Components;
 using Trivale.OS.MainMenu.Processes;
 using Trivale.Memory.ProcessManagement;
+using Trivale.Memory.SlotManagement;
 
 namespace Trivale.OS;
 
@@ -38,11 +39,23 @@ public partial class SimpleMainMenu : Control
 	private Control _viewportContainer;
 	private Control _mainContent;
 	
-	// Process management
-	private IProcess _currentProcess;
+	// Process and slot management
+	private IProcessManager _processManager;
+	private ISlotManager _slotManager;
 	
 	private const string CardGameScenePath = "res://Scenes/MainMenu/CardGameScene.tscn";
 	private const string DebugScenePath = "res://Scenes/MainMenu/DebugScene.tscn";
+
+	public void Initialize(IProcessManager processManager, ISlotManager slotManager)
+	{
+		_processManager = processManager;
+		_slotManager = slotManager;
+		
+		// Subscribe to manager events
+		_processManager.ProcessStarted += OnProcessStarted;
+		_processManager.ProcessEnded += OnProcessEnded;
+		_slotManager.SlotStatusChanged += OnSlotStatusChanged;
+	}
 
 	public override void _Ready()
 	{
@@ -168,27 +181,24 @@ public partial class SimpleMainMenu : Control
 
 	private void OnSceneButtonPressed(string scenePath, string displayName)
 	{
-		// Set slot 0 state
-		_slotSystem.SetSlotState(0, true, displayName);
-
-		// Create and load new process
-		IProcess newProcess = displayName switch
+		var processType = displayName switch
 		{
-			"CARD GAME" => new CardGameMenuProcess($"menu_cardgame_{System.DateTime.Now.Ticks}"),
-			"DEBUG" => new DebugMenuProcess($"menu_debug_{System.DateTime.Now.Ticks}"),
+			"CARD GAME" => "CardGame",
+			"DEBUG" => "Debug",
 			_ => null
 		};
+		
+		if (processType == null) return;
 
-		if (newProcess != null)
+		var processId = _processManager.CreateProcess(processType);
+		if (processId != null && _processManager.StartProcess(processId, out var slotId))
 		{
-			_currentProcess = newProcess;
 			LoadSceneInViewport(scenePath);
-			GD.Print($"Loaded process {newProcess.Id} of type {newProcess.Type}");
+			GD.Print($"Loaded process {processId} of type {processType} in slot {slotId}");
 		}
 		else
 		{
-			GD.PrintErr($"Failed to create process for {displayName}");
-			_slotSystem.SetSlotState(0, false, "");
+			GD.PrintErr($"Failed to create/start process for {displayName}");
 		}
 	}
 
@@ -232,9 +242,6 @@ public partial class SimpleMainMenu : Control
 
 	private void HandleSceneUnloadRequest()
 	{
-		_currentProcess = null;
-		_slotSystem.SetSlotState(0, false, "");
-
 		// Clear viewport
 		foreach (Node child in _viewportContainer.GetChildren())
 		{
@@ -250,5 +257,20 @@ public partial class SimpleMainMenu : Control
 				control.Visible = true;
 			}
 		}
+	}
+
+	private void OnProcessStarted(string processId, string slotId)
+	{
+		GD.Print($"Process {processId} started in slot {slotId}");
+	}
+
+	private void OnProcessEnded(string processId)
+	{
+		GD.Print($"Process {processId} ended");
+	}
+
+	private void OnSlotStatusChanged(string slotId, SlotStatus status)
+	{
+		GD.Print($"Slot {slotId} changed status to {status}");
 	}
 }

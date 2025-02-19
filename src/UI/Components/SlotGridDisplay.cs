@@ -1,8 +1,8 @@
 // src/UI/Components/SlotGridDisplay.cs
-// NOTE: ON NOTICE: we might want to delete this file or repurpose it as part of the slotmanagement refactor
 // Temporary ASCII-based visualization of the slot system
 using Godot;
 using System.Text;
+using System.Linq;
 
 namespace Trivale.UI.Components;
 
@@ -27,7 +27,7 @@ public partial class SlotGridDisplay : Control
         AddChild(_displayLabel);
     }
     
-    private void OnSlotStateChanged(int slotIndex, bool isActive, bool isUnlocked, string loadedText)
+    private void OnSlotStateChanged(string slotId, bool isActive, bool isUnlocked, string loadedText)
     {
         UpdateDisplay();
     }
@@ -43,7 +43,12 @@ public partial class SlotGridDisplay : Control
         // Build display string
         var display = new StringBuilder();
         
-        foreach (var (index, slot) in _slotSystem.GetAllSlots())
+        // Sort slots by their grid position for consistent display
+        var sortedSlots = _slotSystem.GetAllSlots()
+            .OrderBy(kvp => kvp.Value.GridPosition.Y)
+            .ThenBy(kvp => kvp.Value.GridPosition.X);
+
+        foreach (var (slotId, slot) in sortedSlots)
         {
             if (!slot.IsUnlocked) continue;
             

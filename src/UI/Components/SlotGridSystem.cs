@@ -1,7 +1,7 @@
 // src/UI/Components/SlotGridSystem.cs
-// NOTE: ON NOTICE: we might want to delete this file or repurpose it as part of the slotmanagement refactor
 using Godot;
 using System.Collections.Generic;
+using Trivale.Memory.SlotManagement;
 
 namespace Trivale.UI.Components;
 
@@ -17,80 +17,83 @@ public struct SlotState
 // Manages the state of a grid of slots
 public partial class SlotGridSystem : Control
 {
-    private Dictionary<int, SlotState> _slots = new();
+    private Dictionary<string, SlotState> _slots = new();
+    private ISlotManager _slotManager;
     private int _rows = 2;
     private int _columns = 2;
     
     // Pass individual slot state components (Can't send the state itself in a signal)
     [Signal]
-    public delegate void SlotStateChangedEventHandler(int slotIndex, bool isActive, bool isUnlocked, string loadedText);
+    public delegate void SlotStateChangedEventHandler(string slotId, bool isActive, bool isUnlocked, string loadedText);
     
-    public override void _Ready()
+    public void Initialize(ISlotManager slotManager)
     {
-        InitializeSlots();
-    }
-    
-    private void InitializeSlots()
-    {
-        for (int row = 0; row < _rows; row++)
+        _slotManager = slotManager;
+        _slotManager.SlotStatusChanged += OnSlotStatusChanged;
+        _slotManager.SlotUnlocked += OnSlotUnlocked;
+        
+        // Initialize UI state from slot manager
+        foreach (var slot in _slotManager.GetAllSlots())
         {
-            for (int col = 0; col < _columns; col++)
-            {
-                int index = row * _columns + col;
-                _slots[index] = new SlotState
-                {
-                    IsActive = false,
-                    IsUnlocked = index == 0, // Only first slot starts unlocked
-                    LoadedText = "",
-                    GridPosition = new Vector2I(col, row)
-                };
-            }
-        }
-        
-        EmitSlotUpdates();
-    }
-    
-    public void SetSlotState(int slotIndex, bool isActive, string loadedText = "")
-    {
-        if (!_slots.ContainsKey(slotIndex)) return;
-        
-        var state = _slots[slotIndex];
-        state.IsActive = isActive;
-        state.LoadedText = loadedText;
-        _slots[slotIndex] = state;
-        
-        EmitSignal(SignalName.SlotStateChanged, slotIndex, state.IsActive, state.IsUnlocked, state.LoadedText);
-    }
-    
-    public void UnlockSlot(int slotIndex)
-    {
-        if (!_slots.ContainsKey(slotIndex)) return;
-        
-        var state = _slots[slotIndex];
-        state.IsUnlocked = true;
-        _slots[slotIndex] = state;
-        
-        EmitSignal(SignalName.SlotStateChanged, slotIndex, state.IsActive, state.IsUnlocked, state.LoadedText);
-    }
-    
-    private void EmitSlotUpdates()
-    {
-        foreach (var kvp in _slots)
-        {
-            var state = kvp.Value;
-            EmitSignal(SignalName.SlotStateChanged, kvp.Key, state.IsActive, state.IsUnlocked, state.LoadedText);
+            UpdateSlotState(slot);
         }
     }
     
-    // Public accessors
-    public bool IsSlotActive(int slotIndex) => 
-        _slots.ContainsKey(slotIndex) && _slots[slotIndex].IsActive;
+    private void OnSlotStatusChanged(string slotId, SlotStatus status)
+    {
+        var slot = _slotManager.GetAllSlots().FirstOrDefault(s => s.Id == slotId);
+        if (slot != null)
+        {
+            UpdateSlotState(slot);
+        }
+    }
     
-    public bool IsSlotUnlocked(int slotIndex) => 
-        _slots.ContainsKey(slotIndex) && _slots[slotIndex].IsUnlocked;
+    private void OnSlotUnlocked(string slotId)
+    {
+        var slot = _slotManager.GetAllSlots().FirstOrDefault(s => s.Id == slotId);
+        if (slot != null)
+        {
+            UpdateSlotState(slot);
+        }
+    }
     
-    public SlotState? GetSlotState(int slotIndex) => 
-        _slots.ContainsKey(slotIndex) ? _slots[slotIndex] : null;
+    private void UpdateSlotState(ISlot slot)
+    {
+        var gridPosition = GetGridPositionFromId(slot.Id);
+        var isActive = slot.Status == SlotStatus.Active;
+        var isUnlocked = slot.Status != SlotStatus.Locked;
+        var loadedText = slot.CurrentProcess?.Type ?? "";
+        
+        _slots[slot.Id] = new SlotState
+        {
+            IsActive = isActive,
+            IsUnlocked = isUnlocked,
+            LoadedText = loadedText,
+            GridPosition = gridPosition
+        };
+        
+        EmitSignal(SignalName.SlotStateChanged, slot.Id, isActive, isUnlocked, loadedText);
+    }
     
-    public IEnumerable<KeyValuePair<int, SlotState>> GetAllSlots() => _slots;
+    private Vector2I GetGridPositionFromId(string slotId)
+    {
+        // Assuming slot IDs are in format "slot_0", "slot_1", etc.
+        if (int.TryParse(slotId.Split('_')[1], out int index))
+        {
+            return new Vector2I(index % _columns, index / _columns);
+        }
+        return Vector2I.Zero;
+    }
+    
+    // Public accessors for UI components
+    public bool IsSlotActive(string slotId) => 
+        _slots.ContainsKey(slotId) && _slots[slotId].IsActive;
+    
+    public bool IsSlotUnlocked(string slotId) => 
+        _slots.ContainsKey(slotId) && _slots[slotId].IsUnlocked;
+    
+    public SlotState? GetSlotState(string slotId) => 
+        _slots.ContainsKey(slotId) ? _slots[slotId] : null;
+    
+    public IEnumerable<KeyValuePair<string, SlotState>> GetAllSlots() => _slots;
 }
