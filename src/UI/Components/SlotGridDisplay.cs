@@ -24,6 +24,12 @@ public partial class SlotGridDisplay : Control
             Text = "INITIALIZING...",
             HorizontalAlignment = HorizontalAlignment.Left
         };
+        
+        // Set monospace font for ASCII art
+        var font = new SystemFont();
+        font.FontNames = new string[] { "JetBrainsMono-Regular", "Consolas", "Courier New" };
+        _displayLabel.AddThemeFontOverride("font", font);
+        
         AddChild(_displayLabel);
     }
     
@@ -40,33 +46,61 @@ public partial class SlotGridDisplay : Control
             return;
         }
         
-        // Build display string
         var display = new StringBuilder();
         
         // Sort slots by their grid position for consistent display
-        var sortedSlots = _slotSystem.GetAllSlots()
+        var slots = _slotSystem.GetAllSlots()
             .OrderBy(kvp => kvp.Value.GridPosition.Y)
-            .ThenBy(kvp => kvp.Value.GridPosition.X);
+            .ThenBy(kvp => kvp.Value.GridPosition.X)
+            .ToList();
 
-        foreach (var (slotId, slot) in sortedSlots)
+        // Find first active slot for tree structure
+        var firstActiveSlot = slots.FirstOrDefault(s => s.Value.IsActive);
+        bool hasActiveSlot = firstActiveSlot.Key != null;
+        
+        foreach (var (slotId, slot) in slots)
         {
-            if (!slot.IsUnlocked) continue;
-            
-            // Add indentation for sub-slots
-            if (slot.GridPosition.Y > 0) 
+            string slotSymbol;
+            if (!slot.IsUnlocked)
             {
-                display.Append("    ");
+                slotSymbol = "⚿"; // Locked slot
+            }
+            else if (slot.IsActive)
+            {
+                slotSymbol = "■"; // Active slot
+            }
+            else
+            {
+                slotSymbol = "□"; // Empty slot
             }
             
-            // Create the slot visualization
-            display.Append("└── ");
-            display.Append(slot.IsActive ? "■" : "□");
-            display.Append(" [");
-            display.Append(slot.LoadedText.PadRight(10));
-            display.AppendLine("]");
+            // Handle tree structure for active processes
+            if (hasActiveSlot)
+            {
+                if (slotId == firstActiveSlot.Key)
+                {
+                    // Root of the tree
+                    display.AppendLine($"└── {slotSymbol} [{slot.LoadedText.PadRight(10)}]");
+                }
+                else
+                {
+                    // Branches (show only if unlocked)
+                    if (slot.IsUnlocked)
+                    {
+                        bool isLast = slots.IndexOf((slotId, slot)) == slots.Count - 1;
+                        string branch = isLast ? "└" : "├";
+                        display.AppendLine($"    {branch}── {slotSymbol} [{slot.LoadedText.PadRight(10)}]");
+                    }
+                }
+            }
+            else
+            {
+                // No active process, flat display
+                display.AppendLine($"└── {slotSymbol} [{slot.LoadedText.PadRight(10)}]");
+            }
         }
         
-        _displayLabel.Text = display.ToString();
+        _displayLabel.Text = display.ToString().TrimEnd();
     }
     
     public override void _ExitTree()

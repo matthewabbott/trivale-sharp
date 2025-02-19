@@ -47,7 +47,7 @@ public partial class ProcessManager : Node, IProcessManager
         GD.Print($"Created process: {processId}");
         return processId;
     }
-    
+
     public bool StartProcess(string processId, out string slotId)
     {
         slotId = null;
@@ -57,6 +57,7 @@ public partial class ProcessManager : Node, IProcessManager
             return false;
         }
         
+        // Try to load into a slot
         if (!_slotManager.TryLoadProcessIntoSlot(process, out slotId))
         {
             GD.PrintErr("Failed to load process into any slot.");
@@ -64,8 +65,26 @@ public partial class ProcessManager : Node, IProcessManager
         }
         
         _processToSlot[processId] = slotId;
+        
+        // When a process starts, unlock the next two slots
+        UnlockAdditionalSlots(2);
+        
         ProcessStarted?.Invoke(processId, slotId);
         return true;
+    }
+    
+    private void UnlockAdditionalSlots(int count)
+    {
+        var slots = _slotManager.GetAllSlots();
+        int unlockedCount = 0;
+        foreach (var slot in slots)
+        {
+            if (!slot.IsUnlocked && unlockedCount < count)
+            {
+                _slotManager.UnlockSlot(slot.Id);
+                unlockedCount++;
+            }
+        }
     }
     
     public bool UnloadProcess(string processId)
