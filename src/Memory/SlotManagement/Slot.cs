@@ -1,6 +1,7 @@
 // src/Memory/SlotManagement/Slot.cs
 using Godot;
 using System.Collections.Generic;
+using Trivale.Memory.ProcessManagement;
 
 namespace Trivale.Memory.SlotManagement;
 

@@ -1,4 +1,5 @@
 // src/OS/MainTerminal.cs
+/*
 using Godot;
 using System;
 using Trivale.Memory;
@@ -258,3 +259,4 @@ public partial class MainTerminal : Control
 		_scanlines.Material = material;
 	}
 }
+*/

@@ -3,6 +3,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Trivale.Memory.ProcessManagement;
 
 namespace Trivale.Memory.SlotManagement;
 

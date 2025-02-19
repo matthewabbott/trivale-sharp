@@ -3,6 +3,7 @@ using Godot;
 using Trivale.Memory;
 using Trivale.UI.Components;
 using Trivale.OS.MainMenu.Processes;
+using Trivale.Memory.ProcessManagement;
 
 namespace Trivale.OS;
 

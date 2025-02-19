@@ -1,6 +1,7 @@
 // src/Memory/SlotManagement/ISlotManager.cs
 using System;
 using System.Collections.Generic;
+using Trivale.Memory.ProcessManagement;
 
 namespace Trivale.Memory.SlotManagement;
 
