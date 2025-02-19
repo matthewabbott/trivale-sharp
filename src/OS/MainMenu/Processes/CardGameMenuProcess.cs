@@ -9,7 +9,7 @@ public class CardGameMenuProcess : BaseProcess
 {
     public override string Type => "CardGame";
     
-    public override Dictionary<string, float> ResourceRequirements => new()
+    public override Dictionary<string, float> ResourceRequirements => new Dictionary<string, float>
     {
         ["MEM"] = 0.2f,  // Minimal memory usage for now
         ["CPU"] = 0.1f   // Minimal CPU usage for now

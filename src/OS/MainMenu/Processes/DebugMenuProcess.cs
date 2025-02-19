@@ -9,7 +9,7 @@ public class DebugMenuProcess : BaseProcess
 {
     public override string Type => "Debug";
     
-    public override Dictionary<string, float> ResourceRequirements => new()
+    public override Dictionary<string, float> ResourceRequirements => new Dictionary<string, float>
     {
         ["MEM"] = 0.1f,  // Even lighter resource usage for debug
         ["CPU"] = 0.1f

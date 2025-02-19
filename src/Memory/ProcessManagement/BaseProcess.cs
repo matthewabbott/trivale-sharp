@@ -1,4 +1,7 @@
 // src/Memory/ProcessManagement/BaseProcess.cs
+using System;
+using System.Collections.Generic;
+
 namespace Trivale.Memory.ProcessManagement;
 
 /// <summary>
@@ -8,7 +11,7 @@ public abstract class BaseProcess : IProcess
 {
     public string Id { get; }
     public abstract string Type { get; }
-    public virtual Dictionary<string, float> ResourceRequirements => new();
+    public virtual Dictionary<string, float> ResourceRequirements => new Dictionary<string, float>();
     public bool IsComplete { get; protected set; }
     
     protected Dictionary<string, object> State { get; private set; }
@@ -37,7 +40,7 @@ public abstract class BaseProcess : IProcess
         OnCleanup();
     }
     
-    public Dictionary<string, object> GetState() => new(State);
+    public Dictionary<string, object> GetState() => new Dictionary<string, object>(State);
     
     protected virtual void OnInitialize() { }
     protected virtual void OnUpdate(float delta) { }
