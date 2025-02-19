@@ -46,17 +46,6 @@ public partial class SimpleMainMenu : Control
 	private const string CardGameScenePath = "res://Scenes/MainMenu/CardGameScene.tscn";
 	private const string DebugScenePath = "res://Scenes/MainMenu/DebugScene.tscn";
 
-	public void Initialize(IProcessManager processManager, ISlotManager slotManager)
-	{
-		_processManager = processManager;
-		_slotManager = slotManager;
-		
-		// Subscribe to manager events
-		_processManager.ProcessStarted += OnProcessStarted;
-		_processManager.ProcessEnded += OnProcessEnded;
-		_slotManager.SlotStatusChanged += OnSlotStatusChanged;
-	}
-
 	public override void _Ready()
 	{
 		CustomMinimumSize = new Vector2(800, 600);
@@ -65,8 +54,30 @@ public partial class SimpleMainMenu : Control
 		_slotManager = new SlotManager(2, 2);  // 2x2 grid of slots
 		_processManager = new ProcessManager(_slotManager);
 
+		// Subscribe to manager events
+		_processManager.ProcessStarted += OnProcessStarted;
+		_processManager.ProcessEnded += OnProcessEnded;
+		_slotManager.SlotStatusChanged += OnSlotStatusChanged;
+
 		SetLayout();
 		ConnectSignals();
+	}
+
+	public override void _ExitTree()
+	{
+		base._ExitTree();
+
+		// Unsubscribe from events
+		if (_processManager != null)
+		{
+			_processManager.ProcessStarted -= OnProcessStarted;
+			_processManager.ProcessEnded -= OnProcessEnded;
+		}
+
+		if (_slotManager != null)
+		{
+			_slotManager.SlotStatusChanged -= OnSlotStatusChanged;
+		}
 	}
 
 	private void SetLayout()
