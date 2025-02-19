@@ -1,6 +1,7 @@
 // src/UI/Components/SlotGridSystem.cs
 using Godot;
 using System.Collections.Generic;
+using System.Linq;
 using Trivale.Memory.SlotManagement;
 
 namespace Trivale.UI.Components;
