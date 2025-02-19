@@ -1,6 +1,6 @@
 // src/OS/MainMenu/Processes/CardGameMenuProcess.cs
 using System.Collections.Generic;
-using Trivale.Memory;
+using Trivale.Memory.ProcessManagement;
 using Godot;
 
 namespace Trivale.OS.MainMenu.Processes;
