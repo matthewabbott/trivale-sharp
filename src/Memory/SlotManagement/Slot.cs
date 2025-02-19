@@ -1,43 +1,42 @@
-// src/Memory/MemorySlot.cs
+// src/Memory/SlotManagement/Slot.cs
 using Godot;
-using System;
 using System.Collections.Generic;
 
-namespace Trivale.Memory;
+namespace Trivale.Memory.SlotManagement;
 
-public class MemorySlot : IMemorySlot
+public class Slot : ISlot
 {
     public string Id { get; }
     public SlotStatus Status { get; private set; }
-    public Vector2 Position { get; }
+    public Vector2I GridPosition { get; }
     public float MemoryUsage { get; private set; }
     public float CpuUsage { get; private set; }
     public IProcess CurrentProcess { get; private set; }
-    public bool IsInteractable => Status != SlotStatus.Locked && Status != SlotStatus.Loading;
-
+    public bool IsUnlocked { get; private set; }
+    
     private readonly float _maxMemory;
     private readonly float _maxCpu;
     private Dictionary<string, object> _savedState;
     
-    public MemorySlot(string id, Vector2 position, float maxMemory = 1.0f, float maxCpu = 1.0f)
+    public Slot(string id, Vector2I position, float maxMemory = 1.0f, float maxCpu = 1.0f, bool startUnlocked = false)
     {
         Id = id;
-        Position = position;
+        GridPosition = position;
         _maxMemory = maxMemory;
         _maxCpu = maxCpu;
-        Status = SlotStatus.Empty;
+        IsUnlocked = startUnlocked;
+        Status = startUnlocked ? SlotStatus.Empty : SlotStatus.Locked;
         _savedState = new Dictionary<string, object>();
     }
     
     public bool CanLoadProcess(IProcess process)
     {
-        if (process == null)
+        if (!IsUnlocked || process == null)
             return false;
             
         if (Status != SlotStatus.Empty && Status != SlotStatus.Corrupted)
             return false;
             
-        // Validate resource requirements
         if (!process.ResourceRequirements.TryGetValue("MEM", out float memReq) ||
             !process.ResourceRequirements.TryGetValue("CPU", out float cpuReq))
         {
@@ -55,12 +54,9 @@ public class MemorySlot : IMemorySlot
         try
         {
             Status = SlotStatus.Loading;
-            
-            // Set up process
             CurrentProcess = process;
             UpdateResourceUsage();
             
-            // Initialize with saved state if available
             if (_savedState.Count > 0)
             {
                 process.Initialize(_savedState);
@@ -85,14 +81,11 @@ public class MemorySlot : IMemorySlot
     
     public void UnloadProcess()
     {
-        if (CurrentProcess == null)
-            return;
-            
+        if (CurrentProcess == null) return;
+        
         try
         {
-            // Save state before unloading
             _savedState = CurrentProcess.GetState();
-            
             CurrentProcess.Cleanup();
             CurrentProcess = null;
             MemoryUsage = 0;
@@ -113,7 +106,8 @@ public class MemorySlot : IMemorySlot
         {
             ["status"] = Status,
             ["memoryUsage"] = MemoryUsage,
-            ["cpuUsage"] = CpuUsage
+            ["cpuUsage"] = CpuUsage,
+            ["isUnlocked"] = IsUnlocked
         };
         
         if (CurrentProcess != null)
@@ -135,7 +129,7 @@ public class MemorySlot : IMemorySlot
             
         _savedState = CurrentProcess.GetState();
         Status = SlotStatus.Suspended;
-        UpdateResourceUsage(cpuMultiplier: 0.1f); // Minimal CPU usage while suspended
+        UpdateResourceUsage(cpuMultiplier: 0.1f);
     }
     
     public void Resume()
@@ -147,6 +141,13 @@ public class MemorySlot : IMemorySlot
         _savedState.Clear();
         Status = SlotStatus.Active;
         UpdateResourceUsage();
+    }
+    
+    public void Unlock()
+    {
+        if (IsUnlocked) return;
+        IsUnlocked = true;
+        Status = SlotStatus.Empty;
     }
     
     private void UpdateResourceUsage(float memMultiplier = 1.0f, float cpuMultiplier = 1.0f)

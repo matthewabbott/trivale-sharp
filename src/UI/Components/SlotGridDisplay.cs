@@ -1,4 +1,5 @@
 // src/UI/Components/SlotGridDisplay.cs
+// NOTE: ON NOTICE: we might want to delete this file or repurpose it as part of the slotmanagement refactor
 // Temporary ASCII-based visualization of the slot system
 using Godot;
 using System.Text;

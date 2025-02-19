@@ -1,4 +1,5 @@
 // src/UI/Components/MemorySlotDisplay.cs
+// NOTE: ON NOTICE: we might want to delete this file or repurpose it as part of the slotmanagement refactor
 using Godot;
 using Trivale.Memory;
 using Trivale.OS;
