@@ -9,27 +9,31 @@ using Trivale.Memory.SlotManagement;
 namespace Trivale.OS;
 
 /// <summary>
-/// Main menu system that manages processes, memory slots, and scene loading.
+/// Main menu system that coordinates process creation, scene loading, and UI management.
+/// 
+/// Architecture:
+/// - ProcessManager: Handles process lifecycle (creation, loading, unloading)
+/// - SlotManager: Manages memory slots and their states
+/// - UI Components: Display slot states and handle user interaction
 /// 
 /// Process/Scene Lifecycle:
-/// 1. Button Press -> Creates process -> Loads into memory slot -> Loads scene
-/// 2. Scene signals unload -> Process unloaded -> Memory slot cleared -> UI restored
+/// 1. Button Press -> ProcessManager creates process -> SlotManager allocates slot -> Scene loads
+/// 2. Scene signals unload -> ProcessManager unloads process -> SlotManager frees slot -> UI restored
 /// 
 /// System Responsibilities:
-/// - Process Management: Creating, loading, and unloading processes
-/// - Memory Management: Managing the memory slot state and resources
 /// - Scene Management: Loading scenes and handling their unload requests
-/// - UI State: Maintaining menu state and MEM slot visualization
+/// - UI Coordination: Managing menu state and viewport
+/// - Event Handling: Connecting UI actions to ProcessManager operations
 /// 
 /// Loaded Scene Contracts:
 /// - Scenes must implement SceneUnloadRequested signal
 /// - Scenes should not manage their own unloading
 /// - Scenes can expect proper cleanup when signaling unload
 /// 
-/// Memory/Process Management:
-/// - All process and memory management is centralized here
-/// - Processes are created/destroyed with their corresponding scenes
-/// - Memory slot state is maintained and visualized
+/// Dependencies:
+/// - IProcessManager: For process lifecycle management
+/// - ISlotManager: For slot state management
+/// - SlotGridSystem: For UI representation of slots
 /// </summary>
 public partial class SimpleMainMenu : Control
 {
@@ -259,6 +263,16 @@ public partial class SimpleMainMenu : Control
 
 	private void HandleSceneUnloadRequest()
 	{
+		// Find the active process and unload it
+		foreach (var slot in _slotManager.GetAllSlots())
+		{
+			if (slot.Status == SlotStatus.Active && slot.CurrentProcess != null)
+			{
+				_processManager.UnloadProcess(slot.CurrentProcess.Id);
+				break;
+			}
+		}
+
 		// Clear viewport
 		foreach (Node child in _viewportContainer.GetChildren())
 		{
