@@ -33,6 +33,8 @@ public partial class DebugScene : Control
     private HBoxContainer _buttonContainer;
     private Button _createProcessButton;
     private Button _unloadProcessButton;
+    private SlotGridSystem _slotGridSystem;
+    private SlotGridDisplay _slotDisplay;
     
     public override void _Ready()
     {
@@ -97,16 +99,18 @@ public partial class DebugScene : Control
         returnButton.Pressed += OnReturnPressed;
         
         // Initialize slot grid display system
-        var slotGridSystem = new SlotGridSystem();
-        var slotDisplay = new SlotGridDisplay();
+        _slotGridSystem = new SlotGridSystem();
+        _slotDisplay = new SlotGridDisplay();
         
-        // Add displays to layout
-        layout.AddChild(slotGridSystem);
-        layout.AddChild(slotDisplay);
+        // Add SlotGridSystem to layout
+        layout.AddChild(_slotGridSystem);
+        
+        // Make SlotGridDisplay a child of SlotGridSystem
+        _slotGridSystem.AddChild(_slotDisplay);
         
         // Initialize the display system
-        slotGridSystem.Initialize(_slotManager);
-        slotDisplay.Initialize(slotGridSystem);
+        _slotGridSystem.Initialize(_slotManager);
+        _slotDisplay.Initialize(_slotGridSystem);
     }
     
     private Button CreateStyledButton(string text, Color color)
@@ -213,6 +217,17 @@ public partial class DebugScene : Control
             {
                 _processManager.UnloadProcess(processId);
             }
+        }
+        
+        // Clean up UI components
+        if (_slotGridSystem != null)
+        {
+            _slotGridSystem.QueueFree();
+            _slotGridSystem = null;
+        }
+        if (_slotDisplay != null)
+        {
+            _slotDisplay = null; // Will be freed as child of _slotGridSystem
         }
         
         EmitSignal(SignalName.SceneUnloadRequested);
