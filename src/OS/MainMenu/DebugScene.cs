@@ -1,6 +1,7 @@
 // src/OS/MainMenu/DebugScene.cs
 
 using Godot;
+using System.Linq;
 using Trivale.Memory.ProcessManagement;
 using Trivale.Memory.SlotManagement;
 
