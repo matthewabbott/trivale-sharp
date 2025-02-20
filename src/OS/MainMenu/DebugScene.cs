@@ -33,13 +33,23 @@ public partial class DebugScene : Control
     private HBoxContainer _buttonContainer;
     private Button _createProcessButton;
     private Button _unloadProcessButton;
+    private SystemFont _monospaceFont;
     
     public override void _Ready()
     {
-        // STEP 1: Create Management Systems
-        // Use a 3x2 grid to show multiple slots for testing
-        _slotManager = new SlotManager(3, 2);
+        // Clear any existing children
+        foreach (var child in GetChildren())
+        {
+            child.QueueFree();
+        }
+
+        // Create managers
+        _slotManager = new SlotManager(3, 2);  // 3x2 grid for testing
         _processManager = new ProcessManager(_slotManager);
+
+        // Set up font for ASCII art
+        _monospaceFont = new SystemFont();
+        _monospaceFont.FontNames = new string[] { "JetBrainsMono-Regular", "Consolas", "Courier New" };
         
         SetupUI();
         ConnectSignals();
@@ -48,7 +58,7 @@ public partial class DebugScene : Control
 
     private void SetupUI()
     {
-        // Main vertical layout
+        // Main vertical layout that fills the scene
         var layout = new VBoxContainer
         {
             AnchorsPreset = (int)LayoutPreset.FullRect,
@@ -57,29 +67,32 @@ public partial class DebugScene : Control
         };
         AddChild(layout);
 
-        // Title and status
+        // Title and status area
+        var headerContainer = new VBoxContainer();
+        layout.AddChild(headerContainer);
+
         var title = new Label
         {
             Text = "Debug Sandbox",
             HorizontalAlignment = HorizontalAlignment.Center
         };
-        layout.AddChild(title);
+        headerContainer.AddChild(title);
         
         _statusLabel = new Label
         {
             Text = "MEM Slot System Debug",
             HorizontalAlignment = HorizontalAlignment.Center
         };
-        layout.AddChild(_statusLabel);
+        headerContainer.AddChild(_statusLabel);
         
-        // Button container
+        // Button container with proper margins
         _buttonContainer = new HBoxContainer
         {
             CustomMinimumSize = new Vector2(0, 40)
         };
         layout.AddChild(_buttonContainer);
         
-        // Control buttons with proper styling
+        // Test control buttons
         _createProcessButton = CreateStyledButton("Load Debug Process", Colors.Green);
         _unloadProcessButton = CreateStyledButton("Unload Process", Colors.Red);
         var returnButton = CreateStyledButton("Return to Menu", Colors.White);
@@ -92,10 +105,9 @@ public partial class DebugScene : Control
         _unloadProcessButton.Pressed += OnUnloadProcessPressed;
         returnButton.Pressed += OnReturnPressed;
         
-        // Slot display with monospace font for ASCII art
+        // Slot display area with monospace font
         _slotDisplay = new VBoxContainer();
-        var font = new SystemFont();
-        font.FontNames = new string[] { "JetBrainsMono-Regular", "Consolas", "Courier New" };
+        _slotDisplay.AddThemeFontOverride("font", _monospaceFont);
         layout.AddChild(_slotDisplay);
     }
     
@@ -136,7 +148,7 @@ public partial class DebugScene : Control
         
         return button;
     }
-    
+
     private void ConnectSignals()
     {
         // STEP 2: Connect Process Events
@@ -194,19 +206,21 @@ public partial class DebugScene : Control
             _processManager.UnloadProcess(activeProcess);
         }
     }
-    
+
     private void OnReturnPressed()
     {
-        // STEP 6: Scene Cleanup Pattern
-        // Clean up ALL active processes before leaving
-        foreach (var processId in _processManager.GetActiveProcessIds())
+        // Clean up before signaling
+        if (_processManager != null)
         {
-            _processManager.UnloadProcess(processId);
+            foreach (var processId in _processManager.GetActiveProcessIds().ToList())
+            {
+                _processManager.UnloadProcess(processId);
+            }
         }
         
         EmitSignal(SignalName.SceneUnloadRequested);
     }
-    
+
     private void UpdateSlotDisplay()
     {
         // STEP 7: Slot Visualization Pattern
@@ -215,8 +229,7 @@ public partial class DebugScene : Control
             child.QueueFree();
         }
         
-        // Find first active slot for tree structure
-        var slots = _slotManager.GetAllSlots();
+        var slots = _slotManager.GetAllSlots().ToList();
         var firstActive = slots.FirstOrDefault(s => s.Status == SlotStatus.Active);
         bool hasActiveSlot = firstActive != null;
         
@@ -227,28 +240,29 @@ public partial class DebugScene : Control
                           slot.Status == SlotStatus.Active ? "■" :  // Active
                           "□";  // Empty but unlocked
             
-            string displayText;
+            var slotLabel = new Label();
+            slotLabel.AddThemeFontOverride("font", _monospaceFont);
+
             if (hasActiveSlot)
             {
                 if (slot == firstActive)
                 {
                     // Root of the tree
-                    displayText = $"└── {symbol} [{(slot.CurrentProcess?.Type ?? "").PadRight(10)}]";
+                    slotLabel.Text = $"└── {symbol} [{(slot.CurrentProcess?.Type ?? "").PadRight(10)}]";
                 }
                 else if (slot.IsUnlocked)
                 {
                     // Branch (indented and with tree structure)
-                    displayText = $"    ├── {symbol} [{(slot.CurrentProcess?.Type ?? "").PadRight(10)}]";
+                    slotLabel.Text = $"    ├── {symbol} [{(slot.CurrentProcess?.Type ?? "").PadRight(10)}]";
                 }
                 else continue;  // Skip locked slots in tree view
             }
             else
             {
                 // No active process, flat display
-                displayText = $"└── {symbol} [{(slot.CurrentProcess?.Type ?? "").PadRight(10)}]";
+                slotLabel.Text = $"└── {symbol} [{(slot.CurrentProcess?.Type ?? "").PadRight(10)}]";
             }
             
-            var slotLabel = new Label { Text = displayText };
             _slotDisplay.AddChild(slotLabel);
         }
     }
