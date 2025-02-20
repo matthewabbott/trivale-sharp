@@ -18,18 +18,16 @@ public struct SlotState
     public bool IsActive;
     public bool IsUnlocked;
     public string LoadedText;
-    public Vector2I GridPosition;  // Position in the slot grid
+    public Vector2I GridPosition;
+    // Added for future hierarchy support:
+    public string ParentSlotId;  // null means root/no parent
 }
 
-// Manages the state of a grid of slots
 public partial class SlotGridSystem : Control
 {
     private Dictionary<string, SlotState> _slots = new();
     private ISlotManager _slotManager;
-    private int _rows = 2;
-    private int _columns = 2;
     
-    // Pass individual slot state components (Can't send the state itself in a signal)
     [Signal]
     public delegate void SlotStateChangedEventHandler(string slotId, bool isActive, bool isUnlocked, string loadedText);
     
@@ -45,7 +43,7 @@ public partial class SlotGridSystem : Control
             UpdateSlotState(slot);
         }
     }
-    
+
     private void OnSlotStatusChanged(string slotId, SlotStatus status)
     {
         var slot = _slotManager.GetAllSlots().FirstOrDefault(s => s.Id == slotId);
@@ -54,7 +52,7 @@ public partial class SlotGridSystem : Control
             UpdateSlotState(slot);
         }
     }
-    
+
     private void OnSlotUnlocked(string slotId)
     {
         var slot = _slotManager.GetAllSlots().FirstOrDefault(s => s.Id == slotId);
@@ -63,7 +61,7 @@ public partial class SlotGridSystem : Control
             UpdateSlotState(slot);
         }
     }
-    
+
     private void UpdateSlotState(ISlot slot)
     {
         var gridPosition = GetGridPositionFromId(slot.Id);
@@ -76,7 +74,8 @@ public partial class SlotGridSystem : Control
             IsActive = isActive,
             IsUnlocked = isUnlocked,
             LoadedText = loadedText,
-            GridPosition = gridPosition
+            GridPosition = gridPosition,
+            ParentSlotId = null  // We'll set this when implementing full hierarchy
         };
         
         EmitSignal(SignalName.SlotStateChanged, slot.Id, isActive, isUnlocked, loadedText);
@@ -84,15 +83,36 @@ public partial class SlotGridSystem : Control
     
     private Vector2I GetGridPositionFromId(string slotId)
     {
-        // Assuming slot IDs are in format "slot_0", "slot_1", etc.
         if (int.TryParse(slotId.Split('_')[1], out int index))
         {
-            return new Vector2I(index % _columns, index / _columns);
+            return new Vector2I(index % 2, index / 2);  // Assuming 2 columns
         }
         return Vector2I.Zero;
     }
+
+    // New method for getting slots in display order
+    private IEnumerable<KeyValuePair<string, SlotState>> GetDisplayOrder()
+    {
+        // First, any active slots
+        var activeSlots = _slots.Where(kvp => kvp.Value.IsActive);
+        
+        // Then, unlocked but inactive slots, ordered by grid position
+        var inactiveSlots = _slots.Where(kvp => !kvp.Value.IsActive && kvp.Value.IsUnlocked)
+            .OrderBy(kvp => kvp.Value.GridPosition.Y)
+            .ThenBy(kvp => kvp.Value.GridPosition.X);
+            
+        // Finally, any locked slots
+        var lockedSlots = _slots.Where(kvp => !kvp.Value.IsUnlocked)
+            .OrderBy(kvp => kvp.Value.GridPosition.Y)
+            .ThenBy(kvp => kvp.Value.GridPosition.X);
+
+        return activeSlots.Concat(inactiveSlots).Concat(lockedSlots);
+    }
+
+    // Modified to use new display order
+    public IEnumerable<KeyValuePair<string, SlotState>> GetAllSlots() => GetDisplayOrder();
     
-    // Public accessors for UI components
+    // Public accessors that can stay the same
     public bool IsSlotActive(string slotId) => 
         _slots.ContainsKey(slotId) && _slots[slotId].IsActive;
     
@@ -101,6 +121,4 @@ public partial class SlotGridSystem : Control
     
     public SlotState? GetSlotState(string slotId) => 
         _slots.ContainsKey(slotId) ? _slots[slotId] : null;
-    
-    public IEnumerable<KeyValuePair<string, SlotState>> GetAllSlots() => _slots;
 }
