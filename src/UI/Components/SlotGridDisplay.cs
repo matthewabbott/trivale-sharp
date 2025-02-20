@@ -48,67 +48,45 @@ public partial class SlotGridDisplay : Control
         }
         
         var display = new StringBuilder();
-        
-        // Sort slots by their grid position for consistent display
-        var slots = _slotSystem.GetAllSlots()
-            .OrderBy(kvp => kvp.Value.GridPosition.Y)
-            .ThenBy(kvp => kvp.Value.GridPosition.X)
-            .ToList();
+        var slots = _slotSystem.GetAllSlots().ToList();  // Now uses our new ordering
 
-        // Find first active slot for tree structure
-        var firstActiveSlot = slots.FirstOrDefault(s => s.Value.IsActive);
-        bool hasActiveSlot = firstActiveSlot.Key != null;
+        // Track tree rendering state
+        bool firstActive = true;
         
         foreach (var (slotId, slot) in slots)
         {
-            string slotSymbol;
-            if (!slot.IsUnlocked)
+            string slotSymbol = GetSlotSymbol(slot);
+            string indent = "";
+            string branch = "└";
+
+            if (slot.IsActive && firstActive)
             {
-                slotSymbol = "⚿"; // Locked slot
+                // Root of our tree
+                firstActive = false;
             }
-            else if (slot.IsActive)
+            else if (slot.IsUnlocked)
             {
-                slotSymbol = "■"; // Active slot
+                // Child branch
+                indent = "    ";
+                branch = GetIndex(slots, slotId) == slots.Count - 1 ? "└" : "├";
             }
-            else
-            {
-                slotSymbol = "□"; // Empty slot
-            }
-            
-            // Handle tree structure for active processes
-            if (hasActiveSlot)
-            {
-                if (slotId == firstActiveSlot.Key)
-                {
-                    // Root of the tree
-                    display.AppendLine($"└── {slotSymbol} [{slot.LoadedText.PadRight(10)}]");
-                }
-                else
-                {
-                    // Branches (show only if unlocked)
-                    if (slot.IsUnlocked)
-                    {
-                        bool isLast = GetIndex(slots, slotId) == slots.Count - 1;
-                        string branch = isLast ? "└" : "├";
-                        display.AppendLine($"    {branch}── {slotSymbol} [{slot.LoadedText.PadRight(10)}]");
-                    }
-                }
-            }
-            else
-            {
-                // No active process, flat display
-                display.AppendLine($"└── {slotSymbol} [{slot.LoadedText.PadRight(10)}]");
-            }
+
+            display.AppendLine($"{indent}{branch}── {slotSymbol} [{slot.LoadedText.PadRight(10)}]");
         }
         
         _displayLabel.Text = display.ToString().TrimEnd();
+    }
+
+    private string GetSlotSymbol(SlotState slot)
+    {
+        if (!slot.IsUnlocked) return "⚿";  // Locked
+        return slot.IsActive ? "■" : "□";   // Active/Inactive
     }
 
     private int GetIndex(List<KeyValuePair<string, SlotState>> slotList, string slotId)
     {
         return slotList.FindIndex(kvp => kvp.Key == slotId);
     }
-
     
     public override void _ExitTree()
     {
