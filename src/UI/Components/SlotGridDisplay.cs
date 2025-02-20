@@ -3,6 +3,7 @@
 using Godot;
 using System.Text;
 using System.Linq;
+using System.Collections.Generic;
 
 namespace Trivale.UI.Components;
 
@@ -87,7 +88,7 @@ public partial class SlotGridDisplay : Control
                     // Branches (show only if unlocked)
                     if (slot.IsUnlocked)
                     {
-                        bool isLast = slots.IndexOf((slotId, slot)) == slots.Count - 1;
+                        bool isLast = GetIndex(slots, slotId) == slots.Count - 1;
                         string branch = isLast ? "└" : "├";
                         display.AppendLine($"    {branch}── {slotSymbol} [{slot.LoadedText.PadRight(10)}]");
                     }
@@ -102,6 +103,12 @@ public partial class SlotGridDisplay : Control
         
         _displayLabel.Text = display.ToString().TrimEnd();
     }
+
+    private int GetIndex(List<KeyValuePair<string, SlotState>> slotList, string slotId)
+    {
+        return slotList.FindIndex(kvp => kvp.Key == slotId);
+    }
+
     
     public override void _ExitTree()
     {
