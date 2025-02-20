@@ -4,6 +4,7 @@ using Godot;
 using System.Linq;
 using Trivale.Memory.ProcessManagement;
 using Trivale.Memory.SlotManagement;
+using Trivale.UI.Components;
 
 namespace Trivale.OS.MainMenu;
 
@@ -29,11 +30,9 @@ public partial class DebugScene : Control
     private IProcessManager _processManager;
     private ISlotManager _slotManager;
     private Label _statusLabel;
-    private VBoxContainer _slotDisplay;
     private HBoxContainer _buttonContainer;
     private Button _createProcessButton;
     private Button _unloadProcessButton;
-    private SystemFont _monospaceFont;
     
     public override void _Ready()
     {
@@ -46,53 +45,45 @@ public partial class DebugScene : Control
         // Create managers
         _slotManager = new SlotManager(3, 2);  // 3x2 grid for testing
         _processManager = new ProcessManager(_slotManager);
-
-        // Set up font for ASCII art
-        _monospaceFont = new SystemFont();
-        _monospaceFont.FontNames = new string[] { "JetBrainsMono-Regular", "Consolas", "Courier New" };
         
         SetupUI();
         ConnectSignals();
-        UpdateSlotDisplay();
     }
 
     private void SetupUI()
     {
-        // Main vertical layout that fills the scene
+        // Main vertical layout
         var layout = new VBoxContainer
         {
-            AnchorsPreset = (int)LayoutPreset.FullRect,
+            AnchorsPreset = (int)LayoutPreset.Center,
             GrowHorizontal = GrowDirection.Both,
             GrowVertical = GrowDirection.Both
         };
         AddChild(layout);
 
-        // Title and status area
-        var headerContainer = new VBoxContainer();
-        layout.AddChild(headerContainer);
-
+        // Title and status
         var title = new Label
         {
             Text = "Debug Sandbox",
             HorizontalAlignment = HorizontalAlignment.Center
         };
-        headerContainer.AddChild(title);
+        layout.AddChild(title);
         
         _statusLabel = new Label
         {
             Text = "MEM Slot System Debug",
             HorizontalAlignment = HorizontalAlignment.Center
         };
-        headerContainer.AddChild(_statusLabel);
+        layout.AddChild(_statusLabel);
         
-        // Button container with proper margins
+        // Button container
         _buttonContainer = new HBoxContainer
         {
             CustomMinimumSize = new Vector2(0, 40)
         };
         layout.AddChild(_buttonContainer);
         
-        // Test control buttons
+        // Control buttons with proper styling
         _createProcessButton = CreateStyledButton("Load Debug Process", Colors.Green);
         _unloadProcessButton = CreateStyledButton("Unload Process", Colors.Red);
         var returnButton = CreateStyledButton("Return to Menu", Colors.White);
@@ -105,10 +96,17 @@ public partial class DebugScene : Control
         _unloadProcessButton.Pressed += OnUnloadProcessPressed;
         returnButton.Pressed += OnReturnPressed;
         
-        // Slot display area with monospace font
-        _slotDisplay = new VBoxContainer();
-        _slotDisplay.AddThemeFontOverride("font", _monospaceFont);
-        layout.AddChild(_slotDisplay);
+        // Initialize slot grid display system
+        var slotGridSystem = new SlotGridSystem();
+        var slotDisplay = new SlotGridDisplay();
+        
+        // Add displays to layout
+        layout.AddChild(slotGridSystem);
+        layout.AddChild(slotDisplay);
+        
+        // Initialize the display system
+        slotGridSystem.Initialize(_slotManager);
+        slotDisplay.Initialize(slotGridSystem);
     }
     
     private Button CreateStyledButton(string text, Color color)
@@ -167,7 +165,6 @@ public partial class DebugScene : Control
         // STEP 3: Connect Slot Events
         _slotManager.SlotStatusChanged += (slotId, status) => 
         {
-            UpdateSlotDisplay();
             UpdateUI();
         };
     }
@@ -209,61 +206,15 @@ public partial class DebugScene : Control
 
     private void OnReturnPressed()
     {
-        // Clean up before signaling
+        // Clean up ALL active processes before leaving
         if (_processManager != null)
         {
-            foreach (var processId in _processManager.GetActiveProcessIds().ToList())
+            foreach (var processId in _processManager.GetActiveProcessIds())
             {
                 _processManager.UnloadProcess(processId);
             }
         }
         
         EmitSignal(SignalName.SceneUnloadRequested);
-    }
-
-    private void UpdateSlotDisplay()
-    {
-        // STEP 7: Slot Visualization Pattern
-        foreach (var child in _slotDisplay.GetChildren())
-        {
-            child.QueueFree();
-        }
-        
-        var slots = _slotManager.GetAllSlots().ToList();
-        var firstActive = slots.FirstOrDefault(s => s.Status == SlotStatus.Active);
-        bool hasActiveSlot = firstActive != null;
-        
-        foreach (var slot in slots)
-        {
-            // Use appropriate symbol for slot state
-            string symbol = !slot.IsUnlocked ? "⚿" :  // Locked
-                          slot.Status == SlotStatus.Active ? "■" :  // Active
-                          "□";  // Empty but unlocked
-            
-            var slotLabel = new Label();
-            slotLabel.AddThemeFontOverride("font", _monospaceFont);
-
-            if (hasActiveSlot)
-            {
-                if (slot == firstActive)
-                {
-                    // Root of the tree
-                    slotLabel.Text = $"└── {symbol} [{(slot.CurrentProcess?.Type ?? "").PadRight(10)}]";
-                }
-                else if (slot.IsUnlocked)
-                {
-                    // Branch (indented and with tree structure)
-                    slotLabel.Text = $"    ├── {symbol} [{(slot.CurrentProcess?.Type ?? "").PadRight(10)}]";
-                }
-                else continue;  // Skip locked slots in tree view
-            }
-            else
-            {
-                // No active process, flat display
-                slotLabel.Text = $"└── {symbol} [{(slot.CurrentProcess?.Type ?? "").PadRight(10)}]";
-            }
-            
-            _slotDisplay.AddChild(slotLabel);
-        }
     }
 }
