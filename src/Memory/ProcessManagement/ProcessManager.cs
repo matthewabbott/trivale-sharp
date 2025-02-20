@@ -17,6 +17,7 @@ public partial class ProcessManager : Node, IProcessManager
     private readonly Dictionary<string, IProcess> _processes = new();
     private readonly ISlotManager _slotManager;
     private readonly Dictionary<string, string> _processToSlot = new();
+    private bool _extraSlotsUnlocked = false;
     
     public ProcessManager(ISlotManager slotManager)
     {
@@ -66,8 +67,12 @@ public partial class ProcessManager : Node, IProcessManager
         
         _processToSlot[processId] = slotId;
         
-        // When a process starts, unlock the next two slots
-        UnlockAdditionalSlots(2);
+        // Only unlock additional slots the first time
+        if (!_extraSlotsUnlocked)
+        {
+            UnlockAdditionalSlots(2);
+            _extraSlotsUnlocked = true;
+        }
         
         ProcessStarted?.Invoke(processId, slotId);
         return true;
