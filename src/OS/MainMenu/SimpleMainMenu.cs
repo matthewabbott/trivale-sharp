@@ -2,6 +2,7 @@
 using Godot;
 using Trivale.Memory;
 using Trivale.UI.Components;
+using Trivale.OS.MainMenu;
 using Trivale.OS.MainMenu.Processes;
 using Trivale.Memory.ProcessManagement;
 using Trivale.Memory.SlotManagement;
@@ -280,6 +281,12 @@ public partial class SimpleMainMenu : Control
 		if (sceneResource != null)
 		{
 			var instance = sceneResource.Instantiate();
+			
+			// Initialize scene with managers if it's DebugScene
+			if (instance is DebugScene debugScene)
+			{
+				debugScene.Initialize(_processManager, _slotManager);
+			}
 			
 			// Connect to the scene's unload signal
 			if (instance.HasSignal("SceneUnloadRequested"))

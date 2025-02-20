@@ -36,6 +36,12 @@ public partial class DebugScene : Control
     private SlotGridSystem _slotGridSystem;
     private SlotGridDisplay _slotDisplay;
     
+    public void Initialize(IProcessManager processManager, ISlotManager slotManager)
+    {
+        _processManager = processManager;
+        _slotManager = slotManager;
+    }
+
     public override void _Ready()
     {
         // Clear any existing children
@@ -43,10 +49,6 @@ public partial class DebugScene : Control
         {
             child.QueueFree();
         }
-
-        // Create managers
-        _slotManager = new SlotManager(3, 2);  // 3x2 grid for testing
-        _processManager = new ProcessManager(_slotManager);
         
         SetupUI();
         ConnectSignals();
@@ -98,19 +100,7 @@ public partial class DebugScene : Control
         _unloadProcessButton.Pressed += OnUnloadProcessPressed;
         returnButton.Pressed += OnReturnPressed;
         
-        // Initialize slot grid display system
-        _slotGridSystem = new SlotGridSystem();
-        _slotDisplay = new SlotGridDisplay();
-        
-        // Add SlotGridSystem to layout
-        layout.AddChild(_slotGridSystem);
-        
-        // Make SlotGridDisplay a child of SlotGridSystem
-        _slotGridSystem.AddChild(_slotDisplay);
-        
-        // Initialize the display system
-        _slotGridSystem.Initialize(_slotManager);
-        _slotDisplay.Initialize(_slotGridSystem);
+        // No need for slot display system here - using main menu's display
     }
     
     private Button CreateStyledButton(string text, Color color)
@@ -217,17 +207,6 @@ public partial class DebugScene : Control
             {
                 _processManager.UnloadProcess(processId);
             }
-        }
-        
-        // Clean up UI components
-        if (_slotGridSystem != null)
-        {
-            _slotGridSystem.QueueFree();
-            _slotGridSystem = null;
-        }
-        if (_slotDisplay != null)
-        {
-            _slotDisplay = null; // Will be freed as child of _slotGridSystem
         }
         
         EmitSignal(SignalName.SceneUnloadRequested);
