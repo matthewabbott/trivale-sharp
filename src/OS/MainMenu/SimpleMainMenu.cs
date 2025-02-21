@@ -180,13 +180,18 @@ public partial class SimpleMainMenu : Control
 		SetupViewportContainer();
 
 		// Right panel (resources)
-		var rightPanel = new PanelContainer
-		{
-			CustomMinimumSize = new Vector2(150, 0),
-			SizeFlagsVertical = SizeFlags.Fill
-		};
-		rightPanel.AddThemeStyleboxOverride("panel", CreatePanelStyle());
-		mainContainer.AddChild(rightPanel);
+			var rightPanel = new PanelContainer
+			{
+				CustomMinimumSize = new Vector2(150, 0),
+				SizeFlagsVertical = SizeFlags.Fill
+			};
+			rightPanel.AddThemeStyleboxOverride("panel", CreatePanelStyle());
+			mainContainer.AddChild(rightPanel);
+
+			// Create the resource panel component
+			var resourcePanel = new UI.Components.ResourcePanel();
+			resourcePanel.Initialize(_slotManager);
+			rightPanel.AddChild(resourcePanel);
 
 		var rightContent = new VBoxContainer();
 		rightPanel.AddChild(rightContent);

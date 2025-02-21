@@ -102,13 +102,13 @@ public partial class SlotGridDisplay : Control
             string rootSymbol = GetSlotSymbol(rootSlot);
             string rootPrefix = isLastRoot ? "└── " : "├── ";
             
-            // Add resource info to root if active
+            // Add resource info to root if active - simplified version
             string resourceInfo = "";
             if (rootSlot.IsActive)
             {
-                string memColor = GetResourceColor(rootSlot.MemoryUsage);
-                string cpuColor = GetResourceColor(rootSlot.CpuUsage);
-                resourceInfo = $" MEM:[color={memColor}]{rootSlot.MemoryUsage:F1}[/color] CPU:[color={cpuColor}]{rootSlot.CpuUsage:F1}[/color]";
+                // Just add an indicator dot with appropriate color
+                string color = GetResourceColor(rootSlot.MemoryUsage);
+                resourceInfo = $" [color={color}]●[/color]";
             }
             
             display.AppendLine($"{rootPrefix}{rootSymbol} [{rootSlot.LoadedText.PadRight(10)}]{resourceInfo}");
@@ -158,13 +158,13 @@ public partial class SlotGridDisplay : Control
             string childSymbol = GetSlotSymbol(childSlot);
             string childPrefix = isLastChild ? "└── " : "├── ";
             
-            // Add resource info if active
+            // Add resource info if active - simplified version
             string resourceInfo = "";
             if (childSlot.IsActive)
             {
-                string memColor = GetResourceColor(childSlot.MemoryUsage);
-                string cpuColor = GetResourceColor(childSlot.CpuUsage);
-                resourceInfo = $" MEM:[color={memColor}]{childSlot.MemoryUsage:F1}[/color] CPU:[color={cpuColor}]{childSlot.CpuUsage:F1}[/color]";
+                // Just add an indicator dot with appropriate color
+                string color = GetResourceColor(childSlot.MemoryUsage);
+                resourceInfo = $" [color={color}]●[/color]";
             }
             
             display.AppendLine($"{indent}{childPrefix}{childSymbol} [{childSlot.LoadedText.PadRight(10)}]{resourceInfo}");
@@ -191,13 +191,13 @@ public partial class SlotGridDisplay : Control
             {
                 string slotSymbol = GetSlotSymbol(slot);
                 
-                // Add resource info to the active root slot
+                // Add resource info to the active root slot - simplified version
                 string resourceInfo = "";
                 if (slot.IsActive)
                 {
-                    string memColor = GetResourceColor(slot.MemoryUsage);
-                    string cpuColor = GetResourceColor(slot.CpuUsage);
-                    resourceInfo = $" MEM:[color={memColor}]{slot.MemoryUsage:F1}[/color] CPU:[color={cpuColor}]{slot.CpuUsage:F1}[/color]";
+                    // Just add an indicator dot with appropriate color
+                    string color = GetResourceColor(slot.MemoryUsage);
+                    resourceInfo = $" [color={color}]●[/color]";
                 }
                 
                 display.AppendLine($"└── {slotSymbol} [{slot.LoadedText.PadRight(10)}]{resourceInfo}");
@@ -248,13 +248,13 @@ public partial class SlotGridDisplay : Control
                 
                 string branchChar = isLast ? "└" : "├";
                 
-                // Add resource info to active slots
+                // Add resource info to active slots - simplified version
                 string resourceInfo = "";
                 if (childSlot.IsActive)
                 {
-                    string memColor = GetResourceColor(childSlot.MemoryUsage);
-                    string cpuColor = GetResourceColor(childSlot.CpuUsage);
-                    resourceInfo = $" MEM:[color={memColor}]{childSlot.MemoryUsage:F1}[/color] CPU:[color={cpuColor}]{childSlot.CpuUsage:F1}[/color]";
+                    // Just add an indicator dot with appropriate color
+                    string color = GetResourceColor(childSlot.MemoryUsage);
+                    resourceInfo = $" [color={color}]●[/color]";
                 }
                 
                 display.AppendLine($"    {branchChar}── {slotSymbol} [{childSlot.LoadedText.PadRight(10)}]{resourceInfo}");
