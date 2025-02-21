@@ -152,6 +152,18 @@ public class Slot : ISlot
         Status = SlotStatus.Empty;
     }
     
+    // New method to lock a slot
+    public bool Lock()
+    {
+        // Can only lock empty slots and not the first slot (index 0)
+        if (Status != SlotStatus.Empty || (GridPosition.X == 0 && GridPosition.Y == 0))
+            return false;
+            
+        IsUnlocked = false;
+        Status = SlotStatus.Locked;
+        return true;
+    }
+    
     private void UpdateResourceUsage(float memMultiplier = 1.0f, float cpuMultiplier = 1.0f)
     {
         if (CurrentProcess?.ResourceRequirements == null)

@@ -112,6 +112,30 @@ public partial class SlotManager : Node, ISlotManager
         return false;
     }
     
+    // New method to lock a slot
+    public bool LockSlot(string slotId)
+    {
+        if (!_slots.TryGetValue(slotId, out var slot))
+            return false;
+            
+        // Can only lock empty slots
+        if (slot.Status != SlotStatus.Empty)
+            return false;
+            
+        if (slot is Slot mutableSlot)
+        {
+            // Call the new Lock method we'll add to the Slot class
+            if (mutableSlot.Lock())
+            {
+                SlotLocked?.Invoke(slotId);
+                SlotStatusChanged?.Invoke(slotId, mutableSlot.Status);
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
     public IReadOnlyList<ISlot> GetAllSlots() => _slots.Values.ToList();
     
     public ISlot GetSlot(string slotId) => 

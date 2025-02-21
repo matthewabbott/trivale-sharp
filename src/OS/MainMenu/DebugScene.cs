@@ -33,6 +33,8 @@ public partial class DebugScene : Control
     private HBoxContainer _buttonContainer;
     private Button _createProcessButton;
     private Button _unloadProcessButton;
+    private Button _addSlotButton;     // New button for adding slots
+    private Button _removeSlotButton;  // New button for removing slots
     private SlotGridSystem _slotGridSystem;
     private SlotGridDisplay _slotDisplay;
     
@@ -90,14 +92,20 @@ public partial class DebugScene : Control
         // Control buttons with proper styling
         _createProcessButton = CreateStyledButton("Load Debug Process", Colors.Green);
         _unloadProcessButton = CreateStyledButton("Unload Process", Colors.Red);
+        _addSlotButton = CreateStyledButton("Add Slot", Colors.Blue);        // New button
+        _removeSlotButton = CreateStyledButton("Remove Slot", Colors.Orange); // New button
         var returnButton = CreateStyledButton("Return to Menu", Colors.White);
         
         _buttonContainer.AddChild(_createProcessButton);
         _buttonContainer.AddChild(_unloadProcessButton);
+        _buttonContainer.AddChild(_addSlotButton);       // Add new button
+        _buttonContainer.AddChild(_removeSlotButton);    // Add new button
         _buttonContainer.AddChild(returnButton);
         
         _createProcessButton.Pressed += OnCreateProcessPressed;
         _unloadProcessButton.Pressed += OnUnloadProcessPressed;
+        _addSlotButton.Pressed += OnAddSlotPressed;       // Connect new button
+        _removeSlotButton.Pressed += OnRemoveSlotPressed; // Connect new button
         returnButton.Pressed += OnReturnPressed;
         
         // No need for slot display system here - using main menu's display
@@ -161,6 +169,12 @@ public partial class DebugScene : Control
         {
             UpdateUI();
         };
+        
+        _slotManager.SlotUnlocked += (slotId) =>
+        {
+            _statusLabel.Text = $"Slot {slotId} unlocked";
+            UpdateUI();
+        };
     }
     
     private void UpdateUI()
@@ -172,6 +186,10 @@ public partial class DebugScene : Control
         var hasAvailableSlot = _slotManager.GetAllSlots().Any(s => 
             s.IsUnlocked && s.Status == SlotStatus.Empty);
         _createProcessButton.Disabled = !hasAvailableSlot;
+        
+        // Update Remove Slot button state - can only remove if there are unlocked slots
+        var hasUnlockedSlots = _slotManager.GetAllSlots().Any(s => s.IsUnlocked);
+        _removeSlotButton.Disabled = !hasUnlockedSlots;
     }
     
     private void OnCreateProcessPressed()
@@ -196,6 +214,60 @@ public partial class DebugScene : Control
         {
             _processManager.UnloadProcess(activeProcess);
         }
+    }
+    
+    private void OnAddSlotPressed()
+    {
+        // Find the first locked slot
+        var slots = _slotManager.GetAllSlots();
+        var lockedSlot = slots.FirstOrDefault(s => !s.IsUnlocked);
+        
+        if (lockedSlot != null)
+        {
+            _slotManager.UnlockSlot(lockedSlot.Id);
+            _statusLabel.Text = $"Unlocked slot {lockedSlot.Id}";
+        }
+        else
+        {
+            _statusLabel.Text = "No more locked slots available";
+        }
+        
+        UpdateUI();
+    }
+    
+    private void OnRemoveSlotPressed()
+    {
+        // Find the last unlocked empty slot
+        var slots = _slotManager.GetAllSlots();
+        var slotToRemove = slots.LastOrDefault(s => 
+            s.IsUnlocked && s.Status == SlotStatus.Empty);
+        
+        if (slotToRemove != null)
+        {
+            // We need to cast to SlotManager to access the internal LockSlot method
+            // If you don't have such a method, you'll need to add it to your SlotManager class
+            if (_slotManager is SlotManager manager)
+            {
+                if (manager.LockSlot(slotToRemove.Id))
+                {
+                    _statusLabel.Text = $"Locked slot {slotToRemove.Id}";
+                }
+                else
+                {
+                    _statusLabel.Text = $"Could not lock slot {slotToRemove.Id}";
+                }
+            }
+            else
+            {
+                _statusLabel.Text = "Cannot access slot manager lock function";
+            }
+        }
+        else
+        {
+            _statusLabel.Text = "No empty slots to remove";
+        }
+        
+        UpdateUI();
     }
 
     private void OnReturnPressed()

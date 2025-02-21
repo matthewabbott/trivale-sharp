@@ -48,33 +48,83 @@ public partial class SlotGridDisplay : Control
         }
         
         var display = new StringBuilder();
-        var slots = _slotSystem.GetAllSlots().ToList();  // Now uses our new ordering
-
-        // Track tree rendering state
-        bool firstActive = true;
+        var slots = _slotSystem.GetAllSlots().ToList();
         
-        foreach (var (slotId, slot) in slots)
+        // Find the first active slot to use as the root of our tree
+        var firstActiveSlot = slots.FirstOrDefault(s => s.Value.IsActive);
+        bool hasActiveSlot = firstActiveSlot.Key != null;
+        
+        // First pass: find active root slot
+        for (int i = 0; i < slots.Count; i++)
         {
-            string slotSymbol = GetSlotSymbol(slot);
-            string indent = "";
-            string branch = "└";
-
-            if (slot.IsActive && firstActive)
+            var (slotId, slot) = slots[i];
+            
+            // If this is the active slot, display it as the root
+            if (hasActiveSlot && slotId == firstActiveSlot.Key)
             {
-                // Root of our tree
-                firstActive = false;
+                string slotSymbol = GetSlotSymbol(slot);
+                display.AppendLine($"└── {slotSymbol} [{slot.LoadedText.PadRight(10)}]");
+                
+                // Second pass: display the other unlocked slots as children
+                DisplayChildSlots(display, slots, i);
+                break; // We found our root, exit the loop
             }
-            else if (slot.IsUnlocked)
+            // If no active slot, show the first unlocked slot as root
+            else if (!hasActiveSlot && i == 0 && slot.IsUnlocked)
             {
-                // Child branch
-                indent = "    ";
-                branch = GetIndex(slots, slotId) == slots.Count - 1 ? "└" : "├";
+                string slotSymbol = GetSlotSymbol(slot);
+                display.AppendLine($"└── {slotSymbol} [{slot.LoadedText.PadRight(10)}]");
+                
+                // Display the other unlocked slots as children
+                DisplayChildSlots(display, slots, i);
+                break;
             }
-
-            display.AppendLine($"{indent}{branch}── {slotSymbol} [{slot.LoadedText.PadRight(10)}]");
+        }
+        
+        // If we somehow didn't display anything (all slots locked?), show a message
+        if (display.Length == 0)
+        {
+            display.AppendLine("└── □ [NO SLOTS AVAILABLE]");
         }
         
         _displayLabel.Text = display.ToString().TrimEnd();
+    }
+
+    private void DisplayChildSlots(StringBuilder display, List<KeyValuePair<string, SlotState>> slots, int rootIndex)
+    {
+        // Skip the root slot and display the rest as child branches
+        for (int j = 0; j < slots.Count; j++)
+        {
+            // Skip the root slot
+            if (j == rootIndex) continue;
+            
+            var (childSlotId, childSlot) = slots[j];
+            
+            // Only display unlocked slots
+            if (childSlot.IsUnlocked)
+            {
+                string slotSymbol = GetSlotSymbol(childSlot);
+                
+                // Determine if this is the last visible slot for proper branch character
+                bool isLast = IsLastVisibleSlot(slots, j);
+                string branchChar = isLast ? "└" : "├";
+                
+                display.AppendLine($"    {branchChar}── {slotSymbol} [{childSlot.LoadedText.PadRight(10)}]");
+            }
+        }
+    }
+
+    private bool IsLastVisibleSlot(List<KeyValuePair<string, SlotState>> slots, int currentIndex)
+    {
+        // Check if this is the last unlocked slot in the list
+        for (int i = currentIndex + 1; i < slots.Count; i++)
+        {
+            if (slots[i].Value.IsUnlocked)
+            {
+                return false; // Found another unlocked slot after this one
+            }
+        }
+        return true; // This is the last unlocked slot
     }
 
     private string GetSlotSymbol(SlotState slot)
