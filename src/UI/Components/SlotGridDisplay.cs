@@ -62,6 +62,119 @@ public partial class SlotGridDisplay : Control
         var display = new StringBuilder();
         var slots = _slotSystem.GetAllSlots().ToList();
         
+        // Check if we have any slots with parent-child relationships
+        bool hasParentChildRelationships = slots.Any(s => s.Value.ParentSlotId != null);
+        
+        if (hasParentChildRelationships)
+        {
+            // Use hierarchy-based display
+            DisplayHierarchicalTree(display, slots);
+        }
+        else
+        {
+            // Use traditional active-root display
+            DisplayTraditionalTree(display, slots);
+        }
+        
+        // If we somehow didn't display anything, show a message
+        if (display.Length == 0)
+        {
+            display.AppendLine("└── □ [NO SLOTS AVAILABLE]");
+        }
+        
+        _displayLabel.Text = display.ToString().TrimEnd();
+    }
+    
+    private void DisplayHierarchicalTree(StringBuilder display, List<KeyValuePair<string, SlotState>> slots)
+    {
+        // Find all root slots (those without parents)
+        var rootSlots = slots.Where(s => s.Value.ParentSlotId == null && s.Value.IsUnlocked).ToList();
+        
+        // Process each root slot
+        for (int i = 0; i < rootSlots.Count; i++)
+        {
+            bool isLastRoot = (i == rootSlots.Count - 1);
+            var (rootId, rootSlot) = rootSlots[i];
+            
+            // Display the root slot
+            string rootSymbol = GetSlotSymbol(rootSlot);
+            string rootPrefix = isLastRoot ? "└── " : "├── ";
+            
+            // Add resource info to root if active
+            string resourceInfo = "";
+            if (rootSlot.IsActive)
+            {
+                string memColor = GetResourceColor(rootSlot.MemoryUsage);
+                string cpuColor = GetResourceColor(rootSlot.CpuUsage);
+                resourceInfo = $" MEM:[color={memColor}]{rootSlot.MemoryUsage:F1}[/color] CPU:[color={cpuColor}]{rootSlot.CpuUsage:F1}[/color]";
+            }
+            
+            display.AppendLine($"{rootPrefix}{rootSymbol} [{rootSlot.LoadedText.PadRight(10)}]{resourceInfo}");
+            
+            // Display children of this root
+            string childIndent = isLastRoot ? "    " : "│   ";
+            DisplayChildrenRecursive(display, slots, rootId, childIndent);
+        }
+        
+        // If we have any locked slots, display them last
+        var lockedSlots = slots.Where(s => !s.Value.IsUnlocked).ToList();
+        if (lockedSlots.Count > 0)
+        {
+            // Only add a separator if we displayed any roots above
+            if (rootSlots.Count > 0)
+            {
+                display.AppendLine();
+                display.AppendLine("Locked Slots:");
+            }
+            
+            for (int i = 0; i < lockedSlots.Count; i++)
+            {
+                bool isLastLocked = (i == lockedSlots.Count - 1);
+                var (lockedId, lockedSlot) = lockedSlots[i];
+                
+                string slotSymbol = GetSlotSymbol(lockedSlot);
+                string prefix = isLastLocked ? "└── " : "├── ";
+                
+                display.AppendLine($"{prefix}{slotSymbol} [[color=#777777]LOCKED    [/color]]");
+            }
+        }
+    }
+    
+    private void DisplayChildrenRecursive(StringBuilder display, List<KeyValuePair<string, SlotState>> slots, 
+        string parentId, string indent)
+    {
+        // Find all direct children of this parent
+        var children = slots.Where(s => s.Value.ParentSlotId == parentId && s.Value.IsUnlocked).ToList();
+        
+        // Process each child
+        for (int i = 0; i < children.Count; i++)
+        {
+            bool isLastChild = (i == children.Count - 1);
+            var (childId, childSlot) = children[i];
+            
+            // Display the child
+            string childSymbol = GetSlotSymbol(childSlot);
+            string childPrefix = isLastChild ? "└── " : "├── ";
+            
+            // Add resource info if active
+            string resourceInfo = "";
+            if (childSlot.IsActive)
+            {
+                string memColor = GetResourceColor(childSlot.MemoryUsage);
+                string cpuColor = GetResourceColor(childSlot.CpuUsage);
+                resourceInfo = $" MEM:[color={memColor}]{childSlot.MemoryUsage:F1}[/color] CPU:[color={cpuColor}]{childSlot.CpuUsage:F1}[/color]";
+            }
+            
+            display.AppendLine($"{indent}{childPrefix}{childSymbol} [{childSlot.LoadedText.PadRight(10)}]{resourceInfo}");
+            
+            // Recursively display this child's children
+            string nextIndent = indent + (isLastChild ? "    " : "│   ");
+            DisplayChildrenRecursive(display, slots, childId, nextIndent);
+        }
+    }
+    
+    private void DisplayTraditionalTree(StringBuilder display, List<KeyValuePair<string, SlotState>> slots)
+    {
         // Find the first active slot to use as the root of our tree
         var firstActiveSlot = slots.FirstOrDefault(s => s.Value.IsActive);
         bool hasActiveSlot = firstActiveSlot.Key != null;
@@ -102,14 +215,6 @@ public partial class SlotGridDisplay : Control
                 break;
             }
         }
-        
-        // If we somehow didn't display anything (all slots locked?), show a message
-        if (display.Length == 0)
-        {
-            display.AppendLine("└── □ [NO SLOTS AVAILABLE]");
-        }
-        
-        _displayLabel.Text = display.ToString().TrimEnd();
     }
 
     private void DisplayChildSlots(StringBuilder display, List<KeyValuePair<string, SlotState>> slots, int rootIndex)
@@ -171,7 +276,7 @@ public partial class SlotGridDisplay : Control
                 
                 string branchChar = isLast ? "└" : "├";
                 
-                display.AppendLine($"    {branchChar}── {slotSymbol} [LOCKED    ]");
+                display.AppendLine($"    {branchChar}── {slotSymbol} [[color=#777777]LOCKED    [/color]]");
                 hasAddedLockedSlots = true;
             }
         }

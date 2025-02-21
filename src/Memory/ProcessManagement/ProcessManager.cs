@@ -70,7 +70,8 @@ public partial class ProcessManager : Node, IProcessManager
         // Only unlock additional slots the first time
         if (!_extraSlotsUnlocked)
         {
-            UnlockAdditionalSlots(2);
+            // Pass the parent slot ID so newly unlocked slots are children of this one
+            UnlockAdditionalSlots(2, slotId);
             _extraSlotsUnlocked = true;
         }
         
@@ -78,18 +79,59 @@ public partial class ProcessManager : Node, IProcessManager
         return true;
     }
     
-    private void UnlockAdditionalSlots(int count)
+    private void UnlockAdditionalSlots(int count, string parentSlotId = null)
     {
         var slots = _slotManager.GetAllSlots();
         int unlockedCount = 0;
+        
         foreach (var slot in slots)
         {
             if (!slot.IsUnlocked && unlockedCount < count)
             {
                 _slotManager.UnlockSlot(slot.Id);
+                
+                // If we have a SlotGridSystem and a parent slot, establish the parent-child relationship
+                if (parentSlotId != null)
+                {
+                    // We need to find the SlotGridSystem to set parent-child relationships
+                    var slotGridSystem = FindSlotGridSystem();
+                    slotGridSystem?.SetSlotParent(slot.Id, parentSlotId);
+                }
+                
                 unlockedCount++;
             }
         }
+    }
+    
+    // Helper to find the SlotGridSystem in the scene
+    private UI.Components.SlotGridSystem FindSlotGridSystem()
+    {
+        // Try to find the SlotGridSystem in the tree
+        var root = GetTree()?.Root;
+        if (root == null) return null;
+        
+        // First try to find in children of current node
+        var directChild = FindRecursive<UI.Components.SlotGridSystem>(this);
+        if (directChild != null) return directChild;
+        
+        // If not found, search the entire tree
+        return FindRecursive<UI.Components.SlotGridSystem>(root);
+    }
+    
+    // Helper to recursively find a node of a specific type
+    private T FindRecursive<T>(Node parent) where T : class
+    {
+        foreach (var child in parent.GetChildren())
+        {
+            if (child is T foundNode)
+                return foundNode;
+                
+            var result = FindRecursive<T>(child);
+            if (result != null)
+                return result;
+        }
+        
+        return null;
     }
     
     public bool UnloadProcess(string processId)

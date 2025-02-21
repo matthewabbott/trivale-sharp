@@ -58,6 +58,8 @@ public partial class DebugScene : Control
 
     private Button _createNewSlotButton; // New button
 
+    private Button _setParentButton;    // New button
+    
     private void SetupUI()
     {
         // Main vertical layout
@@ -98,6 +100,13 @@ public partial class DebugScene : Control
         };
         layout.AddChild(secondaryButtonContainer);
         
+        // Create a third button container for advanced features
+        var advancedButtonContainer = new HBoxContainer
+        {
+            CustomMinimumSize = new Vector2(0, 40)
+        };
+        layout.AddChild(advancedButtonContainer);
+        
         // Main control buttons with proper styling
         _createProcessButton = CreateStyledButton("Load Debug Process", Colors.Green);
         _unloadProcessButton = CreateStyledButton("Unload Process", Colors.Red);
@@ -116,12 +125,18 @@ public partial class DebugScene : Control
         secondaryButtonContainer.AddChild(_removeSlotButton);
         secondaryButtonContainer.AddChild(_createNewSlotButton);
         
+        // Advanced buttons in third row
+        _setParentButton = CreateStyledButton("Set Parent/Child", new Color(0.5f, 0.0f, 0.5f)); // Purple
+        
+        advancedButtonContainer.AddChild(_setParentButton);
+        
         // Connect signals
         _createProcessButton.Pressed += OnCreateProcessPressed;
         _unloadProcessButton.Pressed += OnUnloadProcessPressed;
         _addSlotButton.Pressed += OnAddSlotPressed;
         _removeSlotButton.Pressed += OnRemoveSlotPressed;
         _createNewSlotButton.Pressed += OnCreateNewSlotPressed;
+        _setParentButton.Pressed += OnSetParentPressed;
         returnButton.Pressed += OnReturnPressed;
         
         // No need for slot display system here - using main menu's display
@@ -311,6 +326,64 @@ public partial class DebugScene : Control
         }
         
         UpdateUI();
+    }
+    
+    private void OnSetParentPressed()
+    {
+        // Find available slots
+        var slots = _slotManager.GetAllSlots().ToList();
+        
+        // Need at least two unlocked slots
+        var unlockedSlots = slots.Where(s => s.IsUnlocked).ToList();
+        if (unlockedSlots.Count < 2)
+        {
+            _statusLabel.Text = "Need at least 2 unlocked slots";
+            return;
+        }
+        
+        // Set up parent-child relationship between the first two unlocked slots
+        var parent = unlockedSlots[0];
+        var child = unlockedSlots[1];
+        
+        // Find the SlotGridSystem to set the parent-child relationship
+        var slotGridSystem = FindSlotGridSystem();
+        if (slotGridSystem != null)
+        {
+            slotGridSystem.SetSlotParent(child.Id, parent.Id);
+            _statusLabel.Text = $"Set {parent.Id} as parent of {child.Id}";
+        }
+        else
+        {
+            _statusLabel.Text = "Could not find SlotGridSystem";
+        }
+        
+        UpdateUI();
+    }
+    
+    // Helper to find the SlotGridSystem in the scene
+    private UI.Components.SlotGridSystem FindSlotGridSystem()
+    {
+        // Try to find the SlotGridSystem in the tree
+        var root = GetTree()?.Root;
+        if (root == null) return null;
+        
+        return FindRecursive<UI.Components.SlotGridSystem>(root);
+    }
+    
+    // Helper to recursively find a node of a specific type
+    private T FindRecursive<T>(Node parent) where T : class
+    {
+        foreach (var child in parent.GetChildren())
+        {
+            if (child is T foundNode)
+                return foundNode;
+                
+            var result = FindRecursive<T>(child);
+            if (result != null)
+                return result;
+        }
+        
+        return null;
     }
 
     private void OnReturnPressed()

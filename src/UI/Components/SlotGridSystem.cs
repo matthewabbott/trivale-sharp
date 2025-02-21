@@ -116,6 +116,46 @@ public partial class SlotGridSystem : Control
         return activeSlots.Concat(inactiveSlots).Concat(lockedSlots);
     }
 
+    // Set parent-child relationship between slots
+    public void SetSlotParent(string childSlotId, string parentSlotId)
+    {
+        if (!_slots.ContainsKey(childSlotId) || !_slots.ContainsKey(parentSlotId))
+            return;
+            
+        var childSlot = _slots[childSlotId];
+        childSlot.ParentSlotId = parentSlotId;
+        _slots[childSlotId] = childSlot;
+        
+        // Emit signal to update the display
+        EmitSignal(SignalName.SlotStateChanged, childSlotId, childSlot.IsActive, childSlot.IsUnlocked, childSlot.LoadedText);
+    }
+    
+    // Clear parent relationship
+    public void ClearSlotParent(string slotId)
+    {
+        if (!_slots.ContainsKey(slotId))
+            return;
+            
+        var slot = _slots[slotId];
+        slot.ParentSlotId = null;
+        _slots[slotId] = slot;
+        
+        // Emit signal to update the display
+        EmitSignal(SignalName.SlotStateChanged, slotId, slot.IsActive, slot.IsUnlocked, slot.LoadedText);
+    }
+    
+    // Get all child slots for a given parent
+    public IEnumerable<KeyValuePair<string, SlotState>> GetChildSlots(string parentSlotId)
+    {
+        return _slots.Where(kvp => kvp.Value.ParentSlotId == parentSlotId);
+    }
+    
+    // Check if a slot has any children
+    public bool HasChildren(string slotId)
+    {
+        return _slots.Any(kvp => kvp.Value.ParentSlotId == slotId);
+    }
+    
     // Public accessors
     public IEnumerable<KeyValuePair<string, SlotState>> GetAllSlots() => GetDisplayOrder();
     
