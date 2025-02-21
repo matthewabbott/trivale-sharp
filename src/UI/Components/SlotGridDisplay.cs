@@ -1,5 +1,7 @@
 // src/UI/Components/SlotGridDisplay.cs
 // Temporary ASCII-based visualization of the slot system
+// TODO: collision detection, thumbnails, event handlers, ui feedback mechanisms,
+    // ability to manipulate individual slots. There's a lot to do here.
 using Godot;
 using System.Text;
 using System.Linq;
