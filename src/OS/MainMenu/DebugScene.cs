@@ -56,6 +56,8 @@ public partial class DebugScene : Control
         ConnectSignals();
     }
 
+    private Button _createNewSlotButton; // New button
+
     private void SetupUI()
     {
         // Main vertical layout
@@ -89,23 +91,37 @@ public partial class DebugScene : Control
         };
         layout.AddChild(_buttonContainer);
         
-        // Control buttons with proper styling
+        // Create a second button container for less important buttons
+        var secondaryButtonContainer = new HBoxContainer
+        {
+            CustomMinimumSize = new Vector2(0, 40)
+        };
+        layout.AddChild(secondaryButtonContainer);
+        
+        // Main control buttons with proper styling
         _createProcessButton = CreateStyledButton("Load Debug Process", Colors.Green);
         _unloadProcessButton = CreateStyledButton("Unload Process", Colors.Red);
-        _addSlotButton = CreateStyledButton("Add Slot", Colors.Blue);        // New button
-        _removeSlotButton = CreateStyledButton("Remove Slot", Colors.Orange); // New button
         var returnButton = CreateStyledButton("Return to Menu", Colors.White);
         
         _buttonContainer.AddChild(_createProcessButton);
         _buttonContainer.AddChild(_unloadProcessButton);
-        _buttonContainer.AddChild(_addSlotButton);       // Add new button
-        _buttonContainer.AddChild(_removeSlotButton);    // Add new button
         _buttonContainer.AddChild(returnButton);
         
+        // Slot management buttons in second row
+        _addSlotButton = CreateStyledButton("Unlock Slot", Colors.Blue);
+        _removeSlotButton = CreateStyledButton("Lock Slot", Colors.Orange);
+        _createNewSlotButton = CreateStyledButton("Create New Slot", Colors.Purple);
+        
+        secondaryButtonContainer.AddChild(_addSlotButton);
+        secondaryButtonContainer.AddChild(_removeSlotButton);
+        secondaryButtonContainer.AddChild(_createNewSlotButton);
+        
+        // Connect signals
         _createProcessButton.Pressed += OnCreateProcessPressed;
         _unloadProcessButton.Pressed += OnUnloadProcessPressed;
-        _addSlotButton.Pressed += OnAddSlotPressed;       // Connect new button
-        _removeSlotButton.Pressed += OnRemoveSlotPressed; // Connect new button
+        _addSlotButton.Pressed += OnAddSlotPressed;
+        _removeSlotButton.Pressed += OnRemoveSlotPressed;
+        _createNewSlotButton.Pressed += OnCreateNewSlotPressed;
         returnButton.Pressed += OnReturnPressed;
         
         // No need for slot display system here - using main menu's display
@@ -265,6 +281,33 @@ public partial class DebugScene : Control
         else
         {
             _statusLabel.Text = "No empty slots to remove";
+        }
+        
+        UpdateUI();
+    }
+    
+    private void OnCreateNewSlotPressed()
+    {
+        // We need to cast to SlotManager to access the CreateNewSlot method
+        if (_slotManager is SlotManager manager)
+        {
+            // Create a new slot (unlocked or locked)
+            bool createUnlocked = true; // Set to false if you want new slots to start locked
+            string newSlotId = manager.CreateNewSlot(createUnlocked);
+            
+            if (!string.IsNullOrEmpty(newSlotId))
+            {
+                string state = createUnlocked ? "unlocked" : "locked";
+                _statusLabel.Text = $"Created new {state} slot {newSlotId}";
+            }
+            else
+            {
+                _statusLabel.Text = "Failed to create new slot";
+            }
+        }
+        else
+        {
+            _statusLabel.Text = "Cannot access slot manager creation function";
         }
         
         UpdateUI();

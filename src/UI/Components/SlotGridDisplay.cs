@@ -65,7 +65,7 @@ public partial class SlotGridDisplay : Control
                 string slotSymbol = GetSlotSymbol(slot);
                 display.AppendLine($"└── {slotSymbol} [{slot.LoadedText.PadRight(10)}]");
                 
-                // Second pass: display the other unlocked slots as children
+                // Second pass: display the other slots as children
                 DisplayChildSlots(display, slots, i);
                 break; // We found our root, exit the loop
             }
@@ -75,7 +75,7 @@ public partial class SlotGridDisplay : Control
                 string slotSymbol = GetSlotSymbol(slot);
                 display.AppendLine($"└── {slotSymbol} [{slot.LoadedText.PadRight(10)}]");
                 
-                // Display the other unlocked slots as children
+                // Display the other slots as children
                 DisplayChildSlots(display, slots, i);
                 break;
             }
@@ -92,7 +92,11 @@ public partial class SlotGridDisplay : Control
 
     private void DisplayChildSlots(StringBuilder display, List<KeyValuePair<string, SlotState>> slots, int rootIndex)
     {
-        // Skip the root slot and display the rest as child branches
+        // Track different sections
+        bool hasAddedUnlockedSlots = false;
+        bool hasAddedLockedSlots = false;
+        
+        // First, display unlocked slots
         for (int j = 0; j < slots.Count; j++)
         {
             // Skip the root slot
@@ -105,13 +109,68 @@ public partial class SlotGridDisplay : Control
             {
                 string slotSymbol = GetSlotSymbol(childSlot);
                 
-                // Determine if this is the last visible slot for proper branch character
-                bool isLast = IsLastVisibleSlot(slots, j);
+                // Count how many more unlocked slots follow this one (for branch character)
+                int remainingUnlocked = CountRemainingUnlocked(slots, j);
+                bool isLast = remainingUnlocked == 0;
+                
+                // If we'll show locked slots and this is the last unlocked slot, it's not really last
+                if (isLast && HasLockedSlotsToShow(slots))
+                    isLast = false;
+                
                 string branchChar = isLast ? "└" : "├";
                 
                 display.AppendLine($"    {branchChar}── {slotSymbol} [{childSlot.LoadedText.PadRight(10)}]");
+                hasAddedUnlockedSlots = true;
             }
         }
+        
+        // Second, display locked slots if we have any
+        for (int j = 0; j < slots.Count; j++)
+        {
+            var (childSlotId, childSlot) = slots[j];
+            
+            // Only display locked slots
+            if (!childSlot.IsUnlocked)
+            {
+                string slotSymbol = GetSlotSymbol(childSlot);
+                
+                // Count how many more locked slots follow this one
+                int remainingLocked = CountRemainingLocked(slots, j);
+                bool isLast = remainingLocked == 0;
+                
+                string branchChar = isLast ? "└" : "├";
+                
+                display.AppendLine($"    {branchChar}── {slotSymbol} [LOCKED    ]");
+                hasAddedLockedSlots = true;
+            }
+        }
+    }
+    
+    private int CountRemainingUnlocked(List<KeyValuePair<string, SlotState>> slots, int currentIndex)
+    {
+        int count = 0;
+        for (int i = currentIndex + 1; i < slots.Count; i++)
+        {
+            if (slots[i].Value.IsUnlocked)
+                count++;
+        }
+        return count;
+    }
+    
+    private int CountRemainingLocked(List<KeyValuePair<string, SlotState>> slots, int currentIndex)
+    {
+        int count = 0;
+        for (int i = currentIndex + 1; i < slots.Count; i++)
+        {
+            if (!slots[i].Value.IsUnlocked)
+                count++;
+        }
+        return count;
+    }
+    
+    private bool HasLockedSlotsToShow(List<KeyValuePair<string, SlotState>> slots)
+    {
+        return slots.Any(s => !s.Value.IsUnlocked);
     }
 
     private bool IsLastVisibleSlot(List<KeyValuePair<string, SlotState>> slots, int currentIndex)

@@ -23,7 +23,8 @@ public interface ISlotManager
     bool TryLoadProcessIntoSlot(IProcess process, out string slotId);
     void FreeSlot(string slotId);
     bool UnlockSlot(string slotId);
-    bool LockSlot(string slotId);  // New method for locking slots
+    bool LockSlot(string slotId);  // Method for locking slots
+    string CreateNewSlot(bool startUnlocked = false);  // Method for creating entirely new slots
     IReadOnlyList<ISlot> GetAllSlots();
     ISlot GetSlot(string slotId);
     bool CanAllocateProcess(IProcess process);

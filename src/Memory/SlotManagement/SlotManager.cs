@@ -160,4 +160,59 @@ public partial class SlotManager : Node, ISlotManager
         
     public float GetAvailableCpu() =>
         _totalCpu - _slots.Values.Sum(s => s.CpuUsage);
+        
+    // New method to create additional slots
+    public string CreateNewSlot(bool startUnlocked = false)
+    {
+        // Generate a new position that's not currently used
+        Vector2I position = FindNextAvailablePosition();
+        
+        // Calculate resources for the new slot
+        float slotMemory = _totalMemory / (_slots.Count + 1); // Divide available memory
+        float slotCpu = _totalCpu / (_slots.Count + 1);       // Divide available CPU
+        
+        // Create a unique ID
+        string id = $"slot_{position.X}_{position.Y}";
+        
+        // Create the new slot
+        var slot = new Slot(
+            id: id,
+            position: position,
+            maxMemory: slotMemory,
+            maxCpu: slotCpu,
+            startUnlocked: startUnlocked
+        );
+        
+        // Add to our collection
+        _slots[id] = slot;
+        
+        // Emit appropriate event
+        if (startUnlocked)
+        {
+            SlotUnlocked?.Invoke(id);
+        }
+        
+        SlotStatusChanged?.Invoke(id, slot.Status);
+        
+        return id;
+    }
+    
+    private Vector2I FindNextAvailablePosition()
+    {
+        // First try to fill in any "holes" in the grid
+        for (int y = 0; y < 100; y++) // Reasonable limit to prevent infinite loop
+        {
+            for (int x = 0; x < 100; x++)
+            {
+                string testId = $"slot_{x}_{y}";
+                if (!_slots.ContainsKey(testId))
+                {
+                    return new Vector2I(x, y);
+                }
+            }
+        }
+        
+        // If we somehow get here, just append to the end
+        return new Vector2I(0, _slots.Count);
+    }
 }
