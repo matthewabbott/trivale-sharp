@@ -26,8 +26,10 @@ public partial class SlotGridDisplay : Control
             Text = "INITIALIZING...",
             BbcodeEnabled = true,
             FitContent = true,
-            AutowrapMode = TextServer.AutowrapMode.Off,
-            CustomMinimumSize = new Vector2(500, 0)
+            SizeFlagsHorizontal = SizeFlags.Fill,
+            SizeFlagsVertical = SizeFlags.Fill,
+            AutowrapMode = TextServer.AutowrapMode.Word,
+            CustomMinimumSize = new Vector2(250, 0)
         };
         
         // Set monospace font for ASCII art
