@@ -21,6 +21,9 @@ public struct SlotState
     public Vector2I GridPosition;
     // Added for future hierarchy support:
     public string ParentSlotId;  // null means root/no parent
+    // Resource tracking:
+    public float MemoryUsage;
+    public float CpuUsage;
 }
 
 public partial class SlotGridSystem : Control
@@ -75,7 +78,9 @@ public partial class SlotGridSystem : Control
             IsUnlocked = isUnlocked,
             LoadedText = loadedText,
             GridPosition = gridPosition,
-            ParentSlotId = null  // We'll set this when implementing full hierarchy
+            ParentSlotId = null,  // We'll set this when implementing full hierarchy
+            MemoryUsage = slot.MemoryUsage,
+            CpuUsage = slot.CpuUsage
         };
         
         EmitSignal(SignalName.SlotStateChanged, slot.Id, isActive, isUnlocked, loadedText);
@@ -83,14 +88,16 @@ public partial class SlotGridSystem : Control
     
     private Vector2I GetGridPositionFromId(string slotId)
     {
-        if (int.TryParse(slotId.Split('_')[1], out int index))
+        // Parse position from id (format: slot_x_y)
+        var parts = slotId.Split('_');
+        if (parts.Length >= 3 && int.TryParse(parts[1], out int x) && int.TryParse(parts[2], out int y))
         {
-            return new Vector2I(index % 2, index / 2);  // Assuming 2 columns
+            return new Vector2I(x, y);
         }
         return Vector2I.Zero;
     }
 
-    // New method for getting slots in display order
+    // Get slots in display order
     private IEnumerable<KeyValuePair<string, SlotState>> GetDisplayOrder()
     {
         // First, any active slots
@@ -109,10 +116,9 @@ public partial class SlotGridSystem : Control
         return activeSlots.Concat(inactiveSlots).Concat(lockedSlots);
     }
 
-    // Modified to use new display order
+    // Public accessors
     public IEnumerable<KeyValuePair<string, SlotState>> GetAllSlots() => GetDisplayOrder();
     
-    // Public accessors that can stay the same
     public bool IsSlotActive(string slotId) => 
         _slots.ContainsKey(slotId) && _slots[slotId].IsActive;
     

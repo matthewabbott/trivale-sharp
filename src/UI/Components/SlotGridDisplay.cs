@@ -10,7 +10,7 @@ namespace Trivale.UI.Components;
 public partial class SlotGridDisplay : Control
 {
     private SlotGridSystem _slotSystem;
-    private Label _displayLabel;
+    private RichTextLabel _displayLabel;
     
     public void Initialize(SlotGridSystem slotSystem)
     {
@@ -20,24 +20,34 @@ public partial class SlotGridDisplay : Control
     
     public override void _Ready()
     {
-        _displayLabel = new Label
+        // Use RichTextLabel instead of Label to support BBCode formatting
+        var richTextLabel = new RichTextLabel
         {
             Text = "INITIALIZING...",
-            HorizontalAlignment = HorizontalAlignment.Left
+            BbcodeEnabled = true,
+            FitContent = true,
+            AutowrapMode = TextServer.AutowrapMode.Off,
+            CustomMinimumSize = new Vector2(500, 0)
         };
         
         // Set monospace font for ASCII art
         var font = new SystemFont();
         font.FontNames = new string[] { "JetBrainsMono-Regular", "Consolas", "Courier New" };
-        _displayLabel.AddThemeFontOverride("font", font);
+        richTextLabel.AddThemeFontOverride("normal_font", font);
         
-        AddChild(_displayLabel);
+        AddChild(richTextLabel);
+        _displayLabel = richTextLabel;
     }
     
     private void OnSlotStateChanged(string slotId, bool isActive, bool isUnlocked, string loadedText)
     {
         UpdateDisplay();
     }
+    
+    // Resource usage thresholds
+    private const float LOW_USAGE = 0.3f;     // 0-30% - Green
+    private const float MEDIUM_USAGE = 0.7f;  // 31-70% - Yellow
+    // 71-100% - Red
     
     private void UpdateDisplay()
     {
@@ -63,7 +73,17 @@ public partial class SlotGridDisplay : Control
             if (hasActiveSlot && slotId == firstActiveSlot.Key)
             {
                 string slotSymbol = GetSlotSymbol(slot);
-                display.AppendLine($"└── {slotSymbol} [{slot.LoadedText.PadRight(10)}]");
+                
+                // Add resource info to the active root slot
+                string resourceInfo = "";
+                if (slot.IsActive)
+                {
+                    string memColor = GetResourceColor(slot.MemoryUsage);
+                    string cpuColor = GetResourceColor(slot.CpuUsage);
+                    resourceInfo = $" MEM:[color={memColor}]{slot.MemoryUsage:F1}[/color] CPU:[color={cpuColor}]{slot.CpuUsage:F1}[/color]";
+                }
+                
+                display.AppendLine($"└── {slotSymbol} [{slot.LoadedText.PadRight(10)}]{resourceInfo}");
                 
                 // Second pass: display the other slots as children
                 DisplayChildSlots(display, slots, i);
@@ -119,7 +139,16 @@ public partial class SlotGridDisplay : Control
                 
                 string branchChar = isLast ? "└" : "├";
                 
-                display.AppendLine($"    {branchChar}── {slotSymbol} [{childSlot.LoadedText.PadRight(10)}]");
+                // Add resource info to active slots
+                string resourceInfo = "";
+                if (childSlot.IsActive)
+                {
+                    string memColor = GetResourceColor(childSlot.MemoryUsage);
+                    string cpuColor = GetResourceColor(childSlot.CpuUsage);
+                    resourceInfo = $" MEM:[color={memColor}]{childSlot.MemoryUsage:F1}[/color] CPU:[color={cpuColor}]{childSlot.CpuUsage:F1}[/color]";
+                }
+                
+                display.AppendLine($"    {branchChar}── {slotSymbol} [{childSlot.LoadedText.PadRight(10)}]{resourceInfo}");
                 hasAddedUnlockedSlots = true;
             }
         }
@@ -190,6 +219,16 @@ public partial class SlotGridDisplay : Control
     {
         if (!slot.IsUnlocked) return "⚿";  // Locked
         return slot.IsActive ? "■" : "□";   // Active/Inactive
+    }
+    
+    private string GetResourceColor(float usage)
+    {
+        if (usage <= LOW_USAGE)
+            return "#00FF00"; // Green for low usage
+        else if (usage <= MEDIUM_USAGE)
+            return "#FFFF00"; // Yellow for medium usage
+        else
+            return "#FF0000"; // Red for high usage
     }
 
     private int GetIndex(List<KeyValuePair<string, SlotState>> slotList, string slotId)
