@@ -130,16 +130,22 @@ public partial class SimpleMainMenu : Control
 		};
 		marginContainer.AddChild(mainContainer);
 
-		// Left panel (MEM slots) with panel background
+		// Left panel (MEM slots) with panel background - make it flexible but with min size
 		var leftPanel = new PanelContainer
 		{
 			CustomMinimumSize = new Vector2(200, 0),
-			SizeFlagsVertical = SizeFlags.Fill
+			SizeFlagsVertical = SizeFlags.Fill,
+			SizeFlagsHorizontal = SizeFlags.Expand | SizeFlags.Fill,
+			SizeFlagsStretchRatio = 0.25f  // Take up 25% of available space
 		};
 		leftPanel.AddThemeStyleboxOverride("panel", CreatePanelStyle());
 		mainContainer.AddChild(leftPanel);
 
-		var leftContent = new VBoxContainer();
+		var leftContent = new VBoxContainer
+		{
+			SizeFlagsVertical = SizeFlags.Fill,
+			SizeFlagsHorizontal = SizeFlags.Fill
+		};
 		leftPanel.AddChild(leftContent);
 
 		// MEM header
@@ -160,16 +166,21 @@ public partial class SimpleMainMenu : Control
 		slotDisplay.Initialize(_slotSystem);
 		leftContent.AddChild(slotDisplay);
 
-		// Center panel (main content) with panel background
+		// Center panel (main content) with panel background - make it the largest
 		var centerPanel = new PanelContainer
 		{
-			SizeFlagsHorizontal = SizeFlags.Expand,
-			SizeFlagsVertical = SizeFlags.Fill
+			SizeFlagsHorizontal = SizeFlags.Expand | SizeFlags.Fill,
+			SizeFlagsVertical = SizeFlags.Fill,
+			SizeFlagsStretchRatio = 0.5f  // Take up 50% of available space
 		};
 		centerPanel.AddThemeStyleboxOverride("panel", CreatePanelStyle());
 		mainContainer.AddChild(centerPanel);
 
-		_mainContent = new MarginContainer();
+		_mainContent = new MarginContainer
+		{
+			SizeFlagsHorizontal = SizeFlags.Fill,
+			SizeFlagsVertical = SizeFlags.Fill
+		};
 		_mainContent.AddThemeConstantOverride("margin_left", 10);
 		_mainContent.AddThemeConstantOverride("margin_right", 10);
 		_mainContent.AddThemeConstantOverride("margin_top", 10);
@@ -179,58 +190,111 @@ public partial class SimpleMainMenu : Control
 		SetupMainMenuButtons();
 		SetupViewportContainer();
 
-		// Right panel (resources)
-			var rightPanel = new PanelContainer
-			{
-				CustomMinimumSize = new Vector2(150, 0),
-				SizeFlagsVertical = SizeFlags.Fill
-			};
-			rightPanel.AddThemeStyleboxOverride("panel", CreatePanelStyle());
-			mainContainer.AddChild(rightPanel);
-
-			// Create the resource panel component
-			var resourcePanel = new UI.Components.ResourcePanel();
-			resourcePanel.Initialize(_slotManager);
-			rightPanel.AddChild(resourcePanel);
-
-		var rightContent = new VBoxContainer();
-		rightPanel.AddChild(rightContent);
-
-		var resourceHeader = new Label
+		// Right panel (resources) - make it flexible but with min size
+		var rightPanel = new PanelContainer
 		{
-			Text = "Resources:",
-			CustomMinimumSize = new Vector2(0, 30)
+			CustomMinimumSize = new Vector2(200, 0),
+			SizeFlagsVertical = SizeFlags.Fill,
+			SizeFlagsHorizontal = SizeFlags.Expand | SizeFlags.Fill,
+			SizeFlagsStretchRatio = 0.25f  // Take up 25% of available space
 		};
-		rightContent.AddChild(resourceHeader);
+		rightPanel.AddThemeStyleboxOverride("panel", CreatePanelStyle());
+		mainContainer.AddChild(rightPanel);
 
-		var resourceLabel = new Label { Text = "MEM\nHealth\netc." };
-		rightContent.AddChild(resourceLabel);
+		// Create the resource panel component
+		var resourcePanel = new UI.Components.ResourcePanel();
+		resourcePanel.Initialize(_slotManager);
+		rightPanel.AddChild(resourcePanel);
 	}
 
 	private void SetupMainMenuButtons()
 	{
 		var buttonContainer = new VBoxContainer
 		{
-			CustomMinimumSize = new Vector2(300, 0),
-			SizeFlagsHorizontal = 0,  // Don't expand horizontally
-			SizeFlagsVertical = SizeFlags.Fill
+			CustomMinimumSize = new Vector2(250, 0),
+			SizeFlagsHorizontal = SizeFlags.Expand | SizeFlags.Fill,  // Allow expansion
+			SizeFlagsVertical = SizeFlags.Fill,
+			// Center alignment is not available, so using standard alignment
 		};
-		buttonContainer.AddThemeConstantOverride("separation", 10);
+		buttonContainer.AddThemeConstantOverride("separation", 20);  // More space between buttons
 		_mainContent.AddChild(buttonContainer);
 
-		_cardGameButton = new Button
+		// Add a title/header
+		var titleLabel = new Label
 		{
-			Text = "CARD GAME PLACEHOLDER",
+			Text = "NETRUNNER OS",
+			HorizontalAlignment = HorizontalAlignment.Center,
 			CustomMinimumSize = new Vector2(0, 40)
 		};
+		buttonContainer.AddChild(titleLabel);
+
+		// Add some space before buttons
+		var spacer = new Control { CustomMinimumSize = new Vector2(0, 20) };
+		buttonContainer.AddChild(spacer);
+
+		// Create button with style
+		_cardGameButton = CreateStyledButton("CARD GAME", Colors.Green);
 		buttonContainer.AddChild(_cardGameButton);
 
-		_debugButton = new Button
-		{
-			Text = "DEBUG SANDBOX",
-			CustomMinimumSize = new Vector2(0, 40)
-		};
+		_debugButton = CreateStyledButton("DEBUG SANDBOX", Colors.Orange);
 		buttonContainer.AddChild(_debugButton);
+		
+		// Add spacer at the bottom too to help with centering
+		var bottomSpacer = new Control 
+		{ 
+			SizeFlagsVertical = SizeFlags.Expand 
+		};
+		buttonContainer.AddChild(bottomSpacer);
+	}
+	
+	private Button CreateStyledButton(string text, Color accentColor)
+	{
+		var button = new Button
+		{
+			Text = text,
+			CustomMinimumSize = new Vector2(0, 50),  // Taller buttons
+			SizeFlagsHorizontal = SizeFlags.Fill,    // Fill width
+			SizeFlagsVertical = SizeFlags.Fill      // Fill height
+		};
+		
+		// Normal state
+		var normalStyle = new StyleBoxFlat
+		{
+			BgColor = new Color(0.1f, 0.1f, 0.1f, 0.9f),  // Dark background
+			BorderColor = accentColor,                    // Accent color border
+			BorderWidthBottom = 2,
+			BorderWidthLeft = 2,
+			BorderWidthRight = 2,
+			BorderWidthTop = 2,
+			ContentMarginLeft = 15,
+			ContentMarginRight = 15,
+			ContentMarginTop = 10,
+			ContentMarginBottom = 10
+		};
+		button.AddThemeStyleboxOverride("normal", normalStyle);
+		
+		// Hover state
+		var hoverStyle = normalStyle.Duplicate() as StyleBoxFlat;
+		if (hoverStyle != null)
+		{
+			hoverStyle.BgColor = new Color(0.15f, 0.15f, 0.15f, 0.9f);  // Slightly lighter
+			hoverStyle.BorderWidthBottom = 3;
+			hoverStyle.BorderWidthLeft = 3;
+			hoverStyle.BorderWidthRight = 3;
+			hoverStyle.BorderWidthTop = 3;
+		}
+		button.AddThemeStyleboxOverride("hover", hoverStyle);
+		
+		// Pressed state
+		var pressedStyle = normalStyle.Duplicate() as StyleBoxFlat;
+		if (pressedStyle != null)
+		{
+			pressedStyle.BgColor = new Color(0.2f, 0.2f, 0.2f, 0.9f);  // Even lighter when pressed
+			pressedStyle.BorderColor = new Color(accentColor, 1.0f);   // Full brightness border
+		}
+		button.AddThemeStyleboxOverride("pressed", pressedStyle);
+		
+		return button;
 	}
 
 	private void SetupViewportContainer()
@@ -239,9 +303,51 @@ public partial class SimpleMainMenu : Control
 		{
 			Visible = false,
 			SizeFlagsHorizontal = SizeFlags.Fill,
-			SizeFlagsVertical = SizeFlags.Fill
+			SizeFlagsVertical = SizeFlags.Fill,
+			AnchorsPreset = (int)LayoutPreset.FullRect,  // Fill parent container
+			GrowHorizontal = GrowDirection.Both,
+			GrowVertical = GrowDirection.Both
 		};
 		_mainContent.AddChild(_viewportContainer);
+		
+		// Instead of using SizeChanged (which might not be available), 
+		// we'll handle resizing in _Process
+	}
+	
+	public override void _Process(double delta)
+	{
+		base._Process(delta);
+		
+		// Ensure viewport contents scale appropriately
+		if (_viewportContainer.Visible && _viewportContainer.GetChildCount() > 0)
+		{
+			// Get the first child (loaded scene)
+			var scene = _viewportContainer.GetChild(0);
+			if (scene is Control controlScene)
+			{
+				// Make sure it fills the viewport
+				controlScene.AnchorsPreset = (int)LayoutPreset.FullRect;
+				controlScene.GrowHorizontal = GrowDirection.Both;
+				controlScene.GrowVertical = GrowDirection.Both;
+			}
+		}
+	}
+
+	private void OnWindowResized()
+	{
+		// Ensure viewport contents scale appropriately
+		if (_viewportContainer.Visible && _viewportContainer.GetChildCount() > 0)
+		{
+			// Get the first child (loaded scene)
+			var scene = _viewportContainer.GetChild(0);
+			if (scene is Control controlScene)
+			{
+				// Make sure it fills the viewport
+				controlScene.AnchorsPreset = (int)LayoutPreset.FullRect;
+				controlScene.GrowHorizontal = GrowDirection.Both;
+				controlScene.GrowVertical = GrowDirection.Both;
+			}
+		}
 	}
 
 	private void ConnectSignals()
@@ -299,6 +405,14 @@ public partial class SimpleMainMenu : Control
 				instance.Connect("SceneUnloadRequested", new Callable(this, nameof(HandleSceneUnloadRequest)));
 			}
 			
+			// Make sure Control scenes fill the viewport
+			if (instance is Control controlNode)
+			{
+				controlNode.AnchorsPreset = (int)LayoutPreset.FullRect;
+				controlNode.GrowHorizontal = GrowDirection.Both;
+				controlNode.GrowVertical = GrowDirection.Both;
+			}
+			
 			_viewportContainer.AddChild(instance);
 			_viewportContainer.Visible = true;
 
@@ -319,16 +433,21 @@ public partial class SimpleMainMenu : Control
 
 	private void HandleSceneUnloadRequest()
 	{
+		GD.Print("Handling scene unload request");
+		
 		// Find the active process and unload it
-		foreach (var slot in _slotManager.GetAllSlots())
+		foreach (var processId in _processManager.GetActiveProcessIds())
 		{
-			if (slot.Status == SlotStatus.Active && slot.CurrentProcess != null)
-			{
-				_processManager.UnloadProcess(slot.CurrentProcess.Id);
-				break;
-			}
+			GD.Print($"Unloading process: {processId}");
+			_processManager.UnloadProcess(processId);
 		}
 
+		// Clear viewport with deferred call to avoid issues during signal processing
+		CallDeferred(nameof(DeferredClearViewport));
+	}
+	
+	private void DeferredClearViewport()
+	{
 		// Clear viewport
 		foreach (Node child in _viewportContainer.GetChildren())
 		{
@@ -344,6 +463,8 @@ public partial class SimpleMainMenu : Control
 				control.Visible = true;
 			}
 		}
+		
+		GD.Print("Viewport cleared, menu buttons restored");
 	}
 
 	private void OnProcessStarted(string processId, string slotId)
