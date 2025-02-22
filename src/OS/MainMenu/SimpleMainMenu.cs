@@ -41,7 +41,10 @@ public partial class SimpleMainMenu : Control
 	private SlotGridSystem _slotSystem;
 	private Button _cardGameButton;
 	private Button _debugButton;
-	private Control _viewportContainer;
+	
+	// Properties for viewport management
+	private SubViewportContainer _viewportContainer;
+	private SubViewport _subViewport;
 	private Control _mainContent;
 	
 	// Process and slot management
@@ -82,6 +85,21 @@ public partial class SimpleMainMenu : Control
 		if (_slotManager != null)
 		{
 			_slotManager.SlotStatusChanged -= OnSlotStatusChanged;
+		}
+	}
+
+	public override void _Process(double delta)
+	{
+		base._Process(delta);
+		
+		// Update SubViewport size to match container size
+		if (_viewportContainer.Visible && _subViewport != null)
+		{
+			var containerSize = _viewportContainer.Size;
+			if (containerSize.X > 0 && containerSize.Y > 0)
+			{
+				_subViewport.Size = new Vector2I((int)containerSize.X, (int)containerSize.Y);
+			}
 		}
 	}
 
@@ -246,7 +264,7 @@ public partial class SimpleMainMenu : Control
 		};
 		buttonContainer.AddChild(bottomSpacer);
 	}
-	
+
 	private Button CreateStyledButton(string text, Color accentColor)
 	{
 		var button = new Button
@@ -299,55 +317,27 @@ public partial class SimpleMainMenu : Control
 
 	private void SetupViewportContainer()
 	{
-		_viewportContainer = new Control
+		// Create a SubViewportContainer for proper scene rendering
+		_viewportContainer = new SubViewportContainer
 		{
 			Visible = false,
 			SizeFlagsHorizontal = SizeFlags.Fill,
 			SizeFlagsVertical = SizeFlags.Fill,
 			AnchorsPreset = (int)LayoutPreset.FullRect,  // Fill parent container
 			GrowHorizontal = GrowDirection.Both,
-			GrowVertical = GrowDirection.Both
+			GrowVertical = GrowDirection.Both,
+			Stretch = true  // Make viewport content stretch to container size
 		};
 		_mainContent.AddChild(_viewportContainer);
 		
-		// Instead of using SizeChanged (which might not be available), 
-		// we'll handle resizing in _Process
-	}
-	
-	public override void _Process(double delta)
-	{
-		base._Process(delta);
-		
-		// Ensure viewport contents scale appropriately
-		if (_viewportContainer.Visible && _viewportContainer.GetChildCount() > 0)
+		// Create the actual SubViewport that will hold scenes
+		_subViewport = new SubViewport
 		{
-			// Get the first child (loaded scene)
-			var scene = _viewportContainer.GetChild(0);
-			if (scene is Control controlScene)
-			{
-				// Make sure it fills the viewport
-				controlScene.AnchorsPreset = (int)LayoutPreset.FullRect;
-				controlScene.GrowHorizontal = GrowDirection.Both;
-				controlScene.GrowVertical = GrowDirection.Both;
-			}
-		}
-	}
-
-	private void OnWindowResized()
-	{
-		// Ensure viewport contents scale appropriately
-		if (_viewportContainer.Visible && _viewportContainer.GetChildCount() > 0)
-		{
-			// Get the first child (loaded scene)
-			var scene = _viewportContainer.GetChild(0);
-			if (scene is Control controlScene)
-			{
-				// Make sure it fills the viewport
-				controlScene.AnchorsPreset = (int)LayoutPreset.FullRect;
-				controlScene.GrowHorizontal = GrowDirection.Both;
-				controlScene.GrowVertical = GrowDirection.Both;
-			}
-		}
+			HandleInputLocally = true,  // Let scenes handle their own input
+			Size = new Vector2I(800, 600),  // Default size, will be adjusted
+			RenderTargetUpdateMode = SubViewport.UpdateMode.Always
+		};
+		_viewportContainer.AddChild(_subViewport);
 	}
 
 	private void ConnectSignals()
@@ -381,8 +371,8 @@ public partial class SimpleMainMenu : Control
 
 	private void LoadSceneInViewport(string scenePath)
 	{
-		// Clear existing content
-		foreach (Node child in _viewportContainer.GetChildren())
+		// Clear existing content from SubViewport
+		foreach (Node child in _subViewport.GetChildren())
 		{
 			child.QueueFree();
 		}
@@ -405,15 +395,10 @@ public partial class SimpleMainMenu : Control
 				instance.Connect("SceneUnloadRequested", new Callable(this, nameof(HandleSceneUnloadRequest)));
 			}
 			
-			// Make sure Control scenes fill the viewport
-			if (instance is Control controlNode)
-			{
-				controlNode.AnchorsPreset = (int)LayoutPreset.FullRect;
-				controlNode.GrowHorizontal = GrowDirection.Both;
-				controlNode.GrowVertical = GrowDirection.Both;
-			}
+			// Add the scene to the SubViewport (not directly to the container)
+			_subViewport.AddChild(instance);
 			
-			_viewportContainer.AddChild(instance);
+			// Make the container visible
 			_viewportContainer.Visible = true;
 
 			// Hide menu buttons when showing scene
@@ -448,11 +433,13 @@ public partial class SimpleMainMenu : Control
 	
 	private void DeferredClearViewport()
 	{
-		// Clear viewport
-		foreach (Node child in _viewportContainer.GetChildren())
+		// Clear viewport content
+		foreach (Node child in _subViewport.GetChildren())
 		{
 			child.QueueFree();
 		}
+		
+		// Hide the viewport container
 		_viewportContainer.Visible = false;
 
 		// Show menu buttons again
