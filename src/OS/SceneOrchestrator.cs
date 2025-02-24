@@ -1,37 +1,66 @@
 // src/OS/SceneOrchestrator.cs
 using Godot;
 using System.Collections.Generic;
+using System.Linq;
 using Trivale.Memory.ProcessManagement;
 using Trivale.Memory.SlotManagement;
 
 namespace Trivale.OS;
 
 /// <summary>
-/// Centralizes scene management and coordinates with ProcessManager while keeping
+/// Centralizes UI scene management and coordinates with ProcessManager while keeping
 /// UI and process logic separate. Handles scene lifecycle including loading,
 /// unloading, and state management.
 /// 
 /// Key responsibilities:
-/// - Loads and unloads scenes
+/// - Loads and unloads UI scenes (must inherit from Control)
 /// - Manages scene-to-process relationships
 /// - Coordinates cleanup between process and scene systems
 /// - Maintains references to loaded scenes
+/// 
+/// Note: All scenes managed by this orchestrator must inherit from Control,
+/// as they are expected to be UI scenes that can be shown/hidden in the
+/// main content area.
 /// </summary>
 public partial class SceneOrchestrator : Node
 {
-    private Dictionary<string, Node> _loadedScenes = new();
+    private Dictionary<string, Control> _loadedScenes = new();
     private IProcessManager _processManager;
     private ISlotManager _slotManager;
     private Control _mainContent;
+    private Control _mainMenuScene;
+    private string _activeProcessId;
     
     [Signal]
-    public delegate void SceneUnloadedEventHandler();
+    public delegate void SceneUnloadedEventHandler(bool returningToMainMenu);
 
     public void Initialize(IProcessManager processManager, ISlotManager slotManager, Control mainContent)
     {
         _processManager = processManager;
         _slotManager = slotManager;
         _mainContent = mainContent;
+
+        // Load and setup main menu scene
+        InitializeMainMenu();
+    }
+
+    private void InitializeMainMenu()
+    {
+        var menuScene = LoadSceneInstance("res://Scenes/MainMenu/MainMenuScene.tscn");
+        if (menuScene != null)
+        {
+            _mainMenuScene = menuScene;
+            if (menuScene is MainMenu.MainMenuScene mainMenu)
+            {
+                mainMenu.MenuOptionSelected += OnMenuOptionSelected;
+            }
+            ShowScene(menuScene);
+        }
+    }
+
+    private void OnMenuOptionSelected(string scenePath, string processType)
+    {
+        LoadScene(processType, scenePath);
     }
 
     public bool LoadScene(string processType, string scenePath)
@@ -50,6 +79,7 @@ public partial class SceneOrchestrator : Node
 
         // Store the scene
         _loadedScenes[processId] = scene;
+        _activeProcessId = processId;
 
         // Initialize if it's a DebugScene
         if (scene is MainMenu.DebugScene debugScene)
@@ -63,12 +93,12 @@ public partial class SceneOrchestrator : Node
             scene.Connect("SceneUnloadRequested", new Callable(this, nameof(HandleSceneUnloadRequest)));
         }
 
-        // Show the scene
+        // Show the scene (which hides main menu)
         ShowScene(scene);
         return true;
     }
 
-    private Node LoadSceneInstance(string scenePath)
+    private Control LoadSceneInstance(string scenePath)
     {
         var sceneResource = ResourceLoader.Load<PackedScene>(scenePath);
         if (sceneResource == null)
@@ -78,58 +108,69 @@ public partial class SceneOrchestrator : Node
         }
 
         var instance = sceneResource.Instantiate();
-        
-        // Set up Control nodes properly
-        if (instance is Control control)
+        if (instance is not Control control)
         {
-            control.SizeFlagsHorizontal = Control.SizeFlags.Fill;
-            control.SizeFlagsVertical = Control.SizeFlags.Fill;
-            control.AnchorsPreset = (int)Control.LayoutPreset.FullRect;
-            control.GrowHorizontal = Control.GrowDirection.Both;
-            control.GrowVertical = Control.GrowDirection.Both;
+            GD.PrintErr($"Scene must be a Control: {scenePath}");
+            instance.QueueFree();
+            return null;
         }
+        
+        // Set up Control properly
+        control.SizeFlagsHorizontal = Control.SizeFlags.Fill;
+        control.SizeFlagsVertical = Control.SizeFlags.Fill;
+        control.AnchorsPreset = (int)Control.LayoutPreset.FullRect;
+        control.GrowHorizontal = Control.GrowDirection.Both;
+        control.GrowVertical = Control.GrowDirection.Both;
 
-        return instance;
+        return control;
     }
 
-    private void ShowScene(Node scene)
+    private void ShowScene(Control scene)
     {
-        // Clear existing content
-        foreach (Node child in _mainContent.GetChildren())
+        // Instead of destroying content, hide everything
+        foreach (var child in _mainContent.GetChildren().OfType<Control>())
         {
-            child.QueueFree();
+            child.Visible = false;
         }
 
-        _mainContent.AddChild(scene);
+        // If scene isn't already in the tree, add it
+        if (!scene.IsInsideTree())
+        {
+            _mainContent.AddChild(scene);
+        }
+        
+        // Make requested scene visible
+        scene.Visible = true;
     }
 
     private void HandleSceneUnloadRequest()
     {
-        // Find the process that owns this scene
-        string processToUnload = null;
-        foreach (var kvp in _loadedScenes)
+        if (_activeProcessId == null) return;
+
+        // Get current scene before we clear references
+        var currentScene = _loadedScenes.GetValueOrDefault(_activeProcessId);
+        bool isReturningToMainMenu = true; // For now, always true. Later could be false for "minimize"
+
+        // First signal that we're unloading
+        EmitSignal(SignalName.SceneUnloaded, isReturningToMainMenu);
+
+        // Clean up the process
+        _processManager.UnloadProcess(_activeProcessId);
+        _loadedScenes.Remove(_activeProcessId);
+        _activeProcessId = null;
+
+        // Hide the scene and queue it for deletion
+        if (currentScene != null)
         {
-            if (kvp.Value.IsInsideTree())
-            {
-                processToUnload = kvp.Key;
-                break;
-            }
+            currentScene.Visible = false;
+            currentScene.QueueFree();
         }
 
-        if (processToUnload != null)
+        // Show main menu
+        if (_mainMenuScene != null)
         {
-            // Unload process first
-            _processManager.UnloadProcess(processToUnload);
-            
-            // Then clean up scene
-            if (_loadedScenes.TryGetValue(processToUnload, out var scene))
-            {
-                _loadedScenes.Remove(processToUnload);
-                scene.QueueFree();
-            }
+            ShowScene(_mainMenuScene);
         }
-
-        EmitSignal(SignalName.SceneUnloaded);
     }
 
     public override void _ExitTree()
@@ -143,5 +184,10 @@ public partial class SceneOrchestrator : Node
             }
         }
         _loadedScenes.Clear();
+        
+        if (_mainMenuScene != null)
+        {
+            _mainMenuScene.QueueFree();
+        }
     }
 }
