@@ -46,12 +46,12 @@ public partial class DebugScene : Control
 
     public override void _Ready()
     {
-        // Clear any existing children
-        foreach (var child in GetChildren())
-        {
-            child.QueueFree();
-        }
-        
+        // Configure the root Control to fill its parent viewport
+        LayoutMode = 1; // Use anchors
+        AnchorsPreset = (int)LayoutPreset.FullRect;
+        GrowHorizontal = GrowDirection.Both;
+        GrowVertical = GrowDirection.Both;
+
         SetupUI();
         ConnectSignals();
     }
@@ -65,32 +65,26 @@ public partial class DebugScene : Control
         // Main vertical layout
         var layout = new VBoxContainer
         {
-            AnchorsPreset = (int)LayoutPreset.Center,
+            AnchorsPreset = (int)LayoutPreset.FullRect,
             GrowHorizontal = GrowDirection.Both,
             GrowVertical = GrowDirection.Both
         };
         AddChild(layout);
 
-        // Title and status
-        var title = new Label
-        {
-            Text = "Debug Sandbox",
-            HorizontalAlignment = HorizontalAlignment.Center
-        };
-        layout.AddChild(title);
-        
-        _statusLabel = new Label
-        {
-            Text = "MEM Slot System Debug",
+        // Status label at top
+        _statusLabel = new Label { 
+            Text = "Process Management Test",
             HorizontalAlignment = HorizontalAlignment.Center
         };
         layout.AddChild(_statusLabel);
-        
-        // Button container
+
+        // Button container - ensure it stays within bounds
         _buttonContainer = new HBoxContainer
         {
-            CustomMinimumSize = new Vector2(0, 40)
+            CustomMinimumSize = new Vector2(0, 40),
+            SizeFlagsHorizontal = SizeFlags.ShrinkCenter, // This centers the container
         };
+        _buttonContainer.AddThemeConstantOverride("separation", 10); // Space between buttons
         layout.AddChild(_buttonContainer);
         
         // Create a second button container for less important buttons

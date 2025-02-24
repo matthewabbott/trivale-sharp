@@ -88,21 +88,6 @@ public partial class SimpleMainMenu : Control
 		}
 	}
 
-	public override void _Process(double delta)
-	{
-		base._Process(delta);
-		
-		// Update SubViewport size to match container size
-		if (_viewportContainer.Visible && _subViewport != null)
-		{
-			var containerSize = _viewportContainer.Size;
-			if (containerSize.X > 0 && containerSize.Y > 0)
-			{
-				_subViewport.Size = new Vector2I((int)containerSize.X, (int)containerSize.Y);
-			}
-		}
-	}
-
 	private StyleBoxFlat CreatePanelStyle()
 	{
 		return new StyleBoxFlat
@@ -317,7 +302,7 @@ public partial class SimpleMainMenu : Control
 
 	private void SetupViewportContainer()
 	{
-		// Create a SubViewportContainer for proper scene rendering
+		// Create a SubViewportContainer for scene rendering
 		_viewportContainer = new SubViewportContainer
 		{
 			Visible = false,
@@ -334,7 +319,6 @@ public partial class SimpleMainMenu : Control
 		_subViewport = new SubViewport
 		{
 			HandleInputLocally = true,  // Let scenes handle their own input
-			Size = new Vector2I(800, 600),  // Default size, will be adjusted
 			RenderTargetUpdateMode = SubViewport.UpdateMode.Always
 		};
 		_viewportContainer.AddChild(_subViewport);
