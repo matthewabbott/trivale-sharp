@@ -1,0 +1,223 @@
+Below is a **practical cleanup plan** for your codebase, focusing on preventing the “accessing a disposed object” errors while also keeping in mind your eventual design goals (multiple concurrently loaded scenes, easy switching in a viewport, minimal coupling, and robust process management). We’ll walk through the main “poor practices” in your existing approach and recommend alternatives that fit your intended future design.
+
+---
+
+## 1. Identify Problematic Patterns
+
+Let’s look at the major areas in your code that can lead to “disposed object” scenarios when re‐launching scenes or storing references to soon‐to‐be-freed nodes.
+
+1. **Scene Tree Searches**  
+   - You have methods like:
+     ```csharp
+     private UI.Components.SlotGridSystem FindSlotGridSystem()
+     {
+         // tries to find a slot grid system by recursively scanning the tree
+     }
+     ```
+   - **Issue**: If your manager or process tries to do a “find” on the scene tree (especially after that scene has been unloaded), it may iterate over Freed nodes.  
+   - **Symptom**: “Cannot access a disposed object (Godot.Button)” if your find or walk hits a node that was `QueueFree()`’d but not fully gone from memory or if the manager is referencing an old scene branch that no longer exists.
+
+2. **Residual Signal Connections**  
+   - Scenes or nodes that connected signals to your managers (or vice versa) but never disconnected.  
+   - **Issue**: When the node is Freed, you can’t call methods on it. If the manager still tries to do so (via signal or direct call), you get “disposed object” errors.
+
+3. **Dangling References in Managers**  
+   - Code that caches references to old scene nodes in dictionaries, static fields, or manager variables.  
+   - **Issue**: Once the scene is Freed, those references are invalid.  
+   - **Symptom**: “Object Freed” errors on second load, because the manager tries to do something with a node that’s gone.
+
+4. **Implicit Coupling in the Process & Slot Manager**  
+   - `ProcessManager` or `SlotManager` referencing the entire scene or sub‐trees.  
+   - **Issue**: This design is fragile: if your manager is part of (or outside of) the scene tree, it must carefully handle references.  
+   - **Symptom**: After you unload a scene, manager code still tries to talk to Freed UI nodes.
+
+5. **One‐Off Patches Instead of Central Lifecycle**  
+   - You have partial cleanup in `OnSceneUnloadRequest` but might not fully unhook signals or references.  
+
+---
+
+## 2. Recommendations & Corrective Steps
+
+Below is a set of recommended steps for each problem area. I’ve also included suggestions aligned to your **future plan** of having multiple scenes loaded (with only one actively displayed in a viewport) but readily switchable.
+
+### 2.1. Avoid Blind Tree Searches in Managers
+
+**Problem**: Searching the entire tree or connecting to Freed nodes.
+
+**Better Practice**:  
+- **Inject** references from a top-level “scene orchestrator” or from the main menu script.  
+- The manager never does a “recursive find” of UI. Instead, the main menu or your top-level node passes the relevant UI reference (like a `SlotGridSystem`) into the manager’s constructor or an `Initialize(uiReference)` method.
+  
+**Example**:
+```csharp
+// In SimpleMainMenu or a top-level script:
+private SlotGridSystem _slotGridSystem;
+
+public override void _Ready()
+{
+    // We manually get a reference to our UI node
+    _slotGridSystem = GetNode<SlotGridSystem>("Path/To/SlotGridSystem");
+
+    // Then pass it to the manager
+    _processManager = new ProcessManager(_slotManager, _slotGridSystem);
+}
+
+// In ProcessManager:
+public ProcessManager(ISlotManager slotManager, SlotGridSystem slotGrid)
+{
+    _slotManager = slotManager;
+    _slotGridSystem = slotGrid;
+    // No more 'FindSlotGridSystem' logic
+}
+```
+By injecting references rather than searching, you **never** accidentally walk Freed parts of the tree.
+
+### 2.2. Strictly Disconnect Signals on Scene Unload
+
+**Problem**: Freed nodes remain connected to signals or the manager tries to call Freed nodes.
+
+**Better Practice**:  
+1. **Use `_ExitTree`** or a special “Cleanup” method to systematically disconnect signals.  
+2. For example, in your `DebugScene`:
+   ```csharp
+   public override void _ExitTree()
+   {
+       // Disconnect all signals from the manager or system
+       // manager.SomeSignal -= SomeMethod; // if using C# event
+       base._ExitTree();
+   }
+   ```
+3. If your manager connected to the scene’s signals, the manager should do:
+   ```csharp
+   _debugScene.SomeSignal -= OnDebugSceneSignal;
+   ```
+   right before the scene is Freed or in the scene’s unload method.
+
+### 2.3. Clean Up Dangling References to Freed Scenes
+
+**Problem**: Manager or other code storing references to an old scene’s nodes.
+
+**Better Practice**:
+1. **Keep the Manager’s references to scene objects ephemeral**. Once the scene is Freed or “unloaded,” the manager sets those references to `null`.  
+2. If you need to keep a “representative” object for a background or hidden scene, store it in a dictionary that is cleared when unloading.  
+3. Implement a robust “on unload” that forcibly `null`s out those references:
+   ```csharp
+   private Node _debugSceneInstance;  // stored at manager or orchestrator level
+
+   public void UnloadDebugScene()
+   {
+       if (_debugSceneInstance != null)
+       {
+           _debugSceneInstance.QueueFree();
+           _debugSceneInstance = null; // remove reference
+       }
+   }
+   ```
+   This ensures the manager can’t call methods on Freed nodes.
+
+### 2.4. Rework the ProcessManager to *Not* Depend on Scene UI
+
+**Problem**: Tying your process/slot logic to searching or updating scene UI leads to Freed object references.
+
+**Better Practice**:  
+- The manager (pure logic & memory) shouldn’t do any direct scene modifications. Instead, it emits events (“slot loaded,” “slot freed,” “process started,” “process ended”) or sets some abstract data.  
+- Another system (like `SimpleMainMenu` or a “UI Orchestrator”) listens to those events and updates the UI.  
+- This is **Inversion of Control**: the manager knows nothing about how the UI is displayed. The UI is a subscriber to manager events.
+
+### 2.5. Keep Scenes in Memory But “Hidden” Instead of Freed, If That’s Your Future Plan
+
+You mentioned **multiple scenes loaded** with one “active” scene in the viewport, others off-screen. This means you’ll likely do:
+
+1. **Instantiate** multiple scene instances at once.  
+2. Have an “active scene” pointer that’s put into the main Viewport container.  
+3. For the others, keep them as children of some “Hidden Scenes” node or just disable them (or keep them in a dictionary).
+
+**Implementation**:
+- Suppose you have a `SceneOrchestrator` node that keeps a dictionary:  
+  ```csharp
+  private Dictionary<string, Node> _loadedScenes = new();
+
+  public void LoadScene(string sceneName)
+  {
+      if (_loadedScenes.ContainsKey(sceneName))
+      {
+          // Already loaded
+          return;
+      }
+      var scene = ResourceLoader.Load<PackedScene>(sceneName).Instantiate();
+      // Make it invisible or no parent
+      AddChild(scene);
+      scene.Visible = false;
+      _loadedScenes[sceneName] = scene;
+  }
+
+  public void ShowScene(string sceneName)
+  {
+      if (!_loadedScenes.TryGetValue(sceneName, out var scene))
+          return;
+      HideAllLoadedScenes();
+      scene.Visible = true;
+  }
+  ```
+- Then you only `QueueFree()` a scene if you want to remove it entirely from memory. This approach ensures no more “disposed node” references, because you never Freed it—just hid it.  
+
+**Important**: The manager never does “hide or show” calls. It only triggers an event “Encounter X loaded.” The top-level orchestrator decides “Ok, I’ll show it in the viewport or hide it.”
+
+---
+
+## 3. Concrete Cleanups & Next Steps
+
+### 3.1. Remove or Refactor “FindSlotGridSystem” & Similar Methods
+
+- **Delete** the “find” logic in `ProcessManager.CacheSlotGridSystem()` and `FindSlotGridSystem()`.  
+- Instead, pass an explicit reference once:  
+  ```csharp
+  _processManager.SetSlotGridSystem(_slotGridSystem);
+  ```
+- In `SlotGridSystem`, do the same: it should never “find” the manager. The orchestrator or your main menu sets them up.
+
+### 3.2. Phase Out the “One‐Off” Scene Unload Logic That Unloads Processes Internally
+
+- Right now, your `DebugScene` calls “Unload Process” or “SceneUnloadRequested,” which leads to the manager trying to do final cleanup.  
+- **Better**: centralize the “Close Scene” logic in the top‐level orchestrator or the main menu. Let the scene just emit “I want to close,” but do the real unload from a single known place. That single place:  
+  1. Disconnect signals.  
+  2. Freed or hidden scene.  
+  3. Notifies the manager that this process is done.  
+
+### 3.3. Disconnect or Nullify on `_ExitTree()`
+
+- In each scene script (like `DebugScene.cs`), override `_ExitTree()` and systematically ensure it is no longer referencing the manager or hooking signals.  
+- Similarly, if the manager had references to that scene, it sets them to `null`.
+
+### 3.4. Implement a “Multi‐Scene” Orchestrator
+
+- A single C# script, e.g. `SceneOrchestrator.cs`, that:  
+  - Holds references/dictionaries for all “loaded” scenes.  
+  - Decides which scene is shown in the main viewport.  
+  - Unloads/frees scenes at the appropriate time.  
+  - Maintains the “active scene” concept so it can be easily swapped.  
+- The manager only deals with your memory slot system, not with the actual Godot scene objects. Instead, it publishes events like “PROCESS_STARTED” or “PROCESS_ENDED.” Your Orchestrator uses that to update the loaded scenes as needed.
+
+### 3.5. Adjust to Support “Multiple Concurrent Scenes” Cleanly
+
+- If your manager can run multiple processes (some in background), store each process in a dictionary keyed by process ID.  
+- If those processes are associated with scene Node instances, store them in the Orchestrator.  
+- “Active process” is the one you place in the main viewport. Others remain in memory, presumably with `.Visible = false`.  
+- This approach ensures you never free the node until you truly want to. No Freed references → no “Cannot access disposed object.”
+
+---
+
+## 4. Summary of Your Cleanup Plan
+
+1. **Eliminate Blind Tree Walks**: Replace “find or find recursive” calls with direct references.  
+2. **Disconnect Signals**: Both ways. Scenes → manager or manager → scene must disconnect on `_ExitTree()` or on “Unload.”  
+3. **Nullify Freed References**: The manager must not keep references to Freed nodes.  
+4. **Separate Logic from UI**: The manager should not handle or track UI nodes. It should only track process states and raise events. The UI or “Orchestrator” implements the actual scene changes.  
+5. **Introduce an Orchestrator**: A top‐level node (like `SimpleMainMenu` or a dedicated `SceneOrchestrator`) that:  
+   - Loads/unloads scenes.  
+   - Maintains a dictionary of “loaded scene = node reference.”  
+   - Displays one or more in the main viewport.  
+   - Cleans up references on unload.  
+6. **Support Multi‐Scene**: By never calling `QueueFree()` until you want them truly gone, you can keep multiple scenes in memory, toggling which one is in the viewport.  
+
+Following these steps should fix the immediate “disposed object” problem and simultaneously set you up for your future design (multiple loaded scenes that can be switched in and out).
