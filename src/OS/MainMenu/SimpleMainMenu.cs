@@ -41,11 +41,8 @@ public partial class SimpleMainMenu : Control
 	private SlotGridSystem _slotSystem;
 	private Button _cardGameButton;
 	private Button _debugButton;
-	
-	// Properties for viewport management
-	private SubViewportContainer _viewportContainer;
-	private SubViewport _subViewport;
 	private Control _mainContent;
+	private VBoxContainer _buttonContainer;
 	
 	// Process and slot management
 	private IProcessManager _processManager;
@@ -191,7 +188,6 @@ public partial class SimpleMainMenu : Control
 		centerPanel.AddChild(_mainContent);
 
 		SetupMainMenuButtons();
-		SetupViewportContainer();
 
 		// Right panel (resources) - make it flexible but with min size
 		var rightPanel = new PanelContainer
@@ -212,15 +208,14 @@ public partial class SimpleMainMenu : Control
 
 	private void SetupMainMenuButtons()
 	{
-		var buttonContainer = new VBoxContainer
+		_buttonContainer = new VBoxContainer
 		{
 			CustomMinimumSize = new Vector2(250, 0),
 			SizeFlagsHorizontal = SizeFlags.Expand | SizeFlags.Fill,  // Allow expansion
 			SizeFlagsVertical = SizeFlags.Fill,
-			// Center alignment is not available, so using standard alignment
 		};
-		buttonContainer.AddThemeConstantOverride("separation", 20);  // More space between buttons
-		_mainContent.AddChild(buttonContainer);
+		_buttonContainer.AddThemeConstantOverride("separation", 20);  // More space between buttons
+		_mainContent.AddChild(_buttonContainer);
 
 		// Add a title/header
 		var titleLabel = new Label
@@ -229,25 +224,25 @@ public partial class SimpleMainMenu : Control
 			HorizontalAlignment = HorizontalAlignment.Center,
 			CustomMinimumSize = new Vector2(0, 40)
 		};
-		buttonContainer.AddChild(titleLabel);
+		_buttonContainer.AddChild(titleLabel);
 
 		// Add some space before buttons
 		var spacer = new Control { CustomMinimumSize = new Vector2(0, 20) };
-		buttonContainer.AddChild(spacer);
+		_buttonContainer.AddChild(spacer);
 
 		// Create button with style
 		_cardGameButton = CreateStyledButton("CARD GAME", Colors.Green);
-		buttonContainer.AddChild(_cardGameButton);
+		_buttonContainer.AddChild(_cardGameButton);
 
 		_debugButton = CreateStyledButton("DEBUG SANDBOX", Colors.Orange);
-		buttonContainer.AddChild(_debugButton);
+		_buttonContainer.AddChild(_debugButton);
 		
 		// Add spacer at the bottom too to help with centering
 		var bottomSpacer = new Control 
 		{ 
 			SizeFlagsVertical = SizeFlags.Expand 
 		};
-		buttonContainer.AddChild(bottomSpacer);
+		_buttonContainer.AddChild(bottomSpacer);
 	}
 
 	private Button CreateStyledButton(string text, Color accentColor)
@@ -300,30 +295,6 @@ public partial class SimpleMainMenu : Control
 		return button;
 	}
 
-	private void SetupViewportContainer()
-	{
-		// Create a SubViewportContainer for scene rendering
-		_viewportContainer = new SubViewportContainer
-		{
-			Visible = false,
-			SizeFlagsHorizontal = SizeFlags.Fill,
-			SizeFlagsVertical = SizeFlags.Fill,
-			AnchorsPreset = (int)LayoutPreset.FullRect,  // Fill parent container
-			GrowHorizontal = GrowDirection.Both,
-			GrowVertical = GrowDirection.Both,
-			Stretch = true  // Make viewport content stretch to container size
-		};
-		_mainContent.AddChild(_viewportContainer);
-		
-		// Create the actual SubViewport that will hold scenes
-		_subViewport = new SubViewport
-		{
-			HandleInputLocally = true,  // Let scenes handle their own input
-			RenderTargetUpdateMode = SubViewport.UpdateMode.Always
-		};
-		_viewportContainer.AddChild(_subViewport);
-	}
-
 	private void ConnectSignals()
 	{
 		_cardGameButton.Pressed += () => OnSceneButtonPressed(CardGameScenePath, "CARD GAME");
@@ -344,7 +315,7 @@ public partial class SimpleMainMenu : Control
 		var processId = _processManager.CreateProcess(processType);
 		if (processId != null && _processManager.StartProcess(processId, out var slotId))
 		{
-			LoadSceneInViewport(scenePath);
+			LoadSceneInMainContent(scenePath);
 			GD.Print($"Loaded process {processId} of type {processType} in slot {slotId}");
 		}
 		else
@@ -353,10 +324,10 @@ public partial class SimpleMainMenu : Control
 		}
 	}
 
-	private void LoadSceneInViewport(string scenePath)
+	private void LoadSceneInMainContent(string scenePath)
 	{
-		// Clear existing content from SubViewport
-		foreach (Node child in _subViewport.GetChildren())
+		// Clear existing content
+		foreach (Node child in _mainContent.GetChildren())
 		{
 			child.QueueFree();
 		}
@@ -379,20 +350,17 @@ public partial class SimpleMainMenu : Control
 				instance.Connect("SceneUnloadRequested", new Callable(this, nameof(HandleSceneUnloadRequest)));
 			}
 			
-			// Add the scene to the SubViewport (not directly to the container)
-			_subViewport.AddChild(instance);
-			
-			// Make the container visible
-			_viewportContainer.Visible = true;
-
-			// Hide menu buttons when showing scene
-			foreach (var child in _mainContent.GetChildren())
+			// Set size flags to fill if it's a Control
+			if (instance is Control control)
 			{
-				if (child != _viewportContainer && child is Control control)
-				{
-					control.Visible = false;
-				}
+				control.SizeFlagsHorizontal = SizeFlags.Fill;
+				control.SizeFlagsVertical = SizeFlags.Fill;
+				control.AnchorsPreset = (int)LayoutPreset.FullRect;
+				control.GrowHorizontal = GrowDirection.Both;
+				control.GrowVertical = GrowDirection.Both;
 			}
+			
+			_mainContent.AddChild(instance);
 		}
 		else
 		{
@@ -411,31 +379,22 @@ public partial class SimpleMainMenu : Control
 			_processManager.UnloadProcess(processId);
 		}
 
-		// Clear viewport with deferred call to avoid issues during signal processing
-		CallDeferred(nameof(DeferredClearViewport));
+		// Clear content and restore menu
+		CallDeferred(nameof(DeferredRestoreMenu));
 	}
 	
-	private void DeferredClearViewport()
+	private void DeferredRestoreMenu()
 	{
-		// Clear viewport content
-		foreach (Node child in _subViewport.GetChildren())
+		// Clear content
+		foreach (Node child in _mainContent.GetChildren())
 		{
 			child.QueueFree();
 		}
-		
-		// Hide the viewport container
-		_viewportContainer.Visible = false;
 
-		// Show menu buttons again
-		foreach (var child in _mainContent.GetChildren())
-		{
-			if (child != _viewportContainer && child is Control control)
-			{
-				control.Visible = true;
-			}
-		}
+		// Restore menu buttons
+		SetupMainMenuButtons();
 		
-		GD.Print("Viewport cleared, menu buttons restored");
+		GD.Print("Menu buttons restored");
 	}
 
 	private void OnProcessStarted(string processId, string slotId)
