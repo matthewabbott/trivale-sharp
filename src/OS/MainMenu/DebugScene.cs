@@ -65,18 +65,41 @@ public partial class DebugScene : Control
 		// Main vertical layout
 		var layout = new VBoxContainer
 		{
+			LayoutMode = 1,
 			AnchorsPreset = (int)LayoutPreset.FullRect,
 			GrowHorizontal = GrowDirection.Both,
-			GrowVertical = GrowDirection.Both
+			GrowVertical = GrowDirection.Both,
+			SizeFlagsHorizontal = SizeFlags.Fill,
+			SizeFlagsVertical = SizeFlags.Fill
 		};
 		AddChild(layout);
+
+		// Add margins to respect parent container's padding
+		var marginContainer = new MarginContainer
+		{
+			SizeFlagsHorizontal = SizeFlags.Fill,
+			SizeFlagsVertical = SizeFlags.Fill
+		};
+		marginContainer.AddThemeConstantOverride("margin_left", 10);
+		marginContainer.AddThemeConstantOverride("margin_right", 10);
+		marginContainer.AddThemeConstantOverride("margin_top", 10);
+		marginContainer.AddThemeConstantOverride("margin_bottom", 10);
+		layout.AddChild(marginContainer);
+
+		// Create a VBoxContainer inside the margin container for the actual content
+		var contentLayout = new VBoxContainer
+		{
+			SizeFlagsHorizontal = SizeFlags.Fill,
+			SizeFlagsVertical = SizeFlags.Fill
+		};
+		marginContainer.AddChild(contentLayout);
 
 		// Status label at top
 		_statusLabel = new Label { 
 			Text = "Process Management Test",
 			HorizontalAlignment = HorizontalAlignment.Center
 		};
-		layout.AddChild(_statusLabel);
+		contentLayout.AddChild(_statusLabel);
 
 		// Button container - ensure it stays within bounds
 		_buttonContainer = new HBoxContainer
@@ -85,21 +108,23 @@ public partial class DebugScene : Control
 			SizeFlagsHorizontal = SizeFlags.ShrinkCenter, // This centers the container
 		};
 		_buttonContainer.AddThemeConstantOverride("separation", 10); // Space between buttons
-		layout.AddChild(_buttonContainer);
+		contentLayout.AddChild(_buttonContainer);
 		
 		// Create a second button container for less important buttons
 		var secondaryButtonContainer = new HBoxContainer
 		{
-			CustomMinimumSize = new Vector2(0, 40)
+			CustomMinimumSize = new Vector2(0, 40),
+			SizeFlagsHorizontal = SizeFlags.ShrinkCenter
 		};
-		layout.AddChild(secondaryButtonContainer);
+		contentLayout.AddChild(secondaryButtonContainer);
 		
 		// Create a third button container for advanced features
 		var advancedButtonContainer = new HBoxContainer
 		{
-			CustomMinimumSize = new Vector2(0, 40)
+			CustomMinimumSize = new Vector2(0, 40),
+			SizeFlagsHorizontal = SizeFlags.ShrinkCenter
 		};
-		layout.AddChild(advancedButtonContainer);
+		contentLayout.AddChild(advancedButtonContainer);
 		
 		// Main control buttons with proper styling
 		_createProcessButton = CreateStyledButton("Load Debug Process", Colors.Green);

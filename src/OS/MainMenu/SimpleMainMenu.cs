@@ -391,10 +391,11 @@ public partial class SimpleMainMenu : Control
 			child.QueueFree();
 		}
 
-		// Restore menu buttons
+		// Restore menu buttons and reconnect signals
 		SetupMainMenuButtons();
+		ConnectSignals();
 		
-		GD.Print("Menu buttons restored");
+		GD.Print("Menu buttons restored and signals reconnected");
 	}
 
 	private void OnProcessStarted(string processId, string slotId)
