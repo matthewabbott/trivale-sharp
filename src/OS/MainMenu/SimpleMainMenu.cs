@@ -2,8 +2,7 @@
 using Godot;
 using Trivale.Memory;
 using Trivale.UI.Components;
-using Trivale.OS.MainMenu;
-using Trivale.OS.MainMenu.Processes;
+using Trivale.OS;
 using Trivale.Memory.ProcessManagement;
 using Trivale.Memory.SlotManagement;
 
@@ -15,11 +14,8 @@ namespace Trivale.OS;
 /// Architecture:
 /// - ProcessManager: Handles process lifecycle (creation, loading, unloading)
 /// - SlotManager: Manages memory slots and their states
+/// - SceneOrchestrator: Manages scene lifecycle and coordinates with process system
 /// - UI Components: Display slot states and handle user interaction
-/// 
-/// Process/Scene Lifecycle:
-/// 1. Button Press -> ProcessManager creates process -> SlotManager allocates slot -> Scene loads
-/// 2. Scene signals unload -> ProcessManager unloads process -> SlotManager frees slot -> UI restored
 /// 
 /// System Responsibilities:
 /// - Scene Management: Loading scenes and handling their unload requests
@@ -35,6 +31,7 @@ namespace Trivale.OS;
 /// - IProcessManager: For process lifecycle management
 /// - ISlotManager: For slot state management
 /// - SlotGridSystem: For UI representation of slots
+/// - SceneOrchestrator: For scene lifecycle management
 /// </summary>
 public partial class SimpleMainMenu : Control
 {
@@ -47,6 +44,7 @@ public partial class SimpleMainMenu : Control
 	// Process and slot management
 	private IProcessManager _processManager;
 	private ISlotManager _slotManager;
+	private SceneOrchestrator _sceneOrchestrator;
 	
 	private const string CardGameScenePath = "res://Scenes/MainMenu/CardGameScene.tscn";
 	private const string DebugScenePath = "res://Scenes/MainMenu/DebugScene.tscn";
@@ -59,30 +57,17 @@ public partial class SimpleMainMenu : Control
 		_slotManager = new SlotManager(2, 2);  // 2x2 grid of slots
 		_processManager = new ProcessManager(_slotManager);
 
-		// Subscribe to manager events
-		_processManager.ProcessStarted += OnProcessStarted;
-		_processManager.ProcessEnded += OnProcessEnded;
-		_slotManager.SlotStatusChanged += OnSlotStatusChanged;
+		// Create and initialize scene orchestrator
+		_sceneOrchestrator = new SceneOrchestrator();
+		AddChild(_sceneOrchestrator);
 
 		SetLayout();
+		
+		// Initialize orchestrator with references it needs
+		_sceneOrchestrator.Initialize(_processManager, _slotManager, _mainContent);
+		_sceneOrchestrator.SceneUnloaded += OnSceneUnloaded;
+
 		ConnectSignals();
-	}
-
-	public override void _ExitTree()
-	{
-		base._ExitTree();
-
-		// Unsubscribe from events
-		if (_processManager != null)
-		{
-			_processManager.ProcessStarted -= OnProcessStarted;
-			_processManager.ProcessEnded -= OnProcessEnded;
-		}
-
-		if (_slotManager != null)
-		{
-			_slotManager.SlotStatusChanged -= OnSlotStatusChanged;
-		}
 	}
 
 	private StyleBoxFlat CreatePanelStyle()
@@ -297,119 +282,41 @@ public partial class SimpleMainMenu : Control
 
 	private void ConnectSignals()
 	{
-		_cardGameButton.Pressed += () => OnSceneButtonPressed(CardGameScenePath, "CARD GAME");
-		_debugButton.Pressed += () => OnSceneButtonPressed(DebugScenePath, "DEBUG");
+		_cardGameButton.Pressed += () => OnSceneButtonPressed(CardGameScenePath, "CardGame");
+		_debugButton.Pressed += () => OnSceneButtonPressed(DebugScenePath, "Debug");
 	}
 
-	private void OnSceneButtonPressed(string scenePath, string displayName)
+	private void OnSceneButtonPressed(string scenePath, string processType)
 	{
-		var processType = displayName switch
+		if (!_sceneOrchestrator.LoadScene(processType, scenePath))
 		{
-			"CARD GAME" => "CardGame",
-			"DEBUG" => "Debug",
-			_ => null
-		};
+			GD.PrintErr($"Failed to load scene {scenePath}");
+			return;
+		}
 		
-		if (processType == null) return;
-
-		var processId = _processManager.CreateProcess(processType);
-		if (processId != null && _processManager.StartProcess(processId, out var slotId))
+		// Hide menu buttons while scene is active
+		if (_buttonContainer != null)
 		{
-			LoadSceneInMainContent(scenePath);
-			GD.Print($"Loaded process {processId} of type {processType} in slot {slotId}");
-		}
-		else
-		{
-			GD.PrintErr($"Failed to create/start process for {displayName}");
+			_buttonContainer.Visible = false;
 		}
 	}
 
-	private void LoadSceneInMainContent(string scenePath)
+	private void OnSceneUnloaded()
 	{
-		// Clear existing content
-		foreach (Node child in _mainContent.GetChildren())
+		// Restore menu state
+		if (_buttonContainer != null)
 		{
-			child.QueueFree();
-		}
-
-		// Load new scene
-		var sceneResource = ResourceLoader.Load<PackedScene>(scenePath);
-		if (sceneResource != null)
-		{
-			var instance = sceneResource.Instantiate();
-			
-			// Initialize scene with managers if it's DebugScene
-			if (instance is DebugScene debugScene)
-			{
-				debugScene.Initialize(_processManager, _slotManager);
-			}
-			
-			// Connect to the scene's unload signal
-			if (instance.HasSignal("SceneUnloadRequested"))
-			{
-				instance.Connect("SceneUnloadRequested", new Callable(this, nameof(HandleSceneUnloadRequest)));
-			}
-			
-			// Set size flags to fill if it's a Control
-			if (instance is Control control)
-			{
-				control.SizeFlagsHorizontal = SizeFlags.Fill;
-				control.SizeFlagsVertical = SizeFlags.Fill;
-				control.AnchorsPreset = (int)LayoutPreset.FullRect;
-				control.GrowHorizontal = GrowDirection.Both;
-				control.GrowVertical = GrowDirection.Both;
-			}
-			
-			_mainContent.AddChild(instance);
-		}
-		else
-		{
-			GD.PrintErr($"Failed to load scene: {scenePath}");
+			_buttonContainer.Visible = true;
 		}
 	}
 
-	private void HandleSceneUnloadRequest()
+	public override void _ExitTree()
 	{
-		GD.Print("Handling scene unload request");
+		if (_sceneOrchestrator != null)
+		{
+			_sceneOrchestrator.SceneUnloaded -= OnSceneUnloaded;
+		}
 		
-		// Find the active process and unload it
-		foreach (var processId in _processManager.GetActiveProcessIds())
-		{
-			GD.Print($"Unloading process: {processId}");
-			_processManager.UnloadProcess(processId);
-		}
-
-		// Clear content and restore menu
-		CallDeferred(nameof(DeferredRestoreMenu));
-	}
-	
-	private void DeferredRestoreMenu()
-	{
-		// Clear content
-		foreach (Node child in _mainContent.GetChildren())
-		{
-			child.QueueFree();
-		}
-
-		// Restore menu buttons and reconnect signals
-		SetupMainMenuButtons();
-		ConnectSignals();
-		
-		GD.Print("Menu buttons restored and signals reconnected");
-	}
-
-	private void OnProcessStarted(string processId, string slotId)
-	{
-		GD.Print($"Process {processId} started in slot {slotId}");
-	}
-
-	private void OnProcessEnded(string processId)
-	{
-		GD.Print($"Process {processId} ended");
-	}
-
-	private void OnSlotStatusChanged(string slotId, SlotStatus status)
-	{
-		GD.Print($"Slot {slotId} changed status to {status}");
+		base._ExitTree();
 	}
 }
