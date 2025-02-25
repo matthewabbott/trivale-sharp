@@ -4,6 +4,7 @@ using Trivale.Memory;
 using Trivale.UI.Components;
 using Trivale.Memory.ProcessManagement;
 using Trivale.Memory.SlotManagement;
+using Trivale.OS.Events;
 
 namespace Trivale.OS;
 
@@ -31,6 +32,7 @@ namespace Trivale.OS;
 /// - SlotManager: For memory slot management
 /// - SceneOrchestrator: For scene switching and management
 /// - UI Components: SlotGridSystem, ResourcePanel
+/// - SystemEventBus: For decoupled event communication
 /// </summary>
 public partial class SimpleMainMenu : Control
 {
@@ -41,10 +43,17 @@ public partial class SimpleMainMenu : Control
 	private IProcessManager _processManager;
 	private ISlotManager _slotManager;
 	private SceneOrchestrator _sceneOrchestrator;
+	private SystemEventBus _eventBus;
 
 	public override void _Ready()
 	{
 		CustomMinimumSize = new Vector2(800, 600);
+
+		// Get instance of event bus
+		_eventBus = SystemEventBus.Instance;
+		
+		// Set up event listeners
+		SubscribeToEvents();
 
 		// Create core managers
 		_slotManager = new SlotManager(2, 2);  // 2x2 grid of slots
@@ -57,6 +66,35 @@ public partial class SimpleMainMenu : Control
 		
 		// Initialize orchestrator last (it will load the main menu scene)
 		_sceneOrchestrator.Initialize(_processManager, _slotManager, _mainContent);
+		
+		// Listen for system mode changes
+		_eventBus.SystemModeChanged += OnSystemModeChanged;
+	}
+	
+	private void SubscribeToEvents()
+	{
+		// Subscribe to system-wide events for logging or handling at the application level
+		_eventBus.SystemStarted += () => GD.Print("System started");
+		_eventBus.SystemShutdown += () => GD.Print("System shutting down");
+		
+		// Process lifecycle events can be logged at this level
+		_eventBus.ProcessCreated += (processId) => GD.Print($"[EVENT] Process created: {processId}");
+		_eventBus.ProcessStarted += (processId, slotId) => GD.Print($"[EVENT] Process started: {processId} in slot {slotId}");
+		_eventBus.ProcessEnded += (processId) => GD.Print($"[EVENT] Process ended: {processId}");
+		
+		// Scene lifecycle events
+		_eventBus.SceneLoaded += (scenePath) => GD.Print($"[EVENT] Scene loaded: {scenePath}");
+		_eventBus.SceneUnloaded += (scenePath, returningToMainMenu) => 
+			GD.Print($"[EVENT] Scene unloaded: {scenePath}, returning to menu: {returningToMainMenu}");
+	}
+	
+	private void OnSystemModeChanged(SystemMode mode)
+	{
+		GD.Print($"[EVENT] System mode changed to: {mode}");
+		
+		// Here you could modify UI elements based on mode
+		// For example, showing different resource visualizations
+		// or changing theme colors based on mode
 	}
 
 	private StyleBoxFlat CreatePanelStyle()
@@ -180,11 +218,26 @@ public partial class SimpleMainMenu : Control
 
 	public override void _ExitTree()
 	{
+		// Unsubscribe from events
+		if (_eventBus != null)
+		{
+			_eventBus.SystemModeChanged -= OnSystemModeChanged;
+			
+			// No need to unsubscribe from others as they're using lambdas
+			// and will be garbage collected with this instance
+		}
+		
 		// Clean up orchestrator
 		if (_sceneOrchestrator != null)
 		{
 			_sceneOrchestrator.QueueFree();
 		}
+		
+		// Clear references
+		_processManager = null;
+		_slotManager = null;
+		_sceneOrchestrator = null;
+		_eventBus = null;
 		
 		base._ExitTree();
 	}

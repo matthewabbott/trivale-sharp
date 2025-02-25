@@ -3,13 +3,14 @@ using Godot;
 using System.Collections.Generic;
 using System.Linq;
 using Trivale.Memory.SlotManagement;
+using Trivale.OS.Events;
 
 namespace Trivale.UI.Components;
 
 /// <summary>
 /// UI representation of the slot system that manages slot grid visualization
-/// and user interaction. Observes SlotManager events to update its display
-/// and maintains its own simplified state for UI purposes.
+/// and user interaction. Observes SlotManager events via the SystemEventBus
+/// to update its display and maintains its own simplified state for UI purposes.
 /// 
 /// Decouples the slot management system from its visual representation.
 /// </summary>
@@ -19,9 +20,7 @@ public struct SlotState
     public bool IsUnlocked;
     public string LoadedText;
     public Vector2I GridPosition;
-    // Added for future hierarchy support:
     public string ParentSlotId;  // null means root/no parent
-    // Resource tracking:
     public float MemoryUsage;
     public float CpuUsage;
 }
@@ -30,6 +29,7 @@ public partial class SlotGridSystem : Control
 {
     private Dictionary<string, SlotState> _slots = new();
     private ISlotManager _slotManager;
+    private SystemEventBus _eventBus;
     
     [Signal]
     public delegate void SlotStateChangedEventHandler(string slotId, bool isActive, bool isUnlocked, string loadedText);
@@ -37,8 +37,18 @@ public partial class SlotGridSystem : Control
     public void Initialize(ISlotManager slotManager)
     {
         _slotManager = slotManager;
-        _slotManager.SlotStatusChanged += OnSlotStatusChanged;
-        _slotManager.SlotUnlocked += OnSlotUnlocked;
+        _eventBus = SystemEventBus.Instance;
+        
+        // Use event bus to monitor slot changes
+        _eventBus.SlotStatusChanged += OnSlotStatusChanged;
+        _eventBus.SlotUnlocked += OnSlotUnlocked;
+        _eventBus.SlotLocked += OnSlotLocked;
+        _eventBus.SlotParentChanged += OnSlotParentChanged;
+        _eventBus.SlotResourcesChanged += OnSlotResourcesChanged;
+        
+        // Also hook up legacy events for backward compatibility
+        _slotManager.SlotStatusChanged += OnLegacySlotStatusChanged;
+        _slotManager.SlotUnlocked += OnLegacySlotUnlocked;
         
         // Initialize UI state from slot manager
         foreach (var slot in _slotManager.GetAllSlots())
@@ -64,6 +74,53 @@ public partial class SlotGridSystem : Control
             UpdateSlotState(slot);
         }
     }
+    
+    private void OnSlotLocked(string slotId)
+    {
+        var slot = _slotManager.GetAllSlots().FirstOrDefault(s => s.Id == slotId);
+        if (slot != null)
+        {
+            UpdateSlotState(slot);
+        }
+    }
+    
+    private void OnSlotParentChanged(string childSlotId, string parentSlotId)
+    {
+        if (_slots.TryGetValue(childSlotId, out var childState))
+        {
+            childState.ParentSlotId = parentSlotId;
+            _slots[childSlotId] = childState;
+            
+            EmitSignal(SignalName.SlotStateChanged, childSlotId, childState.IsActive, 
+                childState.IsUnlocked, childState.LoadedText);
+        }
+    }
+    
+    private void OnSlotResourcesChanged(string slotId, float memory, float cpu)
+    {
+        if (_slots.TryGetValue(slotId, out var state))
+        {
+            state.MemoryUsage = memory;
+            state.CpuUsage = cpu;
+            _slots[slotId] = state;
+            
+            // No need to emit signal for just resources changing
+            // unless you want a specific resource-changed signal
+        }
+    }
+    
+    // Legacy event handlers (will be removed eventually)
+    private void OnLegacySlotStatusChanged(string slotId, SlotStatus status)
+    {
+        // Forward to event bus handler - eventually we'll remove this
+        OnSlotStatusChanged(slotId, status);
+    }
+    
+    private void OnLegacySlotUnlocked(string slotId)
+    {
+        // Forward to event bus handler - eventually we'll remove this
+        OnSlotUnlocked(slotId);
+    }
 
     private void UpdateSlotState(ISlot slot)
     {
@@ -72,13 +129,20 @@ public partial class SlotGridSystem : Control
         var isUnlocked = slot.Status != SlotStatus.Locked;
         var loadedText = slot.CurrentProcess?.Type ?? "";
         
+        // Look for existing parent relationship
+        string parentSlotId = null;
+        if (_slots.TryGetValue(slot.Id, out var existingState))
+        {
+            parentSlotId = existingState.ParentSlotId;
+        }
+        
         _slots[slot.Id] = new SlotState
         {
             IsActive = isActive,
             IsUnlocked = isUnlocked,
             LoadedText = loadedText,
             GridPosition = gridPosition,
-            ParentSlotId = null,  // We'll set this when implementing full hierarchy
+            ParentSlotId = parentSlotId,
             MemoryUsage = slot.MemoryUsage,
             CpuUsage = slot.CpuUsage
         };
@@ -126,7 +190,10 @@ public partial class SlotGridSystem : Control
         childSlot.ParentSlotId = parentSlotId;
         _slots[childSlotId] = childSlot;
         
-        // Emit signal to update the display
+        // Publish event to event bus
+        _eventBus.PublishSlotParentChanged(childSlotId, parentSlotId);
+        
+        // Also emit signal for direct subscribers
         EmitSignal(SignalName.SlotStateChanged, childSlotId, childSlot.IsActive, childSlot.IsUnlocked, childSlot.LoadedText);
     }
     
@@ -137,11 +204,19 @@ public partial class SlotGridSystem : Control
             return;
             
         var slot = _slots[slotId];
-        slot.ParentSlotId = null;
-        _slots[slotId] = slot;
         
-        // Emit signal to update the display
-        EmitSignal(SignalName.SlotStateChanged, slotId, slot.IsActive, slot.IsUnlocked, slot.LoadedText);
+        // Only publish if there was actually a parent
+        if (slot.ParentSlotId != null)
+        {
+            slot.ParentSlotId = null;
+            _slots[slotId] = slot;
+            
+            // Publish event
+            _eventBus.PublishSlotParentChanged(slotId, null);
+            
+            // Emit signal
+            EmitSignal(SignalName.SlotStateChanged, slotId, slot.IsActive, slot.IsUnlocked, slot.LoadedText);
+        }
     }
     
     // Get all child slots for a given parent
@@ -167,4 +242,31 @@ public partial class SlotGridSystem : Control
     
     public SlotState? GetSlotState(string slotId) => 
         _slots.ContainsKey(slotId) ? _slots[slotId] : null;
+        
+    public override void _ExitTree()
+    {
+        // Unsubscribe from events
+        if (_eventBus != null)
+        {
+            _eventBus.SlotStatusChanged -= OnSlotStatusChanged;
+            _eventBus.SlotUnlocked -= OnSlotUnlocked;
+            _eventBus.SlotLocked -= OnSlotLocked;
+            _eventBus.SlotParentChanged -= OnSlotParentChanged;
+            _eventBus.SlotResourcesChanged -= OnSlotResourcesChanged;
+        }
+        
+        // Unsubscribe from legacy events
+        if (_slotManager != null)
+        {
+            _slotManager.SlotStatusChanged -= OnLegacySlotStatusChanged;
+            _slotManager.SlotUnlocked -= OnLegacySlotUnlocked;
+        }
+        
+        // Clear references
+        _slotManager = null;
+        _eventBus = null;
+        _slots.Clear();
+        
+        base._ExitTree();
+    }
 }

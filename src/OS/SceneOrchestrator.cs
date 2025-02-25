@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Trivale.Memory.ProcessManagement;
 using Trivale.Memory.SlotManagement;
+using Trivale.OS.Events;
 
 namespace Trivale.OS;
 
@@ -21,6 +22,9 @@ namespace Trivale.OS;
 /// Note: All scenes managed by this orchestrator must inherit from Control,
 /// as they are expected to be UI scenes that can be shown/hidden in the
 /// main content area.
+/// 
+/// This updated version uses the SystemEventBus for publishing events
+/// instead of direct signal connections.
 /// </summary>
 public partial class SceneOrchestrator : Node
 {
@@ -30,6 +34,7 @@ public partial class SceneOrchestrator : Node
     private Control _mainContent;
     private Control _mainMenuScene;
     private string _activeProcessId;
+    private SystemEventBus _eventBus;
     
     [Signal]
     public delegate void SceneUnloadedEventHandler(bool returningToMainMenu);
@@ -39,9 +44,14 @@ public partial class SceneOrchestrator : Node
         _processManager = processManager;
         _slotManager = slotManager;
         _mainContent = mainContent;
+        _eventBus = SystemEventBus.Instance;
 
         // Load and setup main menu scene
         InitializeMainMenu();
+        
+        // Publish system started event
+        _eventBus.PublishSystemStarted();
+        _eventBus.PublishSystemModeChanged(SystemMode.MainMenu);
     }
 
     private void InitializeMainMenu()
@@ -55,6 +65,9 @@ public partial class SceneOrchestrator : Node
                 mainMenu.MenuOptionSelected += OnMenuOptionSelected;
             }
             ShowScene(menuScene);
+            
+            // Publish scene loaded event
+            _eventBus.PublishSceneLoaded("MainMenuScene");
         }
     }
 
@@ -103,6 +116,19 @@ public partial class SceneOrchestrator : Node
 
         // Show the scene (which hides main menu)
         ShowScene(scene);
+        
+        // Publish scene loaded and system mode changed events
+        _eventBus.PublishSceneLoaded(scenePath);
+        
+        SystemMode mode = processType switch
+        {
+            "CardGame" => SystemMode.GameSession,
+            "Debug" => SystemMode.Debug,
+            "Settings" => SystemMode.Settings,
+            _ => SystemMode.MainMenu
+        };
+        _eventBus.PublishSystemModeChanged(mode);
+        
         return true;
     }
 
@@ -155,8 +181,9 @@ public partial class SceneOrchestrator : Node
     {
         if (_activeProcessId == null) return;
 
-        // Get current scene before we clear references
+        // Get current scene and extract path before we clear references
         var currentScene = _loadedScenes.GetValueOrDefault(_activeProcessId);
+        string scenePath = currentScene?.Name ?? "Unknown";
         bool isReturningToMainMenu = true; // For now, always true. Later could be false for "minimize"
 
         // First disconnect all signals - crucial for preventing disposed object access
@@ -166,13 +193,18 @@ public partial class SceneOrchestrator : Node
             GD.Print($"Disconnected SceneUnloadRequested signal for {_activeProcessId}");
         }
 
-        // Signal that scene is being unloaded before we start cleanup
-        EmitSignal(SignalName.SceneUnloaded, isReturningToMainMenu);
-
-        // Clean up the process (cache ID before clearing)
+        // Cache processId before clearing reference
         var processIdToUnload = _activeProcessId;
+        
+        // Clear references
         _loadedScenes.Remove(_activeProcessId);
         _activeProcessId = null;
+        
+        // Signal that scene is being unloaded 
+        EmitSignal(SignalName.SceneUnloaded, isReturningToMainMenu);
+        
+        // Publish event through bus
+        _eventBus.PublishSceneUnloaded(scenePath, isReturningToMainMenu);
         
         // Now clean up the process
         _processManager.UnloadProcess(processIdToUnload);
@@ -189,6 +221,9 @@ public partial class SceneOrchestrator : Node
         if (_mainMenuScene != null)
         {
             ShowScene(_mainMenuScene);
+            
+            // Publish system is returning to main menu
+            _eventBus.PublishSystemModeChanged(SystemMode.MainMenu);
         }
     }
 
@@ -210,6 +245,9 @@ public partial class SceneOrchestrator : Node
             }
         }
         
+        // Publish system shutdown
+        _eventBus.PublishSystemShutdown();
+        
         // Clean up any remaining scenes
         foreach (var scene in _loadedScenes.Values)
         {
@@ -224,5 +262,11 @@ public partial class SceneOrchestrator : Node
         {
             _mainMenuScene.QueueFree();
         }
+        
+        // Clear references
+        _processManager = null;
+        _slotManager = null;
+        _mainContent = null;
+        _mainMenuScene = null;
     }
 }

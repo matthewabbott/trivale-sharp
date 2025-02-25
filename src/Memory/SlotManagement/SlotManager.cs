@@ -4,11 +4,13 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Trivale.Memory.ProcessManagement;
+using Trivale.OS.Events;
 
 namespace Trivale.Memory.SlotManagement;
 
 public partial class SlotManager : Node, ISlotManager
 {
+    // Legacy events kept for backward compatibility
     public event Action<string, SlotStatus> SlotStatusChanged;
     public event Action<string> SlotUnlocked;
     public event Action<string> SlotLocked;
@@ -18,6 +20,7 @@ public partial class SlotManager : Node, ISlotManager
     private readonly int _gridHeight;
     private readonly float _totalMemory;
     private readonly float _totalCpu;
+    private readonly SystemEventBus _eventBus;
     
     public SlotManager(int gridWidth = 2, int gridHeight = 2, float totalMemory = 8.0f, float totalCpu = 10.0f)
     {
@@ -25,6 +28,7 @@ public partial class SlotManager : Node, ISlotManager
         _gridHeight = gridHeight;
         _totalMemory = totalMemory;
         _totalCpu = totalCpu;
+        _eventBus = SystemEventBus.Instance;
         
         InitializeSlots();
     }
@@ -50,6 +54,13 @@ public partial class SlotManager : Node, ISlotManager
                 );
                 
                 _slots[id] = slot;
+                
+                // Publish initial state
+                if (isFirstSlot)
+                {
+                    _eventBus.PublishSlotUnlocked(id);
+                    _eventBus.PublishSlotStatusChanged(id, SlotStatus.Empty);
+                }
             }
         }
     }
@@ -69,7 +80,17 @@ public partial class SlotManager : Node, ISlotManager
         {
             slot.LoadProcess(process);
             slotId = slot.Id;
+            
+            // Publish slot status change
+            _eventBus.PublishSlotStatusChanged(slot.Id, slot.Status);
+            _eventBus.PublishSlotResourcesChanged(slot.Id, slot.MemoryUsage, slot.CpuUsage);
+            
+            // Update system resources
+            UpdateSystemResources();
+            
+            // Legacy event
             SlotStatusChanged?.Invoke(slot.Id, slot.Status);
+            
             return true;
         }
         catch (Exception e)
@@ -87,6 +108,15 @@ public partial class SlotManager : Node, ISlotManager
         try
         {
             slot.UnloadProcess();
+            
+            // Publish slot status change
+            _eventBus.PublishSlotStatusChanged(slotId, slot.Status);
+            _eventBus.PublishSlotResourcesChanged(slotId, 0, 0);
+            
+            // Update system resources
+            UpdateSystemResources();
+            
+            // Legacy event
             SlotStatusChanged?.Invoke(slotId, slot.Status);
         }
         catch (Exception e)
@@ -104,15 +134,21 @@ public partial class SlotManager : Node, ISlotManager
         if (slot is Slot mutableSlot)
         {
             mutableSlot.Unlock();
+            
+            // Publish through event bus
+            _eventBus.PublishSlotUnlocked(slotId);
+            _eventBus.PublishSlotStatusChanged(slotId, slot.Status);
+            
+            // Legacy events
             SlotUnlocked?.Invoke(slotId);
             SlotStatusChanged?.Invoke(slotId, slot.Status);
+            
             return true;
         }
         
         return false;
     }
     
-    // New method to lock a slot
     public bool LockSlot(string slotId)
     {
         if (!_slots.TryGetValue(slotId, out var slot))
@@ -124,11 +160,16 @@ public partial class SlotManager : Node, ISlotManager
             
         if (slot is Slot mutableSlot)
         {
-            // Call the new Lock method we'll add to the Slot class
             if (mutableSlot.Lock())
             {
+                // Publish through event bus
+                _eventBus.PublishSlotLocked(slotId);
+                _eventBus.PublishSlotStatusChanged(slotId, mutableSlot.Status);
+                
+                // Legacy events
                 SlotLocked?.Invoke(slotId);
                 SlotStatusChanged?.Invoke(slotId, mutableSlot.Status);
+                
                 return true;
             }
         }
@@ -160,16 +201,15 @@ public partial class SlotManager : Node, ISlotManager
         
     public float GetAvailableCpu() =>
         _totalCpu - _slots.Values.Sum(s => s.CpuUsage);
-        
-    // New method to create additional slots
+    
     public string CreateNewSlot(bool startUnlocked = false)
     {
         // Generate a new position that's not currently used
         Vector2I position = FindNextAvailablePosition();
         
         // Calculate resources for the new slot
-        float slotMemory = _totalMemory / (_slots.Count + 1); // Divide available memory
-        float slotCpu = _totalCpu / (_slots.Count + 1);       // Divide available CPU
+        float slotMemory = _totalMemory / (_slots.Count + 1); 
+        float slotCpu = _totalCpu / (_slots.Count + 1);
         
         // Create a unique ID
         string id = $"slot_{position.X}_{position.Y}";
@@ -186,12 +226,20 @@ public partial class SlotManager : Node, ISlotManager
         // Add to our collection
         _slots[id] = slot;
         
-        // Emit appropriate event
+        // Emit appropriate events
         if (startUnlocked)
         {
+            // Publish through event bus
+            _eventBus.PublishSlotUnlocked(id);
+            
+            // Legacy event
             SlotUnlocked?.Invoke(id);
         }
         
+        // Publish through event bus
+        _eventBus.PublishSlotStatusChanged(id, slot.Status);
+        
+        // Legacy event
         SlotStatusChanged?.Invoke(id, slot.Status);
         
         return id;
@@ -214,5 +262,37 @@ public partial class SlotManager : Node, ISlotManager
         
         // If we somehow get here, just append to the end
         return new Vector2I(0, _slots.Count);
+    }
+    
+    private void UpdateSystemResources()
+    {
+        float usedMemory = _slots.Values.Sum(s => s.MemoryUsage);
+        float usedCpu = _slots.Values.Sum(s => s.CpuUsage);
+        
+        _eventBus.PublishSystemResourcesChanged(usedMemory, usedCpu);
+    }
+    
+    public override void _ExitTree()
+    {
+        // Clean up all slots
+        foreach (var slot in _slots.Values)
+        {
+            if (slot.Status == SlotStatus.Active || slot.Status == SlotStatus.Suspended)
+            {
+                try
+                {
+                    if (slot is Slot mutableSlot)
+                    {
+                        mutableSlot.UnloadProcess();
+                    }
+                }
+                catch (Exception e)
+                {
+                    GD.PrintErr($"Error cleaning up slot {slot.Id}: {e.Message}");
+                }
+            }
+        }
+        
+        base._ExitTree();
     }
 }
