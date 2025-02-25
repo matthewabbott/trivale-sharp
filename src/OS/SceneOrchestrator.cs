@@ -50,28 +50,59 @@ public partial class SceneOrchestrator : Node
         _mainContent = mainContent;
         _eventBus = SystemEventBus.Instance;
 
-        // Load and setup main menu scene
+        // Initialize main menu as a special process
         InitializeMainMenu();
         
         // Publish system started event
         _eventBus.PublishSystemStarted();
-        _eventBus.PublishSystemModeChanged(SystemMode.MainMenu);
     }
 
     private void InitializeMainMenu()
     {
+        // Create a special process for main menu with fixed ID
+        var mainMenuProcessId = "mainmenu";
+        
+        // Create the main menu process
+        mainMenuProcessId = _processManager.CreateProcess("MainMenu", null, mainMenuProcessId);
+        
+        if (mainMenuProcessId == null)
+        {
+            GD.PrintErr("Failed to create main menu process");
+            return;
+        }
+        
+        // Load the main menu scene
         var menuScene = LoadSceneInstance("res://Scenes/MainMenu/MainMenuScene.tscn");
         if (menuScene != null)
         {
-            _mainMenuScene = menuScene;
+            // Store it in loaded scenes
+            _loadedScenes[mainMenuProcessId] = menuScene;
+            
+            // Connect its signals
             if (menuScene is MainMenu.MainMenuScene mainMenu)
             {
                 mainMenu.MenuOptionSelected += OnMenuOptionSelected;
             }
-            ShowScene(menuScene);
             
-            // Publish scene loaded event
+            // Show the main menu
+            _mainContent.AddChild(menuScene);
+            ShowScene(mainMenuProcessId);
+            
+            // Try to load it into slot 0 if possible
+            if (_slotManager != null)
+            {
+                var rootSlotId = "slot_0_0";
+                // Make sure slot 0 exists and is unlocked
+                _slotManager.UnlockSlot(rootSlotId);
+                
+                // Start the process in the slot
+                bool started = _processManager.StartProcess(mainMenuProcessId, out _);
+                GD.Print($"Main menu process started in slot: {started}");
+            }
+            
+            // Publish that main menu was loaded
             _eventBus.PublishSceneLoaded("MainMenuScene");
+            _eventBus.PublishSystemModeChanged(SystemMode.MainMenu);
         }
     }
 
