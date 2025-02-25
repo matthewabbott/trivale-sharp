@@ -19,9 +19,10 @@ public interface IProcessManager
     event Action<string> ProcessEnded;           // processId
     event Action<string> ProcessStateChanged;    // processId
     
-    string CreateProcess(string processType, Dictionary<string, object> initParams = null);
+    string CreateProcess(string processType, Dictionary<string, object> initParams = null, string specificId = null);
     bool StartProcess(string processId, out string slotId);
     bool UnloadProcess(string processId);
     IProcess GetProcess(string processId);
     IReadOnlyList<string> GetActiveProcessIds();
+    string GetProcessSlotId(string processId);
 }
