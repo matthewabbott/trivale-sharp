@@ -46,6 +46,7 @@ public partial class ProcessManager : Node, IProcessManager
         {
             "CardGame" => new CardGameMenuProcess(processId),
             "Debug" => new DebugMenuProcess(processId),
+            "MainMenu" => new MainMenuProcess(processId),
             _ => null
         };
         
