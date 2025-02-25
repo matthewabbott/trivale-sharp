@@ -180,7 +180,7 @@ public partial class SimpleMainMenu : Control
 
 	public override void _ExitTree()
 	{
-		// Clean up scene orchestrator bindings
+		// Clean up orchestrator
 		if (_sceneOrchestrator != null)
 		{
 			_sceneOrchestrator.QueueFree();

@@ -1,7 +1,14 @@
+// src/OS/MainMenu/MainMenuScene.cs
 using Godot;
 
 namespace Trivale.OS.MainMenu;
 
+/// <summary>
+/// Implements the main menu UI as a standalone scene.
+/// Responsible for presenting menu options and emitting signals when options are selected.
+/// 
+/// The main menu is not a process itself - it's part of the core system UI.
+/// </summary>
 public partial class MainMenuScene : Control
 {
     [Signal]
@@ -106,5 +113,23 @@ public partial class MainMenuScene : Control
         button.AddThemeStyleboxOverride("pressed", pressedStyle);
         
         return button;
+    }
+
+    public override void _ExitTree()
+    {
+        // Disconnect button signals to prevent memory leaks or disposed object access
+        if (_cardGameButton != null)
+        {
+            _cardGameButton.Pressed -= () => EmitSignal(SignalName.MenuOptionSelected, 
+                "res://Scenes/MainMenu/CardGameScene.tscn", "CardGame");
+        }
+        
+        if (_debugButton != null)
+        {
+            _debugButton.Pressed -= () => EmitSignal(SignalName.MenuOptionSelected, 
+                "res://Scenes/MainMenu/DebugScene.tscn", "Debug");
+        }
+        
+        base._ExitTree();
     }
 }

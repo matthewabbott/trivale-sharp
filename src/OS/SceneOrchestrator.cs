@@ -90,7 +90,15 @@ public partial class SceneOrchestrator : Node
         // Connect to scene's unload signal
         if (scene.HasSignal("SceneUnloadRequested"))
         {
-            scene.Connect("SceneUnloadRequested", new Callable(this, nameof(HandleSceneUnloadRequest)));
+            // Store the signal connection for later disconnection
+            if (scene.Connect("SceneUnloadRequested", new Callable(this, nameof(HandleSceneUnloadRequest))) != Error.Ok)
+            {
+                GD.PrintErr($"Failed to connect SceneUnloadRequested signal for {processId}");
+            }
+            else
+            {
+                GD.Print($"Connected SceneUnloadRequested signal for {processId}");
+            }
         }
 
         // Show the scene (which hides main menu)
@@ -151,18 +159,29 @@ public partial class SceneOrchestrator : Node
         var currentScene = _loadedScenes.GetValueOrDefault(_activeProcessId);
         bool isReturningToMainMenu = true; // For now, always true. Later could be false for "minimize"
 
-        // First signal that we're unloading
+        // First disconnect all signals - crucial for preventing disposed object access
+        if (currentScene != null && currentScene.HasSignal("SceneUnloadRequested"))
+        {
+            currentScene.Disconnect("SceneUnloadRequested", new Callable(this, nameof(HandleSceneUnloadRequest)));
+            GD.Print($"Disconnected SceneUnloadRequested signal for {_activeProcessId}");
+        }
+
+        // Signal that scene is being unloaded before we start cleanup
         EmitSignal(SignalName.SceneUnloaded, isReturningToMainMenu);
 
-        // Clean up the process
-        _processManager.UnloadProcess(_activeProcessId);
+        // Clean up the process (cache ID before clearing)
+        var processIdToUnload = _activeProcessId;
         _loadedScenes.Remove(_activeProcessId);
         _activeProcessId = null;
+        
+        // Now clean up the process
+        _processManager.UnloadProcess(processIdToUnload);
 
         // Hide the scene and queue it for deletion
         if (currentScene != null)
         {
             currentScene.Visible = false;
+            // Only queue free after we've disconnected signals and cleaned references
             currentScene.QueueFree();
         }
 
@@ -175,6 +194,22 @@ public partial class SceneOrchestrator : Node
 
     public override void _ExitTree()
     {
+        // Disconnect menu signals
+        if (_mainMenuScene is MainMenu.MainMenuScene mainMenu)
+        {
+            mainMenu.MenuOptionSelected -= OnMenuOptionSelected;
+        }
+
+        // Disconnect scene signals
+        foreach (var kvp in _loadedScenes)
+        {
+            var scene = kvp.Value;
+            if (scene.HasSignal("SceneUnloadRequested"))
+            {
+                scene.Disconnect("SceneUnloadRequested", new Callable(this, nameof(HandleSceneUnloadRequest)));
+            }
+        }
+        
         // Clean up any remaining scenes
         foreach (var scene in _loadedScenes.Values)
         {

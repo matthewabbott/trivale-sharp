@@ -157,8 +157,6 @@ public partial class DebugScene : Control
 		_createNewSlotButton.Pressed += OnCreateNewSlotPressed;
 		_setParentButton.Pressed += OnSetParentPressed;
 		returnButton.Pressed += OnReturnPressed;
-		
-		// No need for slot display system here - using main menu's display
 	}
 	
 	private Button CreateStyledButton(string text, Color color)
@@ -201,30 +199,38 @@ public partial class DebugScene : Control
 
 	private void ConnectSignals()
 	{
-		// STEP 2: Connect Process Events
-		_processManager.ProcessStarted += (processId, slotId) => 
-		{
-			_statusLabel.Text = $"Started process {processId} in slot {slotId}";
-			// ProcessManager will automatically unlock additional slots
-		};
-		
-		_processManager.ProcessEnded += (processId) => 
-		{
-			_statusLabel.Text = $"Ended process {processId}";
-			UpdateUI();
-		};
+		// Connect Process Events with named methods (not lambdas)
+		_processManager.ProcessStarted += OnProcessStarted;
+		_processManager.ProcessEnded += OnProcessEnded;
 			
-		// STEP 3: Connect Slot Events
-		_slotManager.SlotStatusChanged += (slotId, status) => 
-		{
-			UpdateUI();
-		};
-		
-		_slotManager.SlotUnlocked += (slotId) =>
-		{
-			_statusLabel.Text = $"Slot {slotId} unlocked";
-			UpdateUI();
-		};
+		// Connect Slot Events with named methods (not lambdas)
+		_slotManager.SlotStatusChanged += OnSlotStatusChanged;
+		_slotManager.SlotUnlocked += OnSlotUnlocked;
+	}
+
+	// Named event handlers for ProcessManager events
+	private void OnProcessStarted(string processId, string slotId)
+	{
+		_statusLabel.Text = $"Started process {processId} in slot {slotId}";
+		// ProcessManager will automatically unlock additional slots
+	}
+
+	private void OnProcessEnded(string processId)
+	{
+		_statusLabel.Text = $"Ended process {processId}";
+		UpdateUI();
+	}
+
+	// Named event handlers for SlotManager events
+	private void OnSlotStatusChanged(string slotId, SlotStatus status)
+	{
+		UpdateUI();
+	}
+
+	private void OnSlotUnlocked(string slotId)
+	{
+		_statusLabel.Text = $"Slot {slotId} unlocked";
+		UpdateUI();
 	}
 	
 	private void UpdateUI()
@@ -417,5 +423,54 @@ public partial class DebugScene : Control
 		}
 		
 		EmitSignal(SignalName.SceneUnloadRequested);
+	}
+
+	public override void _ExitTree()
+	{
+		// Disconnect all signals
+		if (_processManager != null)
+		{
+			_processManager.ProcessStarted -= OnProcessStarted;
+			_processManager.ProcessEnded -= OnProcessEnded;
+		}
+		
+		if (_slotManager != null)
+		{
+			_slotManager.SlotStatusChanged -= OnSlotStatusChanged;
+			_slotManager.SlotUnlocked -= OnSlotUnlocked;
+		}
+		
+		// Disconnect button signals
+		if (_createProcessButton != null)
+		{
+			_createProcessButton.Pressed -= OnCreateProcessPressed;
+		}
+		
+		if (_unloadProcessButton != null)
+		{
+			_unloadProcessButton.Pressed -= OnUnloadProcessPressed;
+		}
+		
+		if (_addSlotButton != null)
+		{
+			_addSlotButton.Pressed -= OnAddSlotPressed;
+		}
+		
+		if (_removeSlotButton != null)
+		{
+			_removeSlotButton.Pressed -= OnRemoveSlotPressed;
+		}
+		
+		if (_createNewSlotButton != null)
+		{
+			_createNewSlotButton.Pressed -= OnCreateNewSlotPressed;
+		}
+		
+		if (_setParentButton != null)
+		{
+			_setParentButton.Pressed -= OnSetParentPressed;
+		}
+		
+		base._ExitTree();
 	}
 }
