@@ -38,9 +38,9 @@ public partial class ProcessManager : Node, IProcessManager
         _eventBus = SystemEventBus.Instance;
     }
 
-    public string CreateProcess(string processType, Dictionary<string, object> initParams = null)
+    public string CreateProcess(string processType, Dictionary<string, object> initParams = null, string specificId = null)
     {
-        var processId = $"{processType.ToLower()}_{DateTime.Now.Ticks}";
+        var processId = specificId ?? $"{processType.ToLower()}_{DateTime.Now.Ticks}";
         
         IProcess newProcess = processType switch
         {
@@ -148,5 +148,11 @@ public partial class ProcessManager : Node, IProcessManager
         }
         
         base._ExitTree();
+    }
+    
+    // Add a helper method to get the slot ID for a process
+    public string GetProcessSlotId(string processId)
+    {
+        return _processToSlot.TryGetValue(processId, out var slotId) ? slotId : null;
     }
 }
