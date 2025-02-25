@@ -37,6 +37,7 @@ public partial class DebugScene : Control
 	private Button _removeSlotButton;  // New button for removing slots
 	private SlotGridSystem _slotGridSystem;
 	private SlotGridDisplay _slotDisplay;
+	private SceneOrchestrator _orchestrator;
 	
 	public void Initialize(IProcessManager processManager, ISlotManager slotManager)
 	{
@@ -54,6 +55,11 @@ public partial class DebugScene : Control
 
 		SetupUI();
 		ConnectSignals();
+	}
+
+	public void SetOrchestrator(SceneOrchestrator orchestrator)
+	{
+		_orchestrator = orchestrator;
 	}
 
 	private Button _createNewSlotButton; // New button
@@ -422,7 +428,23 @@ public partial class DebugScene : Control
 			}
 		}
 		
-		EmitSignal(SignalName.SceneUnloadRequested);
+		if (_orchestrator != null)
+		{
+			// Get process ID from metadata
+			// This was set by SceneOrchestrator during initialization
+			string processId = null;
+			if (HasMeta("ProcessId"))
+			{
+				processId = (string)GetMeta("ProcessId");
+			}
+			
+			// Use direct method call instead of signal
+			_orchestrator.RequestSceneUnload(processId);
+		}
+		else
+		{
+			GD.PrintErr("DebugScene: Orchestrator not set, can't request unload");
+		}
 	}
 
 	public override void _ExitTree()

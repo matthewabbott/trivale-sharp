@@ -28,12 +28,16 @@ namespace Trivale.OS;
 /// </summary>
 public partial class SceneOrchestrator : Node
 {
-    // Dictionary mapping process IDs to their respective scenes
+    /// <summary>
+    /// Dictionary mapping process IDs to their respective scenes.
+    /// This allows us to track which scene belongs to which process.
+    /// </summary>
     private Dictionary<string, Control> _loadedScenes = new();
     
-    // Current active scene in the main viewport
+    /// <summary>
+    /// The currently active process ID. Used to track which scene is displayed.
+    /// </summary>
     private string _activeProcessId;
-    
     private IProcessManager _processManager;
     private ISlotManager _slotManager;
     private Control _mainContent;
@@ -55,8 +59,13 @@ public partial class SceneOrchestrator : Node
         
         // Publish system started event
         _eventBus.PublishSystemStarted();
+        _eventBus.PublishSystemModeChanged(SystemMode.MainMenu);
     }
 
+    /// <summary>
+    /// Initializes the main menu as a special process with a fixed ID.
+    /// This process is loaded into slot 0 and serves as the root of the MEM slot tree.
+    /// </summary>
     private void InitializeMainMenu()
     {
         // Create a special process for main menu with fixed ID
@@ -111,7 +120,11 @@ public partial class SceneOrchestrator : Node
         LoadScene(processType, scenePath);
     }
 
-    // Show a specific process scene
+    /// <summary>
+    /// Shows a scene for a specific process ID.
+    /// Hides all other scenes in the main content area.
+    /// </summary>
+    /// <param name="processId">The ID of the process whose scene should be shown</param>
     public void ShowScene(string processId)
     {
         if (!_loadedScenes.ContainsKey(processId))
@@ -146,7 +159,11 @@ public partial class SceneOrchestrator : Node
         }
     }
     
-    // Show a specific scene (Control node)
+    /// <summary>
+    /// Shows a specific Control node in the main content area.
+    /// Hides all other children of the main content.
+    /// </summary>
+    /// <param name="scene">The Control node to show</param>
     private void ShowScene(Control scene)
     {
         // Instead of destroying content, hide everything
@@ -165,7 +182,10 @@ public partial class SceneOrchestrator : Node
         scene.Visible = true;
     }
     
-    // Return to main menu without unloading other scenes
+    /// <summary>
+    /// Returns to the main menu without unloading other scenes.
+    /// This allows the player to return to the menu while keeping their game state.
+    /// </summary>
     public void ReturnToMainMenu()
     {
         var mainMenuProcessId = _loadedScenes.Keys
@@ -187,6 +207,13 @@ public partial class SceneOrchestrator : Node
         }
     }
 
+    /// <summary>
+    /// Loads a scene for a specific process type and makes it visible.
+    /// Creates a process, starts it in a slot, and associates the scene with it.
+    /// </summary>
+    /// <param name="processType">The type of process to create</param>
+    /// <param name="scenePath">The path to the scene resource</param>
+    /// <returns>True if the scene was loaded successfully</returns>
     public bool LoadScene(string processType, string scenePath)
     {
         // First create and start the process
@@ -205,14 +232,8 @@ public partial class SceneOrchestrator : Node
         _loadedScenes[processId] = scene;
         _activeProcessId = processId;
 
-        // Initialize if it's a DebugScene
-        if (scene is MainMenu.DebugScene debugScene)
-        {
-            debugScene.Initialize(_processManager, _slotManager);
-        }
-
-        // Connect to scene's unload signal
-        ConnectSceneSignals(scene, processId);
+        // Initialize scene with relevant data
+        InitializeLoadedScene(scene, processId);
 
         // Show the scene
         ShowScene(scene);
@@ -232,27 +253,43 @@ public partial class SceneOrchestrator : Node
         return true;
     }
     
-    // Helper to connect scene signals
-    private void ConnectSceneSignals(Control scene, string processId)
+    /// <summary>
+    /// Initializes a newly loaded scene with necessary references and data.
+    /// Stores the process ID in the scene's metadata and configures scene-specific settings.
+    /// </summary>
+    /// <param name="scene">The scene to initialize</param>
+    /// <param name="processId">The ID of the process associated with this scene</param>
+    private void InitializeLoadedScene(Control scene, string processId)
     {
-        if (scene.HasSignal("SceneUnloadRequested"))
+        // Store process ID in scene's metadata for later reference
+        // This allows the scene to know its own process ID when requesting unload
+        scene.SetMeta("ProcessId", processId);
+        
+        // Configure scene-specific initializations based on scene type
+        // This is more robust than relying on signals for initialization
+        if (scene is MainMenu.DebugScene debugScene)
         {
-            if (scene.Connect("SceneUnloadRequested", new Callable(this, nameof(HandleSceneUnloadRequest))
-                .Bind(new Godot.Collections.Array { processId })) != Error.Ok)
-            {
-                GD.PrintErr($"Failed to connect SceneUnloadRequested signal for {processId}");
-            }
-            else
-            {
-                GD.Print($"Connected SceneUnloadRequested signal for {processId}");
-            }
+            // Debug scene needs process and slot manager references
+            debugScene.Initialize(_processManager, _slotManager);
+            // Provide orchestrator reference for direct method calls
+            debugScene.SetOrchestrator(this);
         }
+        else if (scene is MainMenu.CardGameScene cardGameScene)
+        {
+            // Card game scene just needs orchestrator reference
+            cardGameScene.SetOrchestrator(this);
+        }
+        // Add more scene types as needed
     }
     
-    // Updated unload handler that takes process ID parameter
-    private void HandleSceneUnloadRequest(string processId = null)
+    /// <summary>
+    /// Provides a direct method call for scene unloading requests.
+    /// This approach is more reliable than signal-based communication for critical operations.
+    /// </summary>
+    /// <param name="processId">The ID of the process to unload. If null, uses the active process.</param>
+    public void RequestSceneUnload(string processId = null)
     {
-        // If no processId provided, use active process
+        // If no specific process ID provided, use the active one
         if (string.IsNullOrEmpty(processId))
         {
             processId = _activeProcessId;
@@ -269,32 +306,6 @@ public partial class SceneOrchestrator : Node
         string scenePath = currentScene?.Name ?? "Unknown";
         bool isReturningToMainMenu = true; // For now, always true
 
-        // First disconnect scene signals
-        if (currentScene != null && currentScene.HasSignal("SceneUnloadRequested"))
-        {
-            // Try to disconnect with and without the processId parameter
-            // (handle both old and new signal connections)
-            try
-            {
-                currentScene.Disconnect("SceneUnloadRequested", new Callable(this, nameof(HandleSceneUnloadRequest)));
-            }
-            catch (System.Exception)
-            {
-                // Ignore if it wasn't connected this way
-            }
-            
-            try
-            {
-                currentScene.Disconnect("SceneUnloadRequested", 
-                    new Callable(this, nameof(HandleSceneUnloadRequest))
-                    .Bind(new Godot.Collections.Array { processId }));
-            }
-            catch (System.Exception)
-            {
-                // Ignore if it wasn't connected this way
-            }
-        }
-
         // Remove from loaded scenes
         _loadedScenes.Remove(processId);
         
@@ -310,10 +321,10 @@ public partial class SceneOrchestrator : Node
         // Publish event through bus
         _eventBus.PublishSceneUnloaded(scenePath, isReturningToMainMenu);
         
-        // Clean up the process
+        // Clean up the process first while we still have a valid scene reference
         _processManager.UnloadProcess(processId);
 
-        // Hide and queue the scene for deletion
+        // Hide and queue the scene for deletion as the final step
         if (currentScene != null)
         {
             currentScene.Visible = false;
@@ -324,6 +335,12 @@ public partial class SceneOrchestrator : Node
         ReturnToMainMenu();
     }
 
+    /// <summary>
+    /// Loads a scene instance from a resource path.
+    /// Sets up the control properties for proper layout.
+    /// </summary>
+    /// <param name="scenePath">The path to the scene resource</param>
+    /// <returns>The instantiated scene as a Control, or null if loading failed</returns>
     private Control LoadSceneInstance(string scenePath)
     {
         var sceneResource = ResourceLoader.Load<PackedScene>(scenePath);
@@ -357,30 +374,6 @@ public partial class SceneOrchestrator : Node
         if (_mainMenuScene is MainMenu.MainMenuScene mainMenu)
         {
             mainMenu.MenuOptionSelected -= OnMenuOptionSelected;
-        }
-
-        // Disconnect scene signals
-        foreach (var kvp in _loadedScenes)
-        {
-            var processId = kvp.Key;
-            var scene = kvp.Value;
-            
-            if (scene.HasSignal("SceneUnloadRequested"))
-            {
-                try {
-                    scene.Disconnect("SceneUnloadRequested", new Callable(this, nameof(HandleSceneUnloadRequest)));
-                } catch (System.Exception) { 
-                    // Ignore if not connected this way
-                }
-                
-                try {
-                    scene.Disconnect("SceneUnloadRequested", 
-                        new Callable(this, nameof(HandleSceneUnloadRequest))
-                        .Bind(new Godot.Collections.Array { processId }));
-                } catch (System.Exception) {
-                    // Ignore if not connected this way
-                }
-            }
         }
         
         // Publish system shutdown

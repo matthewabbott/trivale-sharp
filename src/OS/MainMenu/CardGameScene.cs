@@ -4,24 +4,35 @@ using Godot;
 namespace Trivale.OS.MainMenu;
 
 /// <summary>
-/// Represents a loadable scene in the main menu system.
+/// Represents a loadable card game scene in the main menu system.
 /// 
 /// Scene Contract:
-/// 1. Must emit SceneUnloadRequested signal when it wants to be unloaded
-/// 2. Should not attempt to unload itself or modify its parent viewport
-/// 3. Can expect its QueueFree() to be called by the parent system
-/// 4. Should clean up its own internal resources in _ExitTree if needed
-/// 
-/// The actual unloading, process management, and UI state restoration
-/// is handled by the parent SimpleMainMenu system.
+/// 1. Receives SceneOrchestrator reference via SetOrchestrator method
+/// 2. Uses direct method call for requesting unload instead of signals
+/// 3. Stores and retrieves its process ID from metadata
+/// 4. Does not attempt to unload itself or modify its parent viewport
 /// </summary>
 public partial class CardGameScene : Control
 {
-    [Signal]
-    public delegate void SceneUnloadRequestedEventHandler();
+    /// <summary>
+    /// Reference to the SceneOrchestrator for direct method calls
+    /// This is more reliable than signal-based communication
+    /// </summary>
+    private SceneOrchestrator _orchestrator;
+    
+    /// <summary>
+    /// Sets the SceneOrchestrator reference used for direct method calls
+    /// Called by SceneOrchestrator during scene initialization
+    /// </summary>
+    /// <param name="orchestrator">The SceneOrchestrator instance</param>
+    public void SetOrchestrator(SceneOrchestrator orchestrator)
+    {
+        _orchestrator = orchestrator;
+    }
 
     public override void _Ready()
     {
+        // Setup UI layout
         var layout = new VBoxContainer
         {
             AnchorsPreset = (int)LayoutPreset.Center,
@@ -48,8 +59,28 @@ public partial class CardGameScene : Control
         layout.AddChild(returnButton);
     }
 
+    /// <summary>
+    /// Handles the return button press by requesting scene unload
+    /// Uses direct method call to SceneOrchestrator instead of signals
+    /// </summary>
     private void OnReturnPressed()
     {
-        EmitSignal(SignalName.SceneUnloadRequested);
+        if (_orchestrator != null)
+        {
+            // Get process ID from metadata
+            // This was set by SceneOrchestrator during initialization
+            string processId = null;
+            if (HasMeta("ProcessId"))
+            {
+                processId = (string)GetMeta("ProcessId");
+            }
+            
+            // Use direct method call instead of signal
+            _orchestrator.RequestSceneUnload(processId);
+        }
+        else
+        {
+            GD.PrintErr("CardGameScene: Orchestrator not set, can't request unload");
+        }
     }
 }
