@@ -3,6 +3,12 @@
 ## Overview
 This document outlines a structured implementation plan for adding a playable card game encounter (contract whist variant) that integrates with the existing main menu and memory slot system. The plan is specifically formatted for an AI coding agent to follow systematically.
 
+## Architecture Vision
+- **Process = Encounter**: CardGameProcess will be designed as a prototype for what will eventually be different encounter types in the roguelite game
+- **Clean Slate Approach**: We'll start with fresh implementations for game mechanics but will borrow concepts from existing code where appropriate
+- **Directory Structure**: Create a dedicated `Encounters` namespace/directory for process types instead of keeping them in MainMenu.Processes
+- **Future-Ready Design**: Design with multi-encounter functionality in mind from the beginning
+
 ## Requirements Summary
 - Contract whist mechanics with 5 cards per player
 - 1 human player + 3 AI opponents
@@ -13,210 +19,811 @@ This document outlines a structured implementation plan for adding a playable ca
 
 ## Implementation Structure
 
-### Phase 1: Card Game Process and Scene Setup
+### Phase 1: Establish Encounters Framework
 
-#### Task 1.1: Create CardGameProcess Class
+#### Task 1.1: Create Encounters Directory Structure
+```
+// Directory Structure:
+src/
+  Encounters/
+    CardGame/
+      CardGameProcess.cs
+      GameState.cs
+      GameConfiguration.cs
+    Core/
+      EncounterType.cs
+```
+
+#### Task 1.2: Create CardGameProcess Class
 ```csharp
-// Create new class in src/OS/MainMenu/Processes/CardGameProcess.cs
-public class CardGameProcess : BaseProcess
+// src/Encounters/CardGame/CardGameProcess.cs
+using System.Collections.Generic;
+using Trivale.Memory.ProcessManagement;
+using Godot;
+using Trivale.Cards;
+
+namespace Trivale.Encounters.CardGame
 {
-    public override string Type => "CardGame";
-    
-    public override Dictionary<string, float> ResourceRequirements => new Dictionary<string, float>
+    /// <summary>
+    /// Process implementation for a card game encounter.
+    /// Handles state tracking, game logic, and resource management.
+    /// 
+    /// This represents a single "encounter" in the game world - a trick-taking
+    /// card game challenge that the player must overcome.
+    /// </summary>
+    public class CardGameProcess : BaseProcess
     {
-        ["MEM"] = 0.3f,
-        ["CPU"] = 0.2f
+        public override string Type => "CardGame";
+        
+        /// <summary>
+        /// Resource requirements for the card game process.
+        /// </summary>
+        public override Dictionary<string, float> ResourceRequirements => new Dictionary<string, float>
+        {
+            ["MEM"] = 0.3f,  // Memory usage for game state and cards
+            ["CPU"] = 0.2f   // Processing for game logic and AI
+        };
+        
+        // Game configuration 
+        private GameConfiguration _config;
+        
+        /// <summary>
+        /// Creates a new CardGameProcess with the specified ID.
+        /// </summary>
+        /// <param name="id">Unique identifier for this encounter</param>
+        public CardGameProcess(string id) : base(id) { }
+        
+        /// <summary>
+        /// Initializes the card game with default or provided configuration.
+        /// </summary>
+        protected override void OnInitialize()
+        {
+            GD.Print($"CardGameProcess {Id} initializing");
+            
+            // Initialize or restore configuration
+            if (State.Count == 0)
+            {
+                // New process, create default configuration
+                _config = new GameConfiguration
+                {
+                    NumPlayers = 4,
+                    HandSize = 5,
+                    RequiredTricks = 2,
+                    TrumpSuit = GetRandomSuit()
+                };
+                
+                // Store configuration in state
+                State["config"] = _config;
+                
+                GD.Print($"CardGameProcess {Id} initialized with default configuration");
+            }
+            else
+            {
+                // Existing process, load configuration from state
+                _config = (GameConfiguration)State["config"];
+                GD.Print($"CardGameProcess {Id} restored with existing configuration");
+            }
+            
+            EmitStateChanged();
+        }
+        
+        /// <summary>
+        /// Selects a random suit for the trump suit.
+        /// </summary>
+        private Suit GetRandomSuit()
+        {
+            // Get a random suit (excluding None and NoTrump)
+            var suits = new[] { Suit.DataFlow, Suit.Crypto, Suit.Infra, Suit.Process };
+            return suits[new System.Random().Next(suits.Length)];
+        }
+    }
+}
+```
+
+#### Task 1.3: Create Game Configuration
+```csharp
+// src/Encounters/CardGame/GameConfiguration.cs
+using Trivale.Cards;
+using System;
+
+namespace Trivale.Encounters.CardGame
+{
+    /// <summary>
+    /// Configuration settings for a card game encounter.
+    /// Serializable to support state preservation across process lifecycle.
+    /// </summary>
+    [Serializable]
+    public class GameConfiguration
+    {
+        public int NumPlayers { get; set; } = 4;
+        public int HandSize { get; set; } = 5;
+        public int RequiredTricks { get; set; } = 2;
+        public Suit TrumpSuit { get; set; } = Suit.None;
+    }
+}
+```
+
+#### Task 1.4: Create EncounterType Enum
+```csharp
+// src/Encounters/Core/EncounterType.cs
+namespace Trivale.Encounters.Core
+{
+    /// <summary>
+    /// Types of game encounters available in the system.
+    /// Each type has different mechanics and presentation.
+    /// </summary>
+    public enum EncounterType
+    {
+        /// <summary>
+        /// Standard trick-taking game with fixed hand
+        /// </summary>
+        SecuredSystem,
+        
+        /// <summary>
+        /// Pick cards before playing
+        /// </summary>
+        Backdoor,
+        
+        /// <summary>
+        /// Modify cards during gameplay
+        /// </summary>
+        Firewall
+    }
+}
+```
+
+### Phase 2: Implement Game State
+
+#### Task 2.1: Create Game State Class
+```csharp
+// src/Encounters/CardGame/GameState.cs
+using Godot;
+using System;
+using System.Collections.Generic;
+using Trivale.Cards;
+using Trivale.Encounters.Core;
+
+namespace Trivale.Encounters.CardGame
+{
+    /// <summary>
+    /// Manages the state for a contract whist card game encounter.
+    /// Tracks players, cards, tricks, and game rules.
+    /// </summary>
+    public class GameState : Node
+    {
+        // Game configuration
+        private int _numPlayers = 4;
+        private int _handSize = 5;
+        private int _requiredTricks = 2;
+        private Suit _trumpSuit = Suit.None;
+        
+        // Game state
+        private List<List<Card>> _playerHands = new();
+        private List<Card> _currentTrick = new();
+        private List<int> _tricksTaken = new();
+        private int _currentPlayer = 0;
+        private int _leadPlayer = 0;
+        private Suit _leadSuit = Suit.None;
+        private bool _isGameOver = false;
+        private int _winner = -1;
+        
+        // Signals
+        [Signal] public delegate void GameStateChangedEventHandler();
+        [Signal] public delegate void TrickCompletedEventHandler(int winner);
+        [Signal] public delegate void GameOverEventHandler(int winner);
+        
+        /// <summary>
+        /// Whether the game has ended.
+        /// </summary>
+        public bool IsGameOver => _isGameOver;
+        
+        /// <summary>
+        /// The index of the winning player, or -1 if the game is not over.
+        /// </summary>
+        public int Winner => _winner;
+        
+        /// <summary>
+        /// The current trump suit for the game.
+        /// </summary>
+        public Suit TrumpSuit => _trumpSuit;
+        
+        /// <summary>
+        /// Initializes a new game with the given parameters.
+        /// </summary>
+        public void InitializeGame(EncounterType encounterType, int numPlayers, int handSize, int requiredTricks)
+        {
+            _numPlayers = numPlayers;
+            _handSize = handSize;
+            _requiredTricks = requiredTricks;
+            _trumpSuit = GetRandomSuit();
+            
+            // Reset game state
+            _playerHands.Clear();
+            _currentTrick.Clear();
+            _tricksTaken = new List<int>(new int[numPlayers]);
+            _currentPlayer = 0;
+            _leadPlayer = 0;
+            _leadSuit = Suit.None;
+            _isGameOver = false;
+            _winner = -1;
+            
+            // Deal cards
+            DealCards();
+            
+            // Notify listeners
+            EmitSignal(SignalName.GameStateChanged);
+        }
+        
+        // [... Game state methods implementation ...]
+        // Methods for dealing cards, playing cards, resolving tricks, etc.
+    }
+}
+```
+
+#### Task 2.2: Implement Card Dealing & Deck Management
+```csharp
+// Add to GameState.cs
+/// <summary>
+/// Deals cards to all players.
+/// </summary>
+private void DealCards()
+{
+    // Create deck
+    var deck = CreateDeck();
+    
+    // Shuffle
+    ShuffleDeck(deck);
+    
+    // Deal to players
+    for (int i = 0; i < _numPlayers; i++)
+    {
+        _playerHands.Add(new List<Card>());
+    }
+    
+    for (int i = 0; i < _handSize; i++)
+    {
+        for (int j = 0; j < _numPlayers; j++)
+        {
+            if (deck.Count > 0)
+            {
+                var card = deck[0];
+                deck.RemoveAt(0);
+                card.CardOwner = j;
+                _playerHands[j].Add(card);
+            }
+        }
+    }
+}
+
+/// <summary>
+/// Creates a standard deck of cards.
+/// </summary>
+private List<Card> CreateDeck()
+{
+    var deck = new List<Card>();
+    
+    foreach (Suit suit in Enum.GetValues(typeof(Suit)))
+    {
+        if (suit == Suit.None || suit == Suit.NoTrump) continue;
+        
+        foreach (Value value in Enum.GetValues(typeof(Value)))
+        {
+            deck.Add(new Card { Suit = suit, Value = value });
+        }
+    }
+    
+    return deck;
+}
+
+/// <summary>
+/// Shuffles a deck of cards.
+/// </summary>
+private void ShuffleDeck(List<Card> deck)
+{
+    var random = new System.Random();
+    for (int i = deck.Count - 1; i > 0; i--)
+    {
+        int j = random.Next(i + 1);
+        (deck[i], deck[j]) = (deck[j], deck[i]);
+    }
+}
+```
+
+#### Task 2.3: Implement Card Playing & Validation
+```csharp
+// Add to GameState.cs
+/// <summary>
+/// Checks if a play is valid.
+/// </summary>
+public bool IsValidPlay(int playerId, Card card)
+{
+    // Not current player's turn
+    if (playerId != _currentPlayer)
+        return false;
+        
+    // Card not in player's hand
+    if (!_playerHands[playerId].Contains(card))
+        return false;
+        
+    // First card in trick - any card is valid
+    if (_currentTrick.Count == 0)
+        return true;
+        
+    // Must follow suit if possible
+    if (card.Suit != _leadSuit)
+    {
+        foreach (var c in _playerHands[playerId])
+        {
+            if (c.Suit == _leadSuit)
+                return false;
+        }
+    }
+    
+    return true;
+}
+
+/// <summary>
+/// Plays a card for a player.
+/// </summary>
+public bool PlayCard(int playerId, Card card)
+{
+    if (!IsValidPlay(playerId, card))
+        return false;
+        
+    // Remove from hand
+    _playerHands[playerId].Remove(card);
+    
+    // Add to trick
+    _currentTrick.Add(card);
+    
+    // Set lead suit if first card
+    if (_currentTrick.Count == 1)
+        _leadSuit = card.Suit;
+        
+    // Check if trick is complete
+    if (_currentTrick.Count == _numPlayers)
+    {
+        ResolveTrick();
+    }
+    else
+    {
+        // Move to next player
+        _currentPlayer = (_currentPlayer + 1) % _numPlayers;
+    }
+    
+    // Notify state change
+    EmitSignal(SignalName.GameStateChanged);
+    
+    return true;
+}
+```
+
+#### Task 2.4: Implement Trick Resolution
+```csharp
+// Add to GameState.cs
+/// <summary>
+/// Resolves the current trick.
+/// </summary>
+private void ResolveTrick()
+{
+    // Find winning card
+    int winnerIndex = 0;
+    var winningCard = _currentTrick[0];
+    
+    for (int i = 1; i < _currentTrick.Count; i++)
+    {
+        var card = _currentTrick[i];
+        
+        // Trump beats non-trump
+        if (card.Suit == _trumpSuit && winningCard.Suit != _trumpSuit)
+        {
+            winnerIndex = i;
+            winningCard = card;
+        }
+        // Higher card of same suit wins
+        else if (card.Suit == winningCard.Suit && card.Value > winningCard.Value)
+        {
+            winnerIndex = i;
+            winningCard = card;
+        }
+    }
+    
+    // Calculate actual winner based on lead player
+    int winner = (_leadPlayer + winnerIndex) % _numPlayers;
+    
+    // Award trick
+    _tricksTaken[winner]++;
+    
+    // Notify trick completion
+    EmitSignal(SignalName.TrickCompleted, winner);
+    
+    // Check for game over (all cards played)
+    if (_playerHands[0].Count == 0)
+    {
+        EndGame();
+    }
+    else
+    {
+        // Set up for next trick
+        _currentTrick.Clear();
+        _leadPlayer = winner;
+        _currentPlayer = winner;
+        _leadSuit = Suit.None;
+    }
+}
+```
+
+#### Task 2.5: Implement Simple AI
+```csharp
+// Add to GameState.cs
+/// <summary>
+/// Has AI players take their turns.
+/// </summary>
+public bool PlayAITurns()
+{
+    if (_isGameOver || _currentPlayer == 0)
+        return false;
+        
+    bool played = false;
+    
+    while (_currentPlayer != 0 && !_isGameOver)
+    {
+        var hand = _playerHands[_currentPlayer];
+        var validCards = new List<Card>();
+        
+        foreach (var card in hand)
+        {
+            if (IsValidPlay(_currentPlayer, card))
+                validCards.Add(card);
+        }
+        
+        if (validCards.Count > 0)
+        {
+            // Simple AI - play first valid card
+            PlayCard(_currentPlayer, validCards[0]);
+            played = true;
+        }
+        else
+        {
+            // No valid cards - should never happen, but just in case
+            _currentPlayer = (_currentPlayer + 1) % _numPlayers;
+        }
+    }
+    
+    return played;
+}
+```
+
+### Phase 3: Update Process Manager
+
+#### Task 3.1: Update ProcessManager
+```csharp
+// Update ProcessManager.cs (src/Memory/ProcessManagement/ProcessManager.cs)
+// Add the new namespace
+using Trivale.Encounters.CardGame;
+
+// Then find the CreateProcess method and update the switch statement:
+public string CreateProcess(string processType, Dictionary<string, object> initParams = null, string specificId = null)
+{
+    var processId = specificId ?? $"{processType.ToLower()}_{DateTime.Now.Ticks}";
+    
+    IProcess newProcess = processType switch
+    {
+        "CardGame" => new CardGameProcess(processId),
+        "Debug" => new DebugMenuProcess(processId),
+        "MainMenu" => new MainMenuProcess(processId),
+        _ => null
     };
     
-    // Game configuration state variables
-    private int _numPlayers = 4;
-    private int _handSize = 5;
-    private int _targetTricks = 2;
+    // Rest of the method stays the same...
+}
+```
+
+### Phase 4: Connect to Main Menu
+
+#### Task 4.1: Update Main Menu Scene
+```csharp
+// Update src/OS/MainMenu/MainMenuScene.cs
+// Find the SetupMenuButtons method and add a button for the card game:
+private void SetupMenuButtons()
+{
+    // ... existing code ...
     
-    public CardGameProcess(string id) : base(id) { }
+    _cardGameButton = CreateStyledButton("CARD GAME", Colors.Green);
+    _buttonContainer.AddChild(_cardGameButton);
     
-    protected override void OnInitialize() 
+    // ... existing code ...
+    
+    // Connect the signals section, add:
+    _cardGameButton.Pressed += () => EmitSignal(SignalName.MenuOptionSelected, 
+        "res://Scenes/MainMenu/CardGameScene.tscn", "CardGame");
+    
+    // ... existing code ...
+}
+
+// Make sure to clean up in _ExitTree:
+public override void _ExitTree()
+{
+    // ... existing code ...
+    
+    if (_cardGameButton != null)
     {
-        // Initialize game state
+        _cardGameButton.Pressed -= () => EmitSignal(SignalName.MenuOptionSelected, 
+            "res://Scenes/MainMenu/CardGameScene.tscn", "CardGame");
     }
     
-    protected override void OnUpdate(float delta)
+    // ... existing code ...
+}
+```
+
+### Phase 5: Implement Card Game Scene
+
+#### Task 4.1: Update CardGameScene
+```csharp
+// src/OS/MainMenu/CardGameScene.cs
+using Godot;
+using System;
+using System.Collections.Generic;
+using Trivale.Cards;
+using Trivale.Encounters.CardGame;
+using Trivale.Utils;
+
+namespace Trivale.OS.MainMenu
+{
+    /// <summary>
+    /// Scene implementation for the card game encounter.
+    /// Provides UI and interaction for the contract whist card game.
+    /// </summary>
+    public partial class CardGameScene : Control, IOrchestratableScene
     {
-        // Handle process updates
-    }
-    
-    protected override void OnCleanup()
-    {
-        // Clean up resources
+        private GameState _gameState;
+        private SceneOrchestrator _orchestrator;
+        
+        // UI elements
+        private VBoxContainer _mainContainer;
+        private HBoxContainer _playerHandContainer;
+        private HBoxContainer _trickArea;
+        private Label _statusLabel;
+        private Label _trumpLabel;
+        private Label _scoreLabel;
+        private Button _returnButton;
+        private Button _restartButton;
+        
+        /// <summary>
+        /// Sets the orchestrator reference for scene management.
+        /// </summary>
+        public void SetOrchestrator(SceneOrchestrator orchestrator)
+        {
+            _orchestrator = orchestrator;
+        }
+        
+        /// <summary>
+        /// Gets the process ID associated with this scene.
+        /// </summary>
+        public string GetProcessId()
+        {
+            return HasMeta("ProcessId") ? (string)GetMeta("ProcessId") : null;
+        }
+        
+        public override void _Ready()
+        {
+            SetupUI();
+            InitializeGame();
+        }
+        
+        // [... UI setup and initialization methods ...]
     }
 }
 ```
 
-#### Task 1.2: Update CardGameScene Class
+#### Task 4.2: Implement UI Layout
 ```csharp
-// Update src/OS/MainMenu/CardGameScene.cs
-public partial class CardGameScene : Control, IOrchestratableScene
+// Add to CardGameScene.cs
+/// <summary>
+/// Sets up the UI layout and controls.
+/// </summary>
+private void SetupUI()
 {
-    private GameState _gameState;
-    private VBoxContainer _mainContainer;
-    private HBoxContainer _playerHandContainer;
-    private HBoxContainer _trickArea;
-    private Label _statusLabel;
-    private Label _trumpLabel;
-    private Label _scoreLabel;
-    private SceneOrchestrator _orchestrator;
+    // Configure the root Control to fill its parent viewport
+    LayoutMode = 1; // Use anchors
+    AnchorsPreset = (int)LayoutPreset.FullRect;
+    GrowHorizontal = GrowDirection.Both;
+    GrowVertical = GrowDirection.Both;
     
-    public void SetOrchestrator(SceneOrchestrator orchestrator)
+    // Main container with margins
+    _mainContainer = new VBoxContainer
     {
-        _orchestrator = orchestrator;
-    }
-    
-    public string GetProcessId()
-    {
-        return HasMeta("ProcessId") ? (string)GetMeta("ProcessId") : null;
-    }
-    
-    public override void _Ready()
-    {
-        SetupUI();
-        InitializeGame();
-        ConnectSignals();
-    }
-    
-    private void SetupUI()
-    {
-        // Create UI layout with containers for:
-        // - Player hand
-        // - Current trick
-        // - Game status
-        // - Controls
-    }
-    
-    private void InitializeGame()
-    {
-        // Initialize game state and deal cards
-    }
-    
-    private void ConnectSignals()
-    {
-        // Connect to game events
-    }
-    
-    // Implement additional methods for game interaction
-}
-```
-
-#### Task 1.3: Add Menu Integration
-```csharp
-// Update MainMenuScene.cs to add card game option
-// Add to the CreateMenuButton method or equivalent:
-_cardGameButton = CreateStyledButton("CARD GAME", Colors.Green);
-_cardGameButton.Pressed += () => EmitSignal(SignalName.MenuOptionSelected, 
-    "res://Scenes/MainMenu/CardGameScene.tscn", "CardGame");
-```
-
-### Phase 2: Game Logic Implementation
-
-#### Task 2.1: Implement Game Configuration
-```csharp
-// Use existing GameConfiguration class or create new one:
-public class GameConfiguration
-{
-    public int NumPlayers { get; set; } = 4;
-    public int HandSize { get; set; } = 5;
-    public int RequiredTricks { get; set; } = 2;
-    public Suit TrumpSuit { get; set; } = Suit.None; // Randomly determined
-    
-    public static GameConfiguration Default => new GameConfiguration();
-}
-
-// Add to CardGameProcess.OnInitialize:
-void InitializeGameConfiguration()
-{
-    var config = new GameConfiguration
-    {
-        NumPlayers = _numPlayers,
-        HandSize = _handSize,
-        RequiredTricks = _targetTricks,
-        TrumpSuit = GetRandomSuit()
+        AnchorsPreset = (int)LayoutPreset.FullRect,
+        GrowHorizontal = GrowDirection.Both,
+        GrowVertical = GrowDirection.Both
     };
+    AddChild(_mainContainer);
     
-    State["gameConfig"] = config;
+    // Status area - trump, game status, score
+    var statusContainer = new HBoxContainer
+    {
+        SizeFlagsHorizontal = SizeFlags.Fill
+    };
+    _mainContainer.AddChild(statusContainer);
+    
+    _trumpLabel = new Label { Text = "Trump: None" };
+    statusContainer.AddChild(_trumpLabel);
+    
+    _statusLabel = new Label 
+    { 
+        Text = "Initializing game...",
+        SizeFlagsHorizontal = SizeFlags.Expand 
+    };
+    statusContainer.AddChild(_statusLabel);
+    
+    _scoreLabel = new Label { Text = "Tricks: 0/0" };
+    statusContainer.AddChild(_scoreLabel);
+    
+    // Trick area - where played cards appear
+    var trickLabel = new Label { Text = "Current Trick:" };
+    _mainContainer.AddChild(trickLabel);
+    
+    _trickArea = new HBoxContainer
+    {
+        SizeFlagsHorizontal = SizeFlags.Fill,
+        CustomMinimumSize = new Vector2(0, 80)
+    };
+    _mainContainer.AddChild(_trickArea);
+    
+    // Player's hand
+    var handLabel = new Label { Text = "Your Hand:" };
+    _mainContainer.AddChild(handLabel);
+    
+    _playerHandContainer = new HBoxContainer
+    {
+        SizeFlagsHorizontal = SizeFlags.Fill,
+        SizeFlagsVertical = SizeFlags.Expand
+    };
+    _mainContainer.AddChild(_playerHandContainer);
+    
+    // Controls area
+    var controlsContainer = new HBoxContainer
+    {
+        SizeFlagsHorizontal = SizeFlags.Fill
+    };
+    _mainContainer.AddChild(controlsContainer);
+    
+    _restartButton = new Button
+    {
+        Text = "Restart Game",
+        Visible = false
+    };
+    _restartButton.Pressed += OnRestartPressed;
+    controlsContainer.AddChild(_restartButton);
+    
+    _returnButton = new Button
+    {
+        Text = "Return to Menu",
+        SizeFlagsHorizontal = SizeFlags.ShrinkEnd
+    };
+    _returnButton.Pressed += OnReturnPressed;
+    controlsContainer.AddChild(_returnButton);
 }
 ```
 
-#### Task 2.2: Implement Core Game Loop
+#### Task 4.3: Implement Game Initialization and Display
 ```csharp
-// In CardGameScene.cs:
+// Add to CardGameScene.cs
+/// <summary>
+/// Initializes the game state.
+/// </summary>
 private void InitializeGame()
 {
+    // Create new game state
     _gameState = new GameState();
     AddChild(_gameState);
     
-    // Get configuration from process
-    var processId = GetProcessId();
-    var process = _orchestrator.GetProcessManager().GetProcess(processId);
-    var config = process?.GetState().TryGetValue("gameConfig", out var configObj) 
-        ? configObj as GameConfiguration 
-        : GameConfiguration.Default;
-    
-    // Initialize game with configuration
-    _gameState.InitializeGame(
-        EncounterType.SecuredSystem,
-        config.NumPlayers,
-        config.HandSize,
-        config.RequiredTricks);
-    
-    // Connect to game events
+    // Connect signals
     _gameState.GameStateChanged += UpdateDisplay;
     _gameState.TrickCompleted += OnTrickCompleted;
     _gameState.GameOver += OnGameOver;
     
+    // Initialize with default settings for now
+    // In a full implementation, we'd get these from the process state
+    _gameState.InitializeGame(
+        Encounters.Core.EncounterType.SecuredSystem,
+        4, // players
+        5, // cards per hand
+        2  // required tricks
+    );
+    
     UpdateDisplay();
 }
 
+/// <summary>
+/// Updates the UI display to reflect the current game state.
+/// </summary>
 private void UpdateDisplay()
 {
-    // Update UI elements based on game state:
-    // - Player hand
-    // - Current trick
-    // - Trump suit
-    // - Scores/tricks
-    // - Status messages
+    if (_gameState == null) return;
+    
+    UpdateGameStatus();
+    UpdateTrickArea();
+    UpdatePlayerHand();
+    
+    // Enable/disable buttons based on game state
+    _restartButton.Visible = _gameState.IsGameOver;
+}
+
+/// <summary>
+/// Updates the game status information (trump, score, current player).
+/// </summary>
+private void UpdateGameStatus()
+{
+    // Trump suit
+    _trumpLabel.Text = $"Trump: {_gameState.TrumpSuit}";
+    
+    // Player score
+    _scoreLabel.Text = $"Tricks: {_gameState.GetScore(0)}/{_gameState.GetRequiredTricks(0)}";
+    
+    // Game status
+    if (_gameState.IsGameOver)
+    {
+        _statusLabel.Text = $"Game Over! {(_gameState.Winner == 0 ? "You won!" : "You lost!")}";
+        _restartButton.Visible = true;
+    }
+    else
+    {
+        var currentPlayer = _gameState.GetCurrentPlayer();
+        var leadSuit = _gameState.GetLeadSuit();
+        
+        _statusLabel.Text = $"Current player: {(currentPlayer == 0 ? "You" : $"AI {currentPlayer}")}";
+        
+        if (leadSuit != Suit.None)
+        {
+            _statusLabel.Text += $"\nLead suit: {leadSuit}";
+        }
+    }
 }
 ```
 
-#### Task 2.3: Implement AI Turns and Card Playing
+#### Task 4.4: Implement Card Display and Interaction
 ```csharp
-// In CardGameScene.cs:
-private void OnPlayerCardSelected(Card card)
+// Add to CardGameScene.cs
+/// <summary>
+/// Updates the display of cards in the current trick.
+/// </summary>
+private void UpdateTrickArea()
 {
-    if (_gameState.IsGameOver) return;
-    
-    if (_gameState.PlayCard(0, card))
+    // Clear existing cards
+    foreach (var child in _trickArea.GetChildren())
     {
-        // Card played successfully, now handle AI turns
-        PlayAITurns();
+        child.QueueFree();
+    }
+    
+    // Add cards in play
+    var tableCards = _gameState.GetTableCards();
+    int startPlayer = (_gameState.GetCurrentPlayer() - tableCards.Count) % 4;
+    if (startPlayer < 0) startPlayer += 4;
+    
+    for (int i = 0; i < tableCards.Count; i++)
+    {
+        int playerIndex = (startPlayer + i) % 4;
+        var cardDisplay = CreateCardDisplay(tableCards[i], playerIndex);
+        _trickArea.AddChild(cardDisplay);
     }
 }
 
-private void PlayAITurns()
-{
-    _gameState.PlayAITurns();
-    UpdateDisplay();
-}
-```
-
-### Phase 3: UI and Interaction
-
-#### Task 3.1: Implement Card Display and Selection
-```csharp
-// In CardGameScene.cs:
+/// <summary>
+/// Updates the display of the player's hand.
+/// </summary>
 private void UpdatePlayerHand()
 {
-    _playerHandContainer.QueueFreeChildren();
+    // Clear existing cards
+    foreach (var child in _playerHandContainer.GetChildren())
+    {
+        child.QueueFree();
+    }
     
+    // Get player's hand
     var hand = _gameState.GetHand(0);
+    
+    // Create buttons for each card
     foreach (var card in hand)
     {
         var cardButton = CreateCardButton(card);
@@ -224,95 +831,139 @@ private void UpdatePlayerHand()
     }
 }
 
+/// <summary>
+/// Creates a simple card representation for the trick area.
+/// </summary>
+private Control CreateCardDisplay(Card card, int playerIndex)
+{
+    var cardContainer = new VBoxContainer
+    {
+        SizeFlagsHorizontal = SizeFlags.Expand,
+        SizeFlagsVertical = SizeFlags.Expand
+    };
+    
+    var playerLabel = new Label
+    {
+        Text = playerIndex == 0 ? "You" : $"Player {playerIndex}",
+        HorizontalAlignment = HorizontalAlignment.Center
+    };
+    cardContainer.AddChild(playerLabel);
+    
+    var cardPanel = new Panel
+    {
+        CustomMinimumSize = new Vector2(100, 140),
+        SizeFlagsHorizontal = SizeFlags.ShrinkCenter
+    };
+    
+    // Style the panel based on the card
+    var color = GetSuitColor(card.Suit);
+    var style = new StyleBoxFlat
+    {
+        BgColor = new Color(0.1f, 0.1f, 0.1f, 0.9f),
+        BorderColor = color,
+        BorderWidthBottom = 2,
+        BorderWidthLeft = 2,
+        BorderWidthRight = 2,
+        BorderWidthTop = 2
+    };
+    cardPanel.AddThemeStyleboxOverride("panel", style);
+    
+    cardContainer.AddChild(cardPanel);
+    
+    var cardLabel = new Label
+    {
+        Text = FormatCardText(card),
+        HorizontalAlignment = HorizontalAlignment.Center,
+        VerticalAlignment = VerticalAlignment.Center,
+        AutowrapMode = TextServer.AutowrapMode.Word
+    };
+    cardPanel.AddChild(cardLabel);
+    
+    return cardContainer;
+}
+
+/// <summary>
+/// Creates a styled button for a card.
+/// </summary>
 private Button CreateCardButton(Card card)
 {
     var button = new Button
     {
-        Text = GetCardDisplayText(card),
-        Disabled = !_gameState.IsValidPlay(0, card)
+        Text = FormatCardText(card),
+        CustomMinimumSize = new Vector2(120, 160),
+        Disabled = _gameState.GetCurrentPlayer() != 0 || !_gameState.IsValidPlay(0, card)
     };
     
-    // Style button based on suit
-    StyleCardButton(button, card.Suit);
+    // Style based on suit
+    StyleCardButton(button, card);
     
-    button.Pressed += () => OnPlayerCardSelected(card);
+    // Connect signal
+    button.Pressed += () => OnCardPressed(0, card);
     
     return button;
 }
-
-private string GetCardDisplayText(Card card)
-{
-    // Simple text representation, to be replaced with ASCII art later
-    return $"{card.GetValueName()} of {card.GetSuitName()}";
-}
 ```
 
-#### Task 3.2: Implement Game State Display
+#### Task 4.5: Implement Game Flow and Events
 ```csharp
-// In CardGameScene.cs:
-private void UpdateGameStatus()
+// Add to CardGameScene.cs
+/// <summary>
+/// Handles the player pressing a card to play it.
+/// </summary>
+private void OnCardPressed(int playerId, Card card)
 {
-    _trumpLabel.Text = $"Trump: {_gameState.GetTrumpSuit()}";
-    _scoreLabel.Text = $"Your tricks: {_gameState.GetScore(0)}/{_gameState.GetRequiredTricks(0)}";
-    
-    var currentPlayer = _gameState.GetCurrentPlayer();
-    var leadSuit = _gameState.GetLeadSuit();
-    
-    _statusLabel.Text = _gameState.IsGameOver
-        ? $"Game Over! {(_gameState.GetWinner() == 0 ? "You won!" : "You lost!")}"
-        : $"Current player: {(currentPlayer == 0 ? "You" : $"AI {currentPlayer}")}";
-        
-    if (leadSuit != Suit.None)
+    if (_gameState.PlayCard(playerId, card))
     {
-        _statusLabel.Text += $"\nLead suit: {leadSuit}";
+        // Successfully played the card, now let AI take turns
+        PlayAITurns();
     }
 }
 
-private void UpdateTrickArea()
+/// <summary>
+/// Has AI players take their turns.
+/// </summary>
+private void PlayAITurns()
 {
-    _trickArea.QueueFreeChildren();
-    
-    foreach (var card in _gameState.GetTableCards())
-    {
-        var cardLabel = new Label
-        {
-            Text = GetCardDisplayText(card),
-            SizeFlagsHorizontal = SizeFlags.Expand
-        };
-        _trickArea.AddChild(cardLabel);
-    }
+    _gameState.PlayAITurns();
 }
-```
 
-#### Task 3.3: Implement Game Flow Controls
-```csharp
-// In CardGameScene.cs:
+/// <summary>
+/// Called when a trick is completed.
+/// </summary>
 private void OnTrickCompleted(int winner)
 {
-    // Show trick winner announcement
-    _statusLabel.Text = $"Player {winner} won the trick!";
+    _statusLabel.Text = winner == 0 
+        ? "You won the trick!" 
+        : $"Player {winner} won the trick.";
     
-    // Update display after a short delay
-    GetTree().CreateTimer(1.0).Timeout += UpdateDisplay;
+    // Add a short delay before updating the display
+    var timer = GetTree().CreateTimer(1.0);
+    timer.Timeout += () => {
+        UpdateDisplay();
+    };
 }
 
+/// <summary>
+/// Called when the game is over.
+/// </summary>
 private void OnGameOver(int winner)
 {
-    // Show game result
-    _statusLabel.Text = winner == 0
-        ? "You won the game!"
-        : $"Player {winner} won. You lost!";
-    
-    // Show restart button
-    _restartButton.Visible = true;
+    UpdateDisplay();
 }
 
+/// <summary>
+/// Handles player selecting to restart the game.
+/// </summary>
 private void OnRestartPressed()
 {
     // Clean up old game state
     if (_gameState != null)
     {
+        _gameState.GameStateChanged -= UpdateDisplay;
+        _gameState.TrickCompleted -= OnTrickCompleted;
+        _gameState.GameOver -= OnGameOver;
         _gameState.QueueFree();
+        _gameState = null;
     }
     
     // Initialize new game
@@ -322,40 +973,103 @@ private void OnRestartPressed()
     _restartButton.Visible = false;
 }
 
-private void OnReturnToMenuPressed()
+/// <summary>
+/// Handles player selecting to return to the main menu.
+/// </summary>
+private void OnReturnPressed()
 {
     if (_orchestrator != null)
     {
-        // Get process ID from metadata
         string processId = GetProcessId();
-        
-        // Request scene unload
         _orchestrator.RequestSceneUnload(processId);
+    }
+    else
+    {
+        GD.PrintErr("CardGameScene: Orchestrator not set, can't request unload");
     }
 }
 ```
 
-### Phase 4: Testing and Refinement
-
-#### Task 4.1: Validate Game Rules
+#### Task 4.6: Implement Helper Methods and Cleanup
 ```csharp
-// Add testing code or manual test cases:
-void TestGameRules()
+// Add to CardGameScene.cs
+/// <summary>
+/// Applies styling to a card button based on the card's properties.
+/// </summary>
+private void StyleCardButton(Button button, Card card)
 {
-    // Test cases for:
-    // - Card playing validation
-    // - Trick winning determination
-    // - Trump handling
-    // - Game outcome calculation
+    // Get the suit-specific color
+    var color = GetSuitColor(card.Suit);
+    
+    // Create normal style
+    var normalStyle = new StyleBoxFlat
+    {
+        BgColor = new Color(0.1f, 0.1f, 0.1f, 0.9f),
+        BorderColor = color,
+        BorderWidthBottom = 2,
+        BorderWidthLeft = 2,
+        BorderWidthRight = 2,
+        BorderWidthTop = 2,
+        ContentMarginLeft = 10,
+        ContentMarginRight = 10,
+        ContentMarginTop = 10,
+        ContentMarginBottom = 10
+    };
+    button.AddThemeStyleboxOverride("normal", normalStyle);
+    
+    // Create hover style
+    var hoverStyle = normalStyle.Duplicate() as StyleBoxFlat;
+    if (hoverStyle != null)
+    {
+        hoverStyle.BgColor = new Color(0.15f, 0.15f, 0.15f, 0.9f);
+        button.AddThemeStyleboxOverride("hover", hoverStyle);
+    }
+    
+    // Create disabled style
+    var disabledStyle = normalStyle.Duplicate() as StyleBoxFlat;
+    if (disabledStyle != null)
+    {
+        disabledStyle.BgColor = new Color(0.1f, 0.1f, 0.1f, 0.5f);
+        disabledStyle.BorderColor = new Color(color, 0.5f);
+        button.AddThemeStyleboxOverride("disabled", disabledStyle);
+    }
 }
-```
 
-#### Task 4.2: Verify Process Lifecycle
-```csharp
-// Add cleanup code to CardGameScene:
+/// <summary>
+/// Gets color associated with a card suit.
+/// </summary>
+private Color GetSuitColor(Suit suit)
+{
+    switch (suit)
+    {
+        case Suit.DataFlow:  // Hearts
+            return new Color(1, 0, 0);  // Red
+        case Suit.Crypto:    // Diamonds
+            return new Color(1, 0.5f, 0);  // Orange
+        case Suit.Infra:     // Clubs
+            return new Color(0, 0.7f, 0);  // Green
+        case Suit.Process:   // Spades
+            return new Color(0, 0.5f, 1);  // Blue
+        default:
+            return new Color(0.7f, 0.7f, 0.7f);  // Gray
+    }
+}
+
+/// <summary>
+/// Formats a card's text representation.
+/// </summary>
+private string FormatCardText(Card card)
+{
+    string suitSymbol = card.GetSuitSymbol();
+    string valueText = card.GetValueName();
+    
+    // Simple text format, could be replaced with ASCII art later
+    return $"{valueText} of {card.GetSuitName()} ({suitSymbol})";
+}
+
 public override void _ExitTree()
 {
-    // Disconnect signals
+    // Clean up event connections
     if (_gameState != null)
     {
         _gameState.GameStateChanged -= UpdateDisplay;
@@ -363,88 +1077,5 @@ public override void _ExitTree()
         _gameState.GameOver -= OnGameOver;
     }
     
-    // Clean up resources
     base._ExitTree();
 }
-```
-
-## Detailed Task Flow for Implementation
-
-1. **Create CardGameProcess Class**
-   - Create new file in src/OS/MainMenu/Processes
-   - Implement BaseProcess inheritance
-   - Define resource requirements
-   - Set up game configuration state
-
-2. **Update CardGameScene**
-   - Update existing scene or create new one
-   - Implement UI layout with placeholders
-   - Add IOrchestratableScene implementation
-   - Create setup for game state initialization
-
-3. **Connect to Main Menu**
-   - Add menu entry in MainMenuScene
-   - Configure scene path and process type
-   - Test basic navigation
-
-4. **Implement Game Initialization**
-   - Set up GameConfiguration object
-   - Add initialization from process state
-   - Implement card dealing and setup
-
-5. **Create UI for Player Hand**
-   - Add container for cards
-   - Create card representation
-   - Implement selection mechanism
-   - Add visual feedback for valid/invalid plays
-
-6. **Implement Game State Display**
-   - Create labels for game status
-   - Add trick area visualization
-   - Show trump and lead suit indicators
-   - Display score and target tracking
-
-7. **Create AI Logic**
-   - Use existing AIController if possible
-   - Implement simple card selection
-   - Ensure rule compliance
-
-8. **Implement Turn Flow**
-   - Handle player card selection
-   - Process AI turns
-   - Update UI after each play
-   - Show trick resolution
-
-9. **Add Game Completion Logic**
-   - Determine win/loss conditions
-   - Show game outcome
-   - Add restart functionality
-   - Provide return to menu option
-
-10. **Test and Debug**
-    - Verify rule implementation
-    - Check slot integration
-    - Test process lifecycle
-    - Fix identified issues
-
-## Future-Proofing Notes
-
-1. **Shared Deck System**
-   - Keep card generation separate from game initialization
-   - Consider future factory method for card creation
-   - Design with global deck object in mind
-
-2. **AI Behavior Extensions**
-   - Use strategy pattern for AI decision making
-   - Allow for behavior attachment to cards
-   - Keep AI implementation flexible
-
-3. **UI Evolution**
-   - Separate display logic from game logic
-   - Use methods that can be updated for ASCII art
-   - Keep styling separate from structure
-
-4. **Multi-Encounter Support**
-   - Design state tracking with serialization in mind
-   - Use ProcessSlotRegistry for future cross-slot references
-   - Keep resource boundaries clear
