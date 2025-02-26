@@ -304,6 +304,15 @@ public partial class SceneOrchestrator : Node
             processId = _activeProcessId;
         }
         
+        // Check if this is the main menu process
+        var process = _processManager.GetProcess(processId);
+        if (process?.Type == "MainMenu")
+        {
+            GD.PrintErr("Main menu process is protected from unloading - switching to it instead");
+            ReturnToMainMenu(); // Just switch to the main menu instead
+            return;
+        }
+        
         if (string.IsNullOrEmpty(processId) || !_loadedScenes.ContainsKey(processId))
         {
             GD.PrintErr($"Invalid process ID in unload request: {processId}");

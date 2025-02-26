@@ -5,6 +5,7 @@ using System.Linq;
 using Trivale.Memory.ProcessManagement;
 using Trivale.Memory.SlotManagement;
 using Trivale.UI.Components;
+using System.Collections.Generic;
 
 namespace Trivale.OS.MainMenu;
 
@@ -38,6 +39,7 @@ public partial class DebugScene : Control, IOrchestratableScene
 	private SlotGridSystem _slotGridSystem;
 	private SlotGridDisplay _slotDisplay;
 	private SceneOrchestrator _orchestrator;
+	private List<string> _createdProcessIds = new List<string>();
 	
 	public void Initialize(IProcessManager processManager, ISlotManager slotManager)
 	{
@@ -261,15 +263,22 @@ public partial class DebugScene : Control, IOrchestratableScene
 	
 	private void OnCreateProcessPressed()
 	{
-		// STEP 4: Process Creation Pattern
 		var processId = _processManager.CreateProcess("Debug");
 		if (processId != null)
 		{
-			// Start process, which will:
-			// 1. Load it into an available slot
-			// 2. Trigger slot unlocking
-			// 3. Update the UI via events
-			_processManager.StartProcess(processId, out _);
+			if (_processManager.StartProcess(processId, out _))
+			{
+				_statusLabel.Text = $"Created and started process {processId}";
+				_createdProcessIds.Add(processId); // Track the created process
+			}
+			else
+			{
+				_statusLabel.Text = $"Failed to start process {processId}";
+			}
+		}
+		else
+		{
+			_statusLabel.Text = "Failed to create process";
 		}
 	}
 	
@@ -424,26 +433,26 @@ public partial class DebugScene : Control, IOrchestratableScene
 
 	private void OnReturnPressed()
 	{
-		// Clean up ALL active processes before leaving
+		// Clean up only the processes that this debug scene created
 		if (_processManager != null)
 		{
-			foreach (var processId in _processManager.GetActiveProcessIds())
+			foreach (var processId in _createdProcessIds.ToList())
 			{
 				_processManager.UnloadProcess(processId);
+				_createdProcessIds.Remove(processId);
 			}
 		}
 		
 		if (_orchestrator != null)
 		{
 			// Get process ID from metadata
-			// This was set by SceneOrchestrator during initialization
 			string processId = null;
 			if (HasMeta("ProcessId"))
 			{
 				processId = (string)GetMeta("ProcessId");
 			}
 			
-			// Use direct method call instead of signal
+			// Use direct method call to unload just this scene
 			_orchestrator.RequestSceneUnload(processId);
 		}
 		else
