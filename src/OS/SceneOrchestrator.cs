@@ -5,6 +5,7 @@ using System.Linq;
 using Trivale.Memory.ProcessManagement;
 using Trivale.Memory.SlotManagement;
 using Trivale.OS.Events;
+using Trivale.OS.MainMenu;
 
 namespace Trivale.OS;
 
@@ -87,6 +88,15 @@ public partial class SceneOrchestrator : Node
             // Store it in loaded scenes
             _loadedScenes[mainMenuProcessId] = menuScene;
             
+            // Store process ID in metadata
+            menuScene.SetMeta("ProcessId", mainMenuProcessId);
+            
+            // Set orchestrator if it's an orchestratable scene
+            if (menuScene is IOrchestratableScene orchestratable)
+            {
+                orchestratable.SetOrchestrator(this);
+            }
+            
             // Connect its signals
             if (menuScene is MainMenu.MainMenuScene mainMenu)
             {
@@ -103,6 +113,9 @@ public partial class SceneOrchestrator : Node
                 var rootSlotId = "slot_0_0";
                 // Make sure slot 0 exists and is unlocked
                 _slotManager.UnlockSlot(rootSlotId);
+                
+                // Also unlock another slot for testing
+                _slotManager.UnlockSlot("slot_0_1");
                 
                 // Start the process in the slot
                 bool started = _processManager.StartProcess(mainMenuProcessId, out _);
@@ -261,30 +274,26 @@ public partial class SceneOrchestrator : Node
     /// <param name="processId">The ID of the process associated with this scene</param>
     private void InitializeLoadedScene(Control scene, string processId)
     {
-        // Store process ID in scene's metadata for later reference
-        // This allows the scene to know its own process ID when requesting unload
+        // Store process ID in scene's metadata
         scene.SetMeta("ProcessId", processId);
         
-        // Configure scene-specific initializations based on scene type
-        // This is more robust than relying on signals for initialization
+        // If scene implements our interface, use it
+        if (scene is IOrchestratableScene orchestratableScene)
+        {
+            orchestratableScene.SetOrchestrator(this);
+        }
+        
+        // Additional scene-specific initialization if needed
         if (scene is MainMenu.DebugScene debugScene)
         {
-            // Debug scene needs process and slot manager references
             debugScene.Initialize(_processManager, _slotManager);
-            // Provide orchestrator reference for direct method calls
-            debugScene.SetOrchestrator(this);
         }
-        else if (scene is MainMenu.CardGameScene cardGameScene)
-        {
-            // Card game scene just needs orchestrator reference
-            cardGameScene.SetOrchestrator(this);
-        }
-        // Add more scene types as needed
     }
     
     /// <summary>
     /// Provides a direct method call for scene unloading requests.
-    /// This approach is more reliable than signal-based communication for critical operations.
+    /// Not a recommended Godot pattern: restricts independence of scenes
+    /// In exchange, we get explicit control flow.
     /// </summary>
     /// <param name="processId">The ID of the process to unload. If null, uses the active process.</param>
     public void RequestSceneUnload(string processId = null)

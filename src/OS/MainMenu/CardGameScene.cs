@@ -12,7 +12,7 @@ namespace Trivale.OS.MainMenu;
 /// 3. Stores and retrieves its process ID from metadata
 /// 4. Does not attempt to unload itself or modify its parent viewport
 /// </summary>
-public partial class CardGameScene : Control
+public partial class CardGameScene : Control, IOrchestratableScene
 {
     /// <summary>
     /// Reference to the SceneOrchestrator for direct method calls
@@ -28,6 +28,12 @@ public partial class CardGameScene : Control
     public void SetOrchestrator(SceneOrchestrator orchestrator)
     {
         _orchestrator = orchestrator;
+    }
+
+
+    public string GetProcessId()
+    {
+        return HasMeta("ProcessId") ? (string)GetMeta("ProcessId") : null;
     }
 
     public override void _Ready()

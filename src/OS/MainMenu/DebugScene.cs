@@ -22,7 +22,7 @@ namespace Trivale.OS.MainMenu;
 /// 3. Listen to manager events for state updates
 /// 4. Clean up processes on scene exit
 /// </summary>
-public partial class DebugScene : Control
+public partial class DebugScene : Control, IOrchestratableScene
 {
 	[Signal]
 	public delegate void SceneUnloadRequestedEventHandler();
@@ -62,6 +62,11 @@ public partial class DebugScene : Control
 		_orchestrator = orchestrator;
 	}
 
+	public string GetProcessId()
+	{
+		return HasMeta("ProcessId") ? (string)GetMeta("ProcessId") : null;
+	}
+	
 	private Button _createNewSlotButton; // New button
 
 	private Button _setParentButton;    // New button

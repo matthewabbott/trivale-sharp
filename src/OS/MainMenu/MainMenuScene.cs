@@ -9,7 +9,7 @@ namespace Trivale.OS.MainMenu;
 /// 
 /// The main menu is not a process itself - it's part of the core system UI.
 /// </summary>
-public partial class MainMenuScene : Control
+public partial class MainMenuScene : Control, IOrchestratableScene
 {
     [Signal]
     public delegate void MenuOptionSelectedEventHandler(string scenePath, string processType);
@@ -17,6 +17,17 @@ public partial class MainMenuScene : Control
     private VBoxContainer _buttonContainer;
     private Button _cardGameButton;
     private Button _debugButton;
+	private SceneOrchestrator _orchestrator;
+
+    public void SetOrchestrator(SceneOrchestrator orchestrator)
+    {
+        _orchestrator = orchestrator;
+    }
+
+    public string GetProcessId()
+    {
+        return HasMeta("ProcessId") ? (string)GetMeta("ProcessId") : null;
+    }
 
     public override void _Ready()
     {
