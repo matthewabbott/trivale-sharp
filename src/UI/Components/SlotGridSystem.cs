@@ -30,15 +30,15 @@ public partial class SlotGridSystem : Control
 {
     private Dictionary<string, SlotState> _slots = new();
     private ISlotManager _slotManager;
-    private SystemEventBus _eventBus;
     private ProcessSlotRegistry _registry;
+    private SystemEventBus _eventBus;
     
     [Signal]
     public delegate void SlotStateChangedEventHandler(string slotId, bool isActive, bool isUnlocked, string loadedText);
     
     [Signal]
     public delegate void SlotSelectedEventHandler(string slotId, string processId);
-
+    
     public void Initialize(ISlotManager slotManager, ProcessSlotRegistry registry)
     {
         _slotManager = slotManager;
@@ -65,7 +65,8 @@ public partial class SlotGridSystem : Control
             UpdateSlotState(slot);
         }
     }
-
+    
+    // Add new method to handle registry events
     private void OnProcessSlotMappingChanged(string processId, string slotId)
     {
         // Update slot state if needed
@@ -187,6 +188,19 @@ public partial class SlotGridSystem : Control
         return Vector2I.Zero;
     }
 
+    // Add method to handle slot selection
+    public void SelectSlot(string slotId)
+    {
+        if (!_slots.TryGetValue(slotId, out var state) || !state.IsUnlocked)
+            return;
+            
+        string processId = _registry.GetProcessForSlot(slotId);
+        
+        // Emit signal even if processId is null (empty slot)
+        GD.Print($"SlotGridSystem selected slot {slotId} with process {processId ?? "none"}");
+        EmitSignal(SignalName.SlotSelected, slotId, processId);
+    }
+
     // Get slots in display order
     private IEnumerable<KeyValuePair<string, SlotState>> GetDisplayOrder()
     {
@@ -204,17 +218,6 @@ public partial class SlotGridSystem : Control
             .ThenBy(kvp => kvp.Value.GridPosition.X);
 
         return activeSlots.Concat(inactiveSlots).Concat(lockedSlots);
-    }
-
-    public void SelectSlot(string slotId)
-    {
-        if (!_slots.TryGetValue(slotId, out var state) || !state.IsUnlocked)
-            return;
-            
-        string processId = _registry.GetProcessForSlot(slotId);
-        
-        // Emit signal even if processId is null (empty slot)
-        EmitSignal(SignalName.SlotSelected, slotId, processId);
     }
 
     // Set parent-child relationship between slots
@@ -279,7 +282,7 @@ public partial class SlotGridSystem : Control
     
     public SlotState? GetSlotState(string slotId) => 
         _slots.ContainsKey(slotId) ? _slots[slotId] : null;
-    
+        
     public override void _ExitTree()
     {
         // Unsubscribe from events
@@ -292,16 +295,17 @@ public partial class SlotGridSystem : Control
             _eventBus.SlotResourcesChanged -= OnSlotResourcesChanged;
         }
         
+        // Unsubscribe from registry events
+        if (_registry != null)
+        {
+            _registry.ProcessSlotMappingChanged -= OnProcessSlotMappingChanged;
+        }
+        
         // Unsubscribe from legacy events
         if (_slotManager != null)
         {
             _slotManager.SlotStatusChanged -= OnLegacySlotStatusChanged;
             _slotManager.SlotUnlocked -= OnLegacySlotUnlocked;
-        }
-        
-        if (_registry != null)
-        {
-            _registry.ProcessSlotMappingChanged -= OnProcessSlotMappingChanged;
         }
         
         // Clear references

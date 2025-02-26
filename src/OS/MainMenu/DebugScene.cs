@@ -161,6 +161,28 @@ public partial class DebugScene : Control, IOrchestratableScene
 		_setParentButton = CreateStyledButton("Set Parent/Child", new Color(0.5f, 0.0f, 0.5f)); // Purple
 		
 		advancedButtonContainer.AddChild(_setParentButton);
+
+		// Create a container for scene switching tests
+		var sceneSwitchContainer = new HBoxContainer
+		{
+			CustomMinimumSize = new Vector2(0, 40),
+			SizeFlagsHorizontal = SizeFlags.ShrinkCenter
+		};
+		contentLayout.AddChild(sceneSwitchContainer);
+		
+		// Add process creation buttons for different process types
+		var createCardGameButton = CreateStyledButton("New Card Game", Colors.Green);
+		var createDebugButton = CreateStyledButton("New Debug Process", Colors.Purple);
+		var switchButton = CreateStyledButton("Switch to First Slot", Colors.Blue);
+		
+		sceneSwitchContainer.AddChild(createCardGameButton);
+		sceneSwitchContainer.AddChild(createDebugButton);
+		sceneSwitchContainer.AddChild(switchButton);
+		
+		// Connect the buttons
+		createCardGameButton.Pressed += OnCreateCardGamePressed;
+		createDebugButton.Pressed += OnCreateDebugProcessPressed;
+		switchButton.Pressed += OnSwitchToFirstSlotPressed;
 		
 		// Connect signals
 		_createProcessButton.Pressed += OnCreateProcessPressed;
@@ -461,6 +483,74 @@ public partial class DebugScene : Control, IOrchestratableScene
 		}
 	}
 
+	private void OnCreateCardGamePressed()
+	{
+		var processId = _processManager.CreateProcess("CardGame");
+		if (processId != null)
+		{
+			if (_processManager.StartProcess(processId, out var slotId))
+			{
+				_statusLabel.Text = $"Created and started CardGame process {processId} in slot {slotId}";
+				_createdProcessIds.Add(processId);
+			}
+			else
+			{
+				_statusLabel.Text = $"Failed to start CardGame process {processId}";
+			}
+		}
+		else
+		{
+			_statusLabel.Text = "Failed to create CardGame process";
+		}
+	}
+
+	private void OnCreateDebugProcessPressed()
+	{
+		var processId = _processManager.CreateProcess("Debug");
+		if (processId != null)
+		{
+			if (_processManager.StartProcess(processId, out var slotId))
+			{
+				_statusLabel.Text = $"Created and started Debug process {processId} in slot {slotId}";
+				_createdProcessIds.Add(processId);
+			}
+			else
+			{
+				_statusLabel.Text = $"Failed to start Debug process {processId}";
+			}
+		}
+		else
+		{
+			_statusLabel.Text = "Failed to create Debug process";
+		}
+	}
+
+	private void OnSwitchToFirstSlotPressed()
+	{
+		// Find the first unlocked slot
+		var firstSlot = _slotManager.GetAllSlots().FirstOrDefault(s => s.IsUnlocked);
+		if (firstSlot != null)
+		{
+			_statusLabel.Text = $"Attempting to switch to slot {firstSlot.Id}";
+			
+			// Use the slot grid system to select this slot
+			var slotGridSystem = FindSlotGridSystem();
+			if (slotGridSystem != null)
+			{
+				slotGridSystem.SelectSlot(firstSlot.Id);
+				_statusLabel.Text = $"Selected slot {firstSlot.Id}";
+			}
+			else
+			{
+				_statusLabel.Text = "Could not find SlotGridSystem";
+			}
+		}
+		else
+		{
+			_statusLabel.Text = "No unlocked slots found";
+		}
+	}
+	
 	public override void _ExitTree()
 	{
 		// Disconnect all signals
@@ -507,6 +597,24 @@ public partial class DebugScene : Control, IOrchestratableScene
 			_setParentButton.Pressed -= OnSetParentPressed;
 		}
 		
+		// Disconnect scene switching buttons
+		var sceneSwitchButtons = GetNodeOrNull("ContentLayout/SceneSwitchContainer");
+		if (sceneSwitchButtons != null)
+		{
+			foreach (var child in sceneSwitchButtons.GetChildren())
+			{
+				if (child is Button button)
+				{
+					if (button.Text == "New Card Game")
+						button.Pressed -= OnCreateCardGamePressed;
+					else if (button.Text == "New Debug Process")
+						button.Pressed -= OnCreateDebugProcessPressed;
+					else if (button.Text == "Switch to First Slot")
+						button.Pressed -= OnSwitchToFirstSlotPressed;
+				}
+			}
+		}
+
 		base._ExitTree();
 	}
 }

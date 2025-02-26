@@ -42,58 +42,6 @@ public partial class SlotGridDisplay : Control
         AddChild(richTextLabel);
         _displayLabel = richTextLabel;
     }
-
-    private Control CreateSlotVisual(string slotId, SlotState state)
-    {
-        var container = new VBoxContainer
-        {
-            CustomMinimumSize = new Vector2(200, 0),
-            SizeFlagsHorizontal = SizeFlags.Fill
-        };
-        
-        // Create a button for slot selection
-        var button = new Button
-        {
-            Text = state.IsActive 
-                ? $"{GetSlotSymbol(state)} [{state.LoadedText}]" 
-                : $"{GetSlotSymbol(state)} [EMPTY]",
-            SizeFlagsHorizontal = SizeFlags.Fill
-        };
-        
-        // Style the button based on state
-        var style = new StyleBoxFlat();
-        
-        if (state.IsActive)
-        {
-            style.BgColor = new Color(0, 0.3f, 0, 0.7f); // Green for active
-        }
-        else if (state.IsUnlocked)
-        {
-            style.BgColor = new Color(0.1f, 0.1f, 0.1f, 0.7f); // Dark for unlocked
-        }
-        else
-        {
-            style.BgColor = new Color(0.2f, 0, 0, 0.5f); // Red for locked
-            button.Disabled = true;
-        }
-        
-        button.AddThemeStyleboxOverride("normal", style);
-        
-        // Connect the button's pressed signal
-        button.Pressed += () => OnSlotButtonPressed(slotId);
-        
-        container.AddChild(button);
-        
-        return container;
-    }
-
-    private void OnSlotButtonPressed(string slotId)
-    {
-        if (_slotSystem != null)
-        {
-            _slotSystem.SelectSlot(slotId);
-        }
-    }
     
     private void OnSlotStateChanged(string slotId, bool isActive, bool isUnlocked, string loadedText)
     {
@@ -104,7 +52,7 @@ public partial class SlotGridDisplay : Control
     private const float LOW_USAGE = 0.3f;     // 0-30% - Green
     private const float MEDIUM_USAGE = 0.7f;  // 31-70% - Yellow
     // 71-100% - Red
-    
+
     private void UpdateDisplay()
     {
         if (_slotSystem == null)
@@ -113,30 +61,174 @@ public partial class SlotGridDisplay : Control
             return;
         }
         
-        var display = new StringBuilder();
+        // Clear existing content except the text label
+        foreach (var child in GetChildren())
+        {
+            if (child != _displayLabel) // Keep the display label
+            {
+                child.QueueFree();
+            }
+        }
+        
+        // Get all slots
         var slots = _slotSystem.GetAllSlots().ToList();
         
-        // Check if we have any slots with parent-child relationships
-        bool hasParentChildRelationships = slots.Any(s => s.Value.ParentSlotId != null);
-        
-        if (hasParentChildRelationships)
+        // Show ASCII representation in the label
+        var displayText = new StringBuilder();
+        if (slots.Any(s => s.Value.ParentSlotId != null))
         {
-            // Use hierarchy-based display
-            DisplayHierarchicalTree(display, slots);
+            DisplayHierarchicalTree(displayText, slots);
         }
         else
         {
-            // Use traditional active-root display
-            DisplayTraditionalTree(display, slots);
+            DisplayTraditionalTree(displayText, slots);
         }
         
-        // If we somehow didn't display anything, show a message
-        if (display.Length == 0)
+        _displayLabel.Text = displayText.ToString().TrimEnd();
+        
+        // Create a container for the interactive buttons that will be displayed below the text
+        var buttonContainer = new VBoxContainer
         {
-            display.AppendLine("└── □ [NO SLOTS AVAILABLE]");
+            SizeFlagsHorizontal = SizeFlags.Fill,
+            SizeFlagsVertical = SizeFlags.Fill
+        };
+        AddChild(buttonContainer);
+        
+        // Add a small spacer to separate the text display from the buttons
+        var spacer = new Control { CustomMinimumSize = new Vector2(0, 10) };
+        buttonContainer.AddChild(spacer);
+        
+        // Now add clickable slot visualizations for unlocked slots
+        foreach (var (slotId, state) in slots)
+        {
+            if (state.IsUnlocked)
+            {
+                // Create an indented container for this slot entry
+                var slotEntry = new HBoxContainer
+                {
+                    SizeFlagsHorizontal = SizeFlags.Fill
+                };
+                
+                // Add indentation based on hierarchy
+                var indentation = new Control
+                {
+                    CustomMinimumSize = new Vector2(20, 0) // Adjust this value for desired indentation
+                };
+                slotEntry.AddChild(indentation);
+                
+                // Add the button in an indented position
+                var buttonBox = new VBoxContainer
+                {
+                    SizeFlagsHorizontal = SizeFlags.Fill
+                };
+                
+                // Add a label that shows the hierarchy
+                var hierarchyLabel = new Label
+                {
+                    Text = GetHierarchyPrefix(slotId, slots),
+                    SizeFlagsHorizontal = SizeFlags.Fill
+                };
+                buttonBox.AddChild(hierarchyLabel);
+                
+                // Create the actual button
+                var slotButton = CreateSlotButton(slotId, state);
+                buttonBox.AddChild(slotButton);
+                
+                slotEntry.AddChild(buttonBox);
+                buttonContainer.AddChild(slotEntry);
+                
+                // Add a small spacer between entries
+                var entrySpacer = new Control { CustomMinimumSize = new Vector2(0, 5) };
+                buttonContainer.AddChild(entrySpacer);
+            }
+        }
+    }
+
+    // Helper to determine the hierarchy prefix for display
+    private string GetHierarchyPrefix(string slotId, List<KeyValuePair<string, SlotState>> slots)
+    {
+        var state = slots.FirstOrDefault(s => s.Key == slotId).Value;
+        
+        if (state.ParentSlotId != null)
+        {
+            // This is a child slot
+            return "│   ";
+        }
+        else if (slots.Any(s => s.Value.ParentSlotId == slotId))
+        {
+            // This is a parent slot with children
+            return "├── ";
+        }
+        else
+        {
+            // This is a standalone slot
+            return "└── ";
+        }
+    }
+
+    private Button CreateSlotButton(string slotId, SlotState state)
+    {
+        var button = new Button
+        {
+            Text = GetButtonText(state),
+            CustomMinimumSize = new Vector2(180, 30),
+            SizeFlagsHorizontal = SizeFlags.Fill
+        };
+        button.AddThemeConstantOverride("text_alignment", (int)HorizontalAlignment.Center);
+        
+        // Style the button based on slot state
+        var style = new StyleBoxFlat();
+        
+        if (state.IsActive)
+        {
+            style.BgColor = new Color(0, 0.3f, 0, 0.7f); // Green for active
+            style.BorderColor = new Color(0, 0.5f, 0, 1.0f);
+            style.BorderWidthBottom = 1;
+            style.BorderWidthLeft = 1;
+            style.BorderWidthRight = 1;
+            style.BorderWidthTop = 1;
+        }
+        else if (state.IsUnlocked)
+        {
+            style.BgColor = new Color(0.1f, 0.1f, 0.1f, 0.7f); // Dark for unlocked
+            style.BorderColor = new Color(0.3f, 0.3f, 0.3f, 1.0f);
+            style.BorderWidthBottom = 1;
+            style.BorderWidthLeft = 1;
+            style.BorderWidthRight = 1;
+            style.BorderWidthTop = 1;
         }
         
-        _displayLabel.Text = display.ToString().TrimEnd();
+        button.AddThemeStyleboxOverride("normal", style);
+        
+        // Connect button press to slot selection in the SlotGridSystem
+        button.Pressed += () => OnSlotButtonPressed(slotId);
+        
+        return button;
+    }
+
+    // Helper to get appropriate button text
+    private string GetButtonText(SlotState state)
+    {
+        if (state.IsActive)
+        {
+            return $"[■] {state.LoadedText}";
+        }
+        else if (state.IsUnlocked)
+        {
+            return "[□] Empty Slot";
+        }
+        else
+        {
+            return "[⚿] Locked";
+        }
+        
+    }    
+
+    // Add a handler for button presses
+    private void OnSlotButtonPressed(string slotId)
+    {
+        // Forward to the SlotGridSystem to handle slot selection
+        _slotSystem.SelectSlot(slotId);
     }
     
     private void DisplayHierarchicalTree(StringBuilder display, List<KeyValuePair<string, SlotState>> slots)
@@ -405,5 +497,8 @@ public partial class SlotGridDisplay : Control
         {
             _slotSystem.SlotStateChanged -= OnSlotStateChanged;
         }
+        
+        // Clear references
+        _slotSystem = null;
     }
 }

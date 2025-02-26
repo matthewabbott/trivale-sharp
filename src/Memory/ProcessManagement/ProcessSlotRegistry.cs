@@ -61,7 +61,7 @@ public class ProcessSlotRegistry
             }
         }
     }
-    
+
     /// <summary>
     /// Sets a process as the currently active one.
     /// </summary>
