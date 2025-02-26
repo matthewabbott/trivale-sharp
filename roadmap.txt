@@ -1,196 +1,266 @@
-# NetrunnerOS: System Design Document
+# Trivale: Development Roadmap
 
 ## Human Notes: Core Game Feature Roadmap
 
-- Finish MEM slot implementation
-- Finish basic card game encounter/process
-- Main Menu
+### Completed:
+- ✅ Basic slot grid implementation
+- ✅ Scene switching between slots
+- ✅ ProcessSlotRegistry for tracking slot-process relationships
+- ✅ System event bus for decoupled communication
+- ✅ Interactive MEM slot display
+- ✅ Debug sandbox for testing features
+
+### Short-term Goals:
+- Process state preservation between switching
+- Process previews in MEM slots
+- Dynamic slot unlocking visuals
+- Resource sharing between processes
+
+### Medium-term Goals:
+- Card game encounter/process
+- Main Menu enhancements:
   - Roguelite mode
   - Puzzle mode
   - Encounter/Process editor
   - Scenario editor
   - Glossary/Achievements
-  - Settings
+
+### Long-term Goals:
 - Encounter editor
-  - Nice editor UI
-  - JSON output
-  - Readily extensible for new powers and interactions
-  - Repository of bespoke encounters
-    - Lookup should be straightforward
-  - Allow procedural generation within encounters(?)
 - Scenario Editor
-  - STS-esque tree of encounters
-  - Extra-encounter resource manament
-  - Should also have a JSON output (mermaid-esque?)
-  - And a pretty editor UI
-  - Some sort of grid, looks like a tree
-- (All throughout development) add mechanics to encounters
+- Advanced mechanics for encounters
 
-TODO: add roadmaps for visual and audio development.
-
-## Core Concept
-A hacker's interface that serves as both the game's menu system and a core gameplay mechanic. The interface itself is part of the puzzle - learning to manipulate MEM slots, resource allocation, and cross-process interactions is key to solving increasingly complex challenges.
-
-## System Components
-
-### 1. MEM Slot System (Current Focus)
-Core abstraction layer for all system interactions:
-- Fixed grid of resource-constrained containers
-- Resource tracking and validation
-- State preservation and restoration
-- Cross-slot communication
-- Process isolation and security
-
-### 2. Resource Management
-Built on top of MEM slot foundations:
-- Memory allocation and deallocation
-- CPU load balancing
-- Network bandwidth management
-- Security token validation
-- Resource threshold warnings
-
-### 3. Core OS Interface
-- System resource display
-- MEM slot grid visualization
-- Process/program list
-- Status monitoring
-- Terminal effects
-
-### 4. Process Types
-Different types of programs that can run in MEM slots:
-- Card Game Processes (trick-taking games)
-- Resource Markets
-- Memory Banks
-- Process Viewers
-- System Monitors
-
-### 5. Cross-Process Framework
-Tools for complex puzzle development:
-- State sharing between slots
-- Resource flow management
-- Process chaining
-- Security breach patterns
-- Validation tools
-
-## Development Phases
-
-### Phase 1: MEM Slot Foundation
+## Phase 1: MEM Slot Foundation (Completed)
 1. Core MEM System
-   - Basic slot grid
-   - Resource tracking
-   - State management
-   - Process isolation
+   - ✅ Basic slot grid
+   - ✅ Resource tracking
+   - ✅ State management
+   - ✅ Process isolation
 
-2. Process Migration 
-   - Move existing card game to MEM format
-   - Resource requirement implementation
-   - State preservation
-   - Basic cross-slot API
+2. Process Management
+   - ✅ Process lifecycle (create, start, end)
+   - ✅ ProcessSlotRegistry for mapping
+   - ✅ Process-scene coordination
+   - ✅ Event-based communication
 
-3. Resource Management
-   - Resource allocation
-   - Load balancing
-   - Threshold warnings
-   - Security validation
+3. Scene Switching
+   - ✅ SceneOrchestrator implementation
+   - ✅ Interactive slot selection
+   - ✅ Clean scene transitions
+   - ✅ Process-scene mapping
 
-### Phase 2: Extended Features
-1. Process Types
-   - Convert existing encounters
-   - Resource market implementation
-   - Memory bank tools
-   - System monitors
+## Phase 2: Enhanced Experience (Current Focus)
 
-2. Cross-Process Tools
-   - State sharing system
-   - Resource flow
-   - Process chains
-   - Security breaches
+1. Process Previews (Next Priority)
+   - [ ] Create preview snapshots of processes
+   - [ ] Show preview thumbnails in MEM slots
+   - [ ] Update previews as process state changes
+   - [ ] Add preview animations (optional)
 
-3. UI Polish
-   - Terminal effects
-   - Resource visualization
-   - Alert system
-   - Focus management
+2. Process State Preservation
+   - [ ] Save process state when switching
+   - [ ] Restore state when returning to process
+   - [ ] Handle resource reallocation
+   - [ ] Cross-slot state referencing
 
-## Technical Considerations
+3. Dynamic Slot Expansion
+   - [ ] Animate slot unlocking
+   - [ ] Visual feedback for new slots
+   - [ ] Connected slots (parent-child relationships)
+   - [ ] Resource management visualization
 
-### MEM Slot Management
+4. Resource Sharing
+   - [ ] Track shared resources between processes
+   - [ ] UI for resource allocation
+   - [ ] Resource transfer between slots
+   - [ ] Resource constraints and conflicts
+
+## Phase 3: Game Implementation
+
+1. Card Game Core
+   - [ ] Trick-taking game implementation
+   - [ ] Card visualization
+   - [ ] AI opponents
+   - [ ] Game state management
+
+2. Multiple Encounter Types
+   - [ ] Standard encounters (Secured Systems)
+   - [ ] Backdoor Access encounters
+   - [ ] Firewall Breach encounters
+   - [ ] Extended encounters (Market, Upgrade)
+
+3. Resource System
+   - [ ] Card deck as shared resource
+   - [ ] Memory allocation affects available cards
+   - [ ] CPU usage affects play options
+   - [ ] Security tokens for special actions
+
+4. Cross-Process Mechanics
+   - [ ] Draw cards in one process, use in another
+   - [ ] Transfer resources between processes
+   - [ ] Process chaining for complex puzzles
+   - [ ] Cross-slot puzzle solving
+
+## Phase 4: Content and Polish
+
+1. Visual Polish
+   - [ ] Terminal effects (scan lines, glow)
+   - [ ] Card animations
+   - [ ] Process transitions
+   - [ ] Resource visualization
+
+2. Content Creation
+   - [ ] Story mode encounters
+   - [ ] Procedurally generated challenges
+   - [ ] Tutorials and guides
+   - [ ] Achievement system
+
+3. Testing & Refinement
+   - [ ] Gameplay balance testing
+   - [ ] UI/UX improvements
+   - [ ] Performance optimization
+   - [ ] Bug fixing
+
+## Technical Implementation Priorities
+
+### Next Implementation: Process Previews
+
 ```csharp
-public interface IMemorySlot
+// In SceneOrchestrator.cs
+public Control CreateProcessPreview(string processId, Vector2 size)
 {
-    string Id { get; }
-    SlotStatus Status { get; }
-    Vector2 Position { get; }
-    float MemoryUsage { get; }
-    float CpuUsage { get; }
+    // Check if we have the process
+    if (!_processes.ContainsKey(processId))
+        return null;
+        
+    // Create viewport container
+    var container = new SubViewportContainer
+    {
+        StretchShrink = 2,  // Scale to 50%
+        CustomMinimumSize = size
+    };
     
-    bool CanLoadProcess(IProcess process);
-    void LoadProcess(IProcess process);
-    void UnloadProcess();
-    Dictionary<string, object> GetState();
-}
-
-public interface IMemoryManager
-{
-    int MaxSlots { get; }
-    IReadOnlyList<IMemorySlot> Slots { get; }
-    float TotalMemory { get; }
+    // Create viewport
+    var viewport = new SubViewport
+    {
+        Size = new Vector2I((int)size.X * 2, (int)size.Y * 2),
+        RenderTargetUpdateMode = SubViewport.UpdateMode.Once
+    };
+    container.AddChild(viewport);
     
-    bool TryAllocateSlot(IProcess process, out IMemorySlot slot);
-    void DeallocateSlot(string slotId);
-    IMemorySlot GetSlot(string slotId);
+    // Clone the current scene or create a placeholder
+    Control content;
+    if (_loadedScenes.TryGetValue(processId, out var originalScene))
+    {
+        // Create a simplified representation
+        content = CreatePreviewContent(originalScene);
+    }
+    else
+    {
+        // Create a placeholder
+        content = CreatePlaceholder(_processes[processId].Type);
+    }
+    
+    viewport.AddChild(content);
+    return container;
 }
 ```
 
-### Process Management
+### Next After That: Process State Preservation
+
 ```csharp
-public interface IProcess
+// In ProcessManager.cs
+private Dictionary<string, Dictionary<string, object>> _suspendedStates = new();
+
+public void SuspendProcess(string processId)
 {
-    string Id { get; }
-    string Type { get; }
-    Dictionary<string, float> ResourceRequirements { get; }
-    IMemorySlot Slot { get; }
+    if (!_processes.TryGetValue(processId, out var process))
+        return;
+        
+    // Save the current state
+    _suspendedStates[processId] = process.GetState();
     
-    void Initialize(Dictionary<string, object> state);
-    Dictionary<string, object> GetState();
-    void OnStateChanged(Dictionary<string, object> state);
+    // Update process status
+    _registry.SetProcessStatus(processId, ProcessStatus.Suspended);
+    
+    // Notify listeners
+    _eventBus.PublishProcessSuspended(processId);
 }
-```
 
-### Cross-Process Communication
-```csharp
-public interface IProcessBridge
+public void ResumeProcess(string processId)
 {
-    bool CanConnect(IMemorySlot source, IMemorySlot target);
-    void ConnectSlots(IMemorySlot source, IMemorySlot target);
-    void ShareState(string sourceId, string targetId, string[] keys);
-    void TransferResource(string sourceId, string targetId, string resource, float amount);
+    if (!_processes.TryGetValue(processId, out var process))
+        return;
+        
+    // Restore the state if we have it
+    if (_suspendedStates.TryGetValue(processId, out var state))
+    {
+        process.Initialize(state);
+        _suspendedStates.Remove(processId);
+    }
+    
+    // Update process status
+    _registry.SetProcessStatus(processId, ProcessStatus.Active);
+    
+    // Notify listeners
+    _eventBus.PublishProcessResumed(processId);
 }
 ```
 
-## Implementation Priority
+## Milestone Estimates
 
-### Immediate Tasks
-1. MEM slot grid implementation
-2. Resource tracking system
-3. Process loading/unloading
-4. State management
+1. **Process Previews**: 1-2 weeks
+   - Research viewport rendering techniques
+   - Implement basic previews
+   - Add update mechanism
+   - Integrate with slot display
 
-### Near-Term Goals
-1. Card game process migration
-2. Resource visualization
-3. Cross-slot basics
-4. Terminal effects
+2. **Process State Preservation**: 1-2 weeks
+   - Design serialization approach
+   - Implement suspend/resume
+   - Test with complex state
+   - Handle edge cases
 
-### Future Considerations
-1. Advanced process types
-2. Multi-slot puzzles
-3. Security systems
-4. Achievement tracking
+3. **Dynamic Slot Expansion**: 1 week
+   - Implement animations
+   - Add visual feedback
+   - Connect with process events
+   - Test different scenarios
 
-## Notes
-- Design MEM slots as the fundamental system abstraction
-- Keep process isolation and security in mind
-- Plan for complex cross-slot puzzles
-- Document resource management rules
-- Consider puzzle difficulty progression
+4. **Resource Sharing**: 2-3 weeks
+   - Design resource model
+   - Implement tracking system
+   - Create UI for visualization
+   - Test with multiple processes
+
+5. **Card Game Implementation**: 3-4 weeks
+   - Core game logic
+   - UI implementation
+   - AI behavior
+   - Game state management
+
+## Best Practices for Future Development
+
+1. **Architecture**
+   - Maintain clear component responsibilities
+   - Use SystemEventBus for communication
+   - Explicit dependencies
+   - Clean error handling
+
+2. **Testing**
+   - Unit tests for core logic
+   - Integration tests for component interaction
+   - Manual testing for UI and experience
+   - Regression testing for bug fixes
+
+3. **Performance**
+   - Monitor resource usage
+   - Optimize scene switching
+   - Efficient state serialization
+   - Smart preview rendering
+
+4. **Documentation**
+   - Keep architecture documentation updated
+   - Document interface contracts
+   - Add code comments
+   - Maintain this roadmap

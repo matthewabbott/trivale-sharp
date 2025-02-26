@@ -1,258 +1,284 @@
-# Trivale: A Terminal-Based Cyberpunk Card Game
+# Trivale: Architecture Design Document
 
 ## Core Concept
-A hacker's interface that serves as both the game's menu system and a core gameplay mechanic. Players take on the role of netrunners who perceive cyberspace through the lens of card games, breaking into corporate systems through a series of terminal interfaces and security layers. The interface itself is part of the puzzle - learning to manipulate windows, save states, and combine tools is key to solving increasingly complex challenges.
+A terminal-based cyberpunk card game where the interface itself is part of the experience. Players take on the role of netrunners who perceive cyberspace through the lens of card games, with the ability to manage multiple concurrent encounters through a MEM slot system.
 
 ## Architecture Overview
 
-### Directory Structure
-```
-src/Game/
-  Core/           # Domain models and core interfaces
-    Types.cs      # Core game types (GameRules, TrickResult)
-    Enums.cs      # Core game enums (EncounterType)
-    Interfaces/   # Core game mechanics interfaces
-      ITrickTakingGame.cs
-      IPlayerManager.cs
-  Memory/         # Memory slot management
-    Types.cs      # Slot types and states
-    Interfaces/   # Memory management interfaces
-      IMemorySlot.cs
-      IMemoryManager.cs
-  Services/       # Management and coordination services
-    DeckManager.cs
-    GameLifecycleManager.cs
-    GameEventCoordinator.cs
-    GameStateManager.cs
-    AIController.cs
-    MemorySlotManager.cs
-  Implementation/ # Core interface implementations
-    TrickTakingGame.cs
-    PlayerManager.cs
-    MemorySlot.cs
-```
+### System Components
 
-### Component Architecture
-The game uses a service-based architecture with clear separation of concerns:
+1. **Core Engine Layer**
+   - ProcessSlotRegistry (source of truth for process-slot mapping)
+   - ProcessManager (manages process lifecycle)
+   - SlotManager (manages memory slots and resources)
+   - SceneOrchestrator (handles scene lifecycle and transitions)
+   - SystemEventBus (facilitates decoupled communication)
 
-#### Memory Management (Memory/)
-Core memory slot management with no external dependencies:
-```csharp
-public interface IMemorySlot
-{
-    string Id { get; }
-    SlotStatus Status { get; }
-    Vector2 Position { get; }
-    float MemoryUsage { get; }
-    float CpuUsage { get; }
+2. **Interface Layer**
+   - MainTerminal (main interface container)
+   - SlotGridSystem (slot visualization and interaction logic)
+   - SlotGridDisplay (visual representation of slots)
+   - MainMenuScene (menu options and interactions)
+   - ResourcePanel (system resource monitoring)
+
+3. **Game Layer**
+   - GameState (facade to card game state)
+   - PlayerManager (manages player hands and actions)
+   - TrickTakingGame (core game logic)
+   - AIController (computer opponent behavior)
+   - DeckManager (card management)
+
+### Component Relationships
+
+```mermaid
+graph TD
+    A[SimpleMainMenu] --> B[ProcessSlotRegistry]
+    A --> C[ProcessManager]
+    A --> D[SlotManager]
+    A --> E[SceneOrchestrator]
+    A --> F[SlotGridSystem]
     
-    bool CanLoadEncounter(IEncounter encounter);
-    void LoadEncounter(IEncounter encounter);
-    void UnloadEncounter();
-    Dictionary<string, object> GetState();
-}
-
-public interface IMemoryManager
-{
-    int MaxSlots { get; }
-    IReadOnlyList<IMemorySlot> Slots { get; }
-    float TotalMemory { get; }
+    B <--> C
+    C <--> D
+    B <--> E
+    F <--> B
     
-    bool TryAllocateSlot(IEncounter encounter, out IMemorySlot slot);
-    void DeallocateSlot(string slotId);
-    IMemorySlot GetSlot(string slotId);
-}
+    F --> G[SlotGridDisplay]
+    E --> H[MainMenuScene]
+    E --> I[CardGameScene]
+    E --> J[DebugScene]
+    
+    K[SystemEventBus] <--> B
+    K <--> C
+    K <--> D
+    K <--> E
 ```
 
-#### Core Game Logic (Core/)
-Pure domain logic and interfaces with no external dependencies:
-```csharp
-public interface ITrickTakingGame
-{
-    GameRules Rules { get; }
-    bool IsGameOver { get; }
-    Suit LeadSuit { get; }
-    int CurrentPlayer { get; }
-    
-    bool IsValidPlay(int playerId, Card card);
-    bool PlayCard(int playerId, Card card);
-    TrickResult ResolveTrick();
-}
+### Process-Slot System
 
-public interface IPlayerManager
-{
-    int PlayerCount { get; }
-    List<Card> GetPlayerHand(int playerId);
-    int GetPlayerScore(int playerId);
-    bool IsHuman(int playerId);
-    void DealCards(Dictionary<int, List<Card>> hands);
-}
-```
+The process-slot system is built around these key components:
 
-#### Service Layer (Services/)
-Extended to handle memory slot management:
-```csharp
-public interface IGameLifecycleManager
-{
-    ITrickTakingGame Game { get; }
-    IPlayerManager PlayerManager { get; }
-    IGameStateManager StateManager { get; }
-    IAIController AIController { get; }
-    IDeckManager DeckManager { get; }
-    IGameEventCoordinator EventCoordinator { get; }
-    IMemoryManager MemoryManager { get; }
-    
-    void Initialize(Node signalSource);
-    void InitializeGame(EncounterType encounterType, int numPlayers, int handSize, int requiredTricks);
-    void Cleanup();
-}
+1. **ProcessSlotRegistry**: Central source of truth for which process is in which slot
+   ```csharp
+   public class ProcessSlotRegistry
+   {
+       // Maps processes to slots and vice versa
+       private Dictionary<string, string> _processToSlot;
+       private Dictionary<string, string> _slotToProcess;
+       
+       // Events for state changes
+       public event Action<string, string> ProcessSlotMappingChanged;
+       public event Action<string> ActiveProcessChanged;
+       
+       // Current active process
+       public string ActiveProcessId { get; private set; }
+       
+       // Methods for working with the registry
+       public void RegisterProcessSlot(string processId, string slotId);
+       public void UnregisterProcess(string processId);
+       public void SetActiveProcess(string processId);
+       public string GetSlotForProcess(string processId);
+       public string GetProcessForSlot(string slotId);
+   }
+   ```
 
-public interface IGameEventCoordinator
-{
-    void Initialize(Node signalSource);
-    void EmitGameStateChanged();
-    void EmitTrickCompleted(int winner);
-    void EmitGameOver(int winner);
-    void EmitSlotStateChanged(string slotId);
-}
-```
+2. **ProcessManager**: Manages process lifecycle and interacts with slot management
+   ```csharp
+   public interface IProcessManager
+   {
+       event Action<string, string> ProcessStarted;
+       event Action<string> ProcessEnded;
+       event Action<string> ProcessStateChanged;
+       
+       string CreateProcess(string processType, Dictionary<string, object> initParams = null, string specificId = null);
+       bool StartProcess(string processId, out string slotId);
+       bool UnloadProcess(string processId);
+       IProcess GetProcess(string processId);
+       IReadOnlyList<string> GetActiveProcessIds();
+       string GetProcessSlotId(string processId);
+   }
+   ```
 
-#### Facade (GameState)
-Enhanced to support memory slot management:
-```csharp
-public partial class GameState : Node
-{
-    private readonly IGameLifecycleManager _lifecycleManager;
-    private readonly IMemoryManager _memoryManager;
-    
-    public bool IsGameOver => _lifecycleManager.Game.IsGameOver;
-    public int RequiredTricks { get; private set; }
-    public int Winner { get; private set; }
-    public IReadOnlyList<IMemorySlot> MemorySlots => _memoryManager.Slots;
-    
-    // Additional signals for memory management
-    [Signal] public delegate void SlotStateChangedEventHandler(string slotId);
-    [Signal] public delegate void SlotAllocatedEventHandler(string slotId);
-    [Signal] public delegate void SlotDeallocatedEventHandler(string slotId);
-}
-```
+3. **SlotManager**: Handles memory slots and their states
+   ```csharp
+   public interface ISlotManager
+   {
+       event Action<string, SlotStatus> SlotStatusChanged;
+       event Action<string> SlotUnlocked;
+       event Action<string> SlotLocked;
+       
+       bool TryLoadProcessIntoSlot(IProcess process, out string slotId);
+       void FreeSlot(string slotId);
+       bool UnlockSlot(string slotId);
+       bool LockSlot(string slotId);
+       string CreateNewSlot(bool startUnlocked = false);
+       IReadOnlyList<ISlot> GetAllSlots();
+       ISlot GetSlot(string slotId);
+       bool CanAllocateProcess(IProcess process);
+       float GetAvailableMemory();
+       float GetAvailableCpu();
+   }
+   ```
 
-### Scene Management System
-Modified to work within memory slots:
+4. **SceneOrchestrator**: Manages scene loading, switching, and coordination with processes
+   ```csharp
+   public partial class SceneOrchestrator : Node
+   {
+       private Dictionary<string, Control> _loadedScenes;
+       private string _activeProcessId;
+       private ProcessSlotRegistry _processSlotRegistry;
+       
+       public void Initialize(IProcessManager processManager, ISlotManager slotManager, 
+           ProcessSlotRegistry registry, Control mainContent);
+       public void ShowScene(string processId);
+       public bool LoadScene(string processType, string scenePath);
+       public void RequestSceneUnload(string processId = null);
+       public void HandleSlotSelected(string slotId, string processId);
+       public Control CreateProcessPreview(string processId, Vector2 size);
+   }
+   ```
 
-```csharp
-public interface IEncounter
-{
-    string Id { get; }
-    string Type { get; }
-    Dictionary<string, float> ResourceRequirements { get; }
-    bool IsComplete { get; }
-    IMemorySlot Slot { get; }
-    
-    void Initialize(Dictionary<string, object> initialState);
-    void Update(float delta);
-    Dictionary<string, object> GetState();
-    
-    event Action<Dictionary<string, object>> StateChanged;
-    event Action<string> EncounterEvent;
-}
+5. **SystemEventBus**: Facilitates communication between components
+   ```csharp
+   public class SystemEventBus
+   {
+       // Singleton pattern
+       public static SystemEventBus Instance { get; }
+       
+       // Process events
+       public event Action<string> ProcessCreated;
+       public event Action<string, string> ProcessStarted;
+       public event Action<string> ProcessEnded;
+       public event Action<string, Dictionary<string, object>> ProcessStateChanged;
+       
+       // Slot events
+       public event Action<string, SlotStatus> SlotStatusChanged;
+       public event Action<string> SlotUnlocked;
+       public event Action<string> SlotLocked;
+       
+       // Scene events
+       public event Action<string> SceneLoaded;
+       public event Action<string, bool> SceneUnloaded;
+       
+       // System events
+       public event Action<SystemMode> SystemModeChanged;
+       
+       // Publishing methods
+       public void PublishProcessStarted(string processId, string slotId);
+       public void PublishSlotStatusChanged(string slotId, SlotStatus status);
+       // ...etc for all events
+   }
+   ```
 
-public class CardGameEncounter : BaseEncounter
-{
-    private readonly GameState _gameState;
-    private readonly GameConfiguration _config;
-    private IMemorySlot _slot;
-    
-    public override string Type => "CardGame";
-    public override IMemorySlot Slot => _slot;
-    
-    public override bool LoadIntoSlot(IMemorySlot slot)
-    {
-        if (!slot.CanLoadEncounter(this))
-            return false;
-            
-        _slot = slot;
-        slot.LoadEncounter(this);
-        return true;
-    }
-}
-```
+### User Interface Components
 
-Scene managers handle UI representation within slots:
-```csharp
-public partial class CardEncounterScene : EncounterScene
-{
-    private IMemorySlot _slot;
-    private CardTerminalWindow _handWindow;
-    private CardTerminalWindow _tableWindow;
-    private CardTerminalWindow _controlWindow;
-    
-    public override void Initialize(IMemorySlot slot, IEncounter encounter)
-    {
-        _slot = slot;
-        base.Initialize(encounter);
-        
-        // Position windows within slot boundaries
-        PositionWindows(_slot.Position, _slot.Size);
-    }
-    
-    protected override void OnEncounterStateChanged(Dictionary<string, object> state);
-}
-```
+1. **SlotGridSystem**: Manages slot interactions and state
+   ```csharp
+   public partial class SlotGridSystem : Control
+   {
+       private Dictionary<string, SlotState> _slots;
+       private ISlotManager _slotManager;
+       private ProcessSlotRegistry _registry;
+       
+       [Signal] public delegate void SlotStateChangedEventHandler(string slotId, bool isActive, bool isUnlocked, string loadedText);
+       [Signal] public delegate void SlotSelectedEventHandler(string slotId, string processId);
+       
+       public void Initialize(ISlotManager slotManager, ProcessSlotRegistry registry);
+       public void SelectSlot(string slotId);
+       public IEnumerable<KeyValuePair<string, SlotState>> GetAllSlots();
+   }
+   ```
 
-## System Integration
+2. **SlotGridDisplay**: Visual representation of slots
+   ```csharp
+   public partial class SlotGridDisplay : Control
+   {
+       private SlotGridSystem _slotSystem;
+       
+       public void Initialize(SlotGridSystem slotSystem);
+       private void UpdateDisplay();
+       private Control CreateSlotButton(string slotId, SlotState state, string prefix, bool isMainMenu = false);
+   }
+   ```
 
-### Event Flow
-1. Core game events (ITrickTakingGame) -> GameEventCoordinator
-2. Memory slot events -> GameEventCoordinator
-3. GameEventCoordinator -> GameState signals
-4. GameState signals -> EncounterScene
-5. EncounterScene -> UI updates
+### Scene Management
 
-### Component Lifecycle
-1. GameState creates GameLifecycleManager and MemoryManager
-2. MemoryManager initializes available slots
-3. GameLifecycleManager initializes game components
-4. Components register with GameEventCoordinator
-5. GameLifecycleManager manages cleanup
+1. **Scene Types**: Different scene types for different contexts
+   - MainMenuScene: Main menu options
+   - CardGameScene: Card game implementation
+   - DebugScene: Testing and debugging interface
 
-### State Management
-1. GameStateManager tracks game state
-2. MemoryManager tracks slot states
-3. DeckManager handles card operations
-4. PlayerManager maintains player state
-5. AIController manages AI behavior
-6. GameEventCoordinator bridges events to UI
+2. **Scene Interface**: Common interface for managed scenes
+   ```csharp
+   public interface IOrchestratableScene
+   {
+       void SetOrchestrator(SceneOrchestrator orchestrator);
+       string GetProcessId();
+   }
+   ```
+
+3. **Scene Lifecycle**: Managed by SceneOrchestrator
+   - Loading
+   - Switching
+   - State preservation
+   - Unloading
 
 ## Best Practices
 
-### Architecture Guidelines
-- Keep Core/ free of external dependencies
-- Services handle coordination between components
-- Use facades to isolate framework integration
-- Follow dependency injection patterns
-- Maintain clear component boundaries
+### Architecture Principles
 
-### Event Handling
-- Use GameEventCoordinator for all events
-- Keep event flow unidirectional
-- Isolate Godot signals to facades
-- Handle cleanup properly
+1. **Single Responsibility Principle**
+   - Each component has a clear, focused role
+   - ProcessSlotRegistry manages mappings
+   - ProcessManager manages process lifecycle
+   - SlotManager manages slot states
+   - SceneOrchestrator manages scene transitions
 
-### Resource Management
-- Track component resources per slot
-- Validate slot resource requirements
-- Support cross-slot resource sharing
-- Clean up resources on slot deallocation
+2. **Decoupled Communication**
+   - Use SystemEventBus for cross-component communication
+   - Components don't need direct references to each other
+   - Enables easy testing and replacement
 
-### Testing
-- Core logic should be fully testable in isolation
-- Mock services for component testing
-- Use dependency injection for test configurations
-- Validate state transitions
+3. **Clean Dependencies**
+   - Dependencies are explicit and passed during initialization
+   - No global state or service locator pattern
+   - Makes the system more testable and maintainable
+
+4. **Proper Cleanup**
+   - All components properly disconnect signals
+   - References are cleared in _ExitTree
+   - Prevents memory leaks and disposed object issues
+
+### Error Handling
+
+1. **Robust Process Management**
+   - Validate all process operations
+   - Ensure proper cleanup on failures
+   - Log errors with clear messages
+
+2. **Scene Switching Safety**
+   - Check for valid scenes before switching
+   - Handle missing scenes gracefully
+   - Ensure proper unloading of resources
+
+3. **Resource Management**
+   - Monitor system resource usage
+   - Prevent overallocation
+   - Clean up resources when no longer needed
 
 ### Future Extensibility
-- Design services for easy replacement
-- Keep component interfaces stable
-- Document extension points
-- Plan for cross-encounter features
+
+1. **Process Types**
+   - Abstract IProcess interface allows new process types
+   - ProcessManager can instantiate any process type
+   - Easy to add new game mechanics as process types
+
+2. **UI Customization**
+   - SlotGridDisplay separates visualization from logic
+   - Can be extended for different visual styles
+   - Supports previews and custom indicators
+
+3. **Cross-Process Features**
+   - ProcessSlotRegistry enables cross-process awareness
+   - Centralized mapping supports complex interactions
+   - Foundation for shared resources between processes
