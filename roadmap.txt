@@ -209,31 +209,31 @@ public void ResumeProcess(string processId)
 
 ## Milestone Estimates
 
-1. **Process Previews**: 1-2 weeks
+1. **Process Previews**
    - Research viewport rendering techniques
    - Implement basic previews
    - Add update mechanism
    - Integrate with slot display
 
-2. **Process State Preservation**: 1-2 weeks
+2. **Process State Preservation**
    - Design serialization approach
    - Implement suspend/resume
    - Test with complex state
    - Handle edge cases
 
-3. **Dynamic Slot Expansion**: 1 week
+3. **Dynamic Slot Expansion**
    - Implement animations
    - Add visual feedback
    - Connect with process events
    - Test different scenarios
 
-4. **Resource Sharing**: 2-3 weeks
+4. **Resource Sharing**
    - Design resource model
    - Implement tracking system
    - Create UI for visualization
    - Test with multiple processes
 
-5. **Card Game Implementation**: 3-4 weeks
+5. **Card Game Implementation**
    - Core game logic
    - UI implementation
    - AI behavior
