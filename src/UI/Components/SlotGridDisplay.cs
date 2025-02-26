@@ -78,21 +78,70 @@ public partial class SlotGridDisplay : Control
 		};
 		container.AddChild(titleLabel);
 		
+		// Add a separator
+		container.AddChild(new HSeparator());
+		
+		// Find the "mainmenu" slot for special treatment
+		var mainMenuSlot = slots.FirstOrDefault(s => 
+			s.Key.Contains("slot_0_0") || (s.Value.IsActive && s.Value.LoadedText == "MainMenu"));
+			
+		bool hasMainMenu = mainMenuSlot.Key != null;
+		
+		// If we have a main menu slot, display it first with special treatment
+		if (hasMainMenu)
+		{
+			// Create a custom container just for the main menu
+			var mainMenuContainer = new VBoxContainer
+			{
+				SizeFlagsHorizontal = SizeFlags.Fill
+			};
+			container.AddChild(mainMenuContainer);
+			
+			// Add a label for the system root
+			var systemRootLabel = new Label
+			{
+				Text = "SYSTEM ROOT:",
+				SizeFlagsHorizontal = SizeFlags.Fill
+			};
+			mainMenuContainer.AddChild(systemRootLabel);
+			
+			// Create special main menu button
+			var mainMenuButton = CreateSlotButton(mainMenuSlot.Key, mainMenuSlot.Value, "└── ", true);
+			mainMenuContainer.AddChild(mainMenuButton);
+			
+			// Add spacer
+			mainMenuContainer.AddChild(new Control { CustomMinimumSize = new Vector2(0, 10) });
+			
+			// Add separator between main menu and other slots
+			container.AddChild(new HSeparator());
+		}
+		
+		// Other processes label
+		var processesLabel = new Label
+		{
+			Text = "PROCESSES:",
+			SizeFlagsHorizontal = SizeFlags.Fill
+		};
+		container.AddChild(processesLabel);
+		
 		// If we have parent-child relationships, display as hierarchy
 		if (slots.Any(s => s.Value.ParentSlotId != null))
 		{
-			CreateHierarchicalLayout(container, slots);
+			CreateHierarchicalLayout(container, slots, mainMenuSlot.Key);
 		}
 		else
 		{
-			CreateFlatLayout(container, slots);
+			CreateFlatLayout(container, slots, mainMenuSlot.Key);
 		}
 	}
 	
-	private void CreateHierarchicalLayout(VBoxContainer container, List<KeyValuePair<string, SlotState>> slots)
+	private void CreateHierarchicalLayout(VBoxContainer container, List<KeyValuePair<string, SlotState>> slots, string mainMenuSlotId)
 	{
-		// Find all root slots (those without parents)
-		var rootSlots = slots.Where(s => s.Value.ParentSlotId == null).OrderBy(s => !s.Value.IsActive).ToList();
+		// Find all root slots (those without parents) except the main menu
+		var rootSlots = slots
+			.Where(s => s.Value.ParentSlotId == null && s.Key != mainMenuSlotId)
+			.OrderBy(s => !s.Value.IsActive)
+			.ToList();
 		
 		foreach (var (rootId, rootState) in rootSlots)
 		{
@@ -117,12 +166,15 @@ public partial class SlotGridDisplay : Control
 		}
 	}
 	
-	private void CreateFlatLayout(VBoxContainer container, List<KeyValuePair<string, SlotState>> slots)
+	private void CreateFlatLayout(VBoxContainer container, List<KeyValuePair<string, SlotState>> slots, string mainMenuSlotId)
 	{
+		// Filter out the main menu slot which is shown separately
+		var filteredSlots = slots.Where(s => s.Key != mainMenuSlotId).ToList();
+		
 		// First display active slots
-		var activeSlots = slots.Where(s => s.Value.IsActive).ToList();
-		var inactiveSlots = slots.Where(s => !s.Value.IsActive && s.Value.IsUnlocked).ToList();
-		var lockedSlots = slots.Where(s => !s.Value.IsUnlocked).ToList();
+		var activeSlots = filteredSlots.Where(s => s.Value.IsActive).ToList();
+		var inactiveSlots = filteredSlots.Where(s => !s.Value.IsActive && s.Value.IsUnlocked).ToList();
+		var lockedSlots = filteredSlots.Where(s => !s.Value.IsUnlocked).ToList();
 		
 		// Display active slots
 		if (activeSlots.Any())
@@ -167,23 +219,40 @@ public partial class SlotGridDisplay : Control
 		}
 	}
 	
-	private Button CreateSlotButton(string slotId, SlotState state, string prefix)
+	private Control CreateSlotButton(string slotId, SlotState state, string prefix, bool isMainMenu = false)
 	{
+		// Create a horizontal container for button + resource indicator
+		var buttonContainer = new HBoxContainer
+		{
+			SizeFlagsHorizontal = SizeFlags.Fill
+		};
+		
+		// Create the main button
 		var button = new Button
 		{
 			Text = $"{prefix}{GetSlotSymbol(state)} [{GetSlotText(state)}]",
 			CustomMinimumSize = new Vector2(200, 30),
-			SizeFlagsHorizontal = SizeFlags.Fill,
+			SizeFlagsHorizontal = SizeFlags.Expand | SizeFlags.Fill,
 			Disabled = !state.IsUnlocked
 		};
 		
-		// Use TextAlignment to center
+		// Use TextAlignment to left align
 		button.AddThemeConstantOverride("text_alignment", (int)HorizontalAlignment.Left);
 		
 		// Style the button based on slot state
 		var style = new StyleBoxFlat();
 		
-		if (state.IsActive)
+		if (isMainMenu)
+		{
+			// Special styling for main menu
+			style.BgColor = new Color(0, 0.2f, 0.4f, 0.8f); // Blue-ish for main menu
+			style.BorderColor = new Color(0, 0.4f, 0.8f, 1.0f);
+			style.BorderWidthBottom = 2;
+			style.BorderWidthLeft = 2;
+			style.BorderWidthRight = 2;
+			style.BorderWidthTop = 2;
+		}
+		else if (state.IsActive)
 		{
 			style.BgColor = new Color(0, 0.3f, 0, 0.7f); // Green for active
 			style.BorderColor = new Color(0, 0.5f, 0, 1.0f);
@@ -211,21 +280,17 @@ public partial class SlotGridDisplay : Control
 			style.BorderWidthTop = 1;
 		}
 		
-		// Add resource indicator
-		if (state.IsActive)
-		{
-			string resourceColor = GetResourceColor(state.MemoryUsage);
-			button.Text += $" [color={resourceColor}]●[/color]";
-			button.AddThemeColorOverride("font_disabled_color", new Color(1, 1, 1, 0.7f));
-		}
-		
 		button.AddThemeStyleboxOverride("normal", style);
 		
 		// Hover style
 		var hoverStyle = style.Duplicate() as StyleBoxFlat;
 		if (hoverStyle != null)
 		{
-			if (state.IsActive)
+			if (isMainMenu)
+			{
+				hoverStyle.BgColor = new Color(0, 0.3f, 0.5f, 0.9f);
+			}
+			else if (state.IsActive)
 			{
 				hoverStyle.BgColor = new Color(0, 0.4f, 0, 0.8f);
 			}
@@ -239,7 +304,28 @@ public partial class SlotGridDisplay : Control
 		// Connect button press to slot selection in the SlotGridSystem
 		button.Pressed += () => OnSlotButtonPressed(slotId);
 		
-		return button;
+		buttonContainer.AddChild(button);
+		
+		// Add resource indicator if active
+		if (state.IsActive)
+		{
+			var resourceColor = GetResourceColor(state.MemoryUsage);
+			var resourceIndicator = new ColorRect
+			{
+				Color = resourceColor,
+				CustomMinimumSize = new Vector2(10, 10)
+			};
+
+			var indicatorContainer = new CenterContainer
+			{
+				CustomMinimumSize = new Vector2(20, 30), // Match button height
+				SizeFlagsVertical = SizeFlags.Fill
+			};
+			indicatorContainer.AddChild(resourceIndicator);
+			buttonContainer.AddChild(indicatorContainer);
+		}
+		
+		return buttonContainer;
 	}
 	
 	private string GetSlotText(SlotState state)
@@ -264,14 +350,14 @@ public partial class SlotGridDisplay : Control
 		return slot.IsActive ? "■" : "□";   // Active/Inactive
 	}
 	
-	private string GetResourceColor(float usage)
+	private Color GetResourceColor(float usage)
 	{
 		if (usage <= LOW_USAGE)
-			return "#00FF00"; // Green for low usage
+			return new Color(0, 1, 0); // Green for low usage
 		else if (usage <= MEDIUM_USAGE)
-			return "#FFFF00"; // Yellow for medium usage
+			return new Color(1, 1, 0); // Yellow for medium usage
 		else
-			return "#FF0000"; // Red for high usage
+			return new Color(1, 0, 0); // Red for high usage
 	}
 	
 	// Add a handler for button presses
