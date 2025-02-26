@@ -31,10 +31,12 @@ public partial class ProcessManager : Node, IProcessManager
     private readonly ISlotManager _slotManager;
     private readonly Dictionary<string, string> _processToSlot = new();
     private readonly SystemEventBus _eventBus;
+    private readonly ProcessSlotRegistry _registry;
    
-    public ProcessManager(ISlotManager slotManager)
+    public ProcessManager(ISlotManager slotManager, ProcessSlotRegistry registry)
     {
         _slotManager = slotManager;
+        _registry = registry;
         _eventBus = SystemEventBus.Instance;
     }
 
@@ -86,6 +88,9 @@ public partial class ProcessManager : Node, IProcessManager
         
         _processToSlot[processId] = slotId;
         
+        // Register the process-slot mapping in the registry
+        _registry.RegisterProcessSlot(processId, slotId);
+        
         // Publish event through the bus
         _eventBus.PublishProcessStarted(processId, slotId);
         
@@ -94,6 +99,7 @@ public partial class ProcessManager : Node, IProcessManager
         
         return true;
     }
+
    
     public bool UnloadProcess(string processId)
     {
@@ -107,6 +113,9 @@ public partial class ProcessManager : Node, IProcessManager
         {
             _slotManager.FreeSlot(slotId);
             _processToSlot.Remove(processId);
+            
+            // Unregister from the registry
+            _registry.UnregisterProcess(processId);
         }
         
         process.Cleanup();

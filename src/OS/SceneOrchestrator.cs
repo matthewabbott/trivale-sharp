@@ -44,16 +44,22 @@ public partial class SceneOrchestrator : Node
     private Control _mainContent;
     private Control _mainMenuScene;
     private SystemEventBus _eventBus;
+    private ProcessSlotRegistry _processSlotRegistry;
     
     [Signal]
     public delegate void SceneUnloadedEventHandler(bool returningToMainMenu);
 
-    public void Initialize(IProcessManager processManager, ISlotManager slotManager, Control mainContent)
+    public void Initialize(IProcessManager processManager, ISlotManager slotManager, 
+        ProcessSlotRegistry registry, Control mainContent)
     {
         _processManager = processManager;
         _slotManager = slotManager;
+        _processSlotRegistry = registry;
         _mainContent = mainContent;
         _eventBus = SystemEventBus.Instance;
+
+        // Subscribe to registry events
+        _processSlotRegistry.ActiveProcessChanged += OnActiveProcessChanged;
 
         // Initialize main menu as a special process
         InitializeMainMenu();
@@ -128,14 +134,39 @@ public partial class SceneOrchestrator : Node
         }
     }
 
+    private void OnActiveProcessChanged(string processId)
+    {
+        if (string.IsNullOrEmpty(processId))
+            return;
+            
+        // Show the scene associated with this process
+        if (_loadedScenes.TryGetValue(processId, out var scene))
+        {
+            ShowScene(processId);
+        }
+    }
+
     private void OnMenuOptionSelected(string scenePath, string processType)
     {
         LoadScene(processType, scenePath);
     }
 
+    public void HandleSlotSelected(string slotId, string processId)
+    {
+        if (string.IsNullOrEmpty(processId))
+            return;
+        
+        // If we have a scene for this process, show it
+        if (_loadedScenes.TryGetValue(processId, out _))
+        {
+            ShowScene(processId);
+        }
+    }
+
     /// <summary>
     /// Shows a scene for a specific process ID.
     /// Hides all other scenes in the main content area.
+    /// Sets active process in registry.
     /// </summary>
     /// <param name="processId">The ID of the process whose scene should be shown</param>
     public void ShowScene(string processId)
@@ -155,6 +186,9 @@ public partial class SceneOrchestrator : Node
         // Show requested scene
         _loadedScenes[processId].Visible = true;
         _activeProcessId = processId;
+        
+        // Update registry with active process
+        _processSlotRegistry.SetActiveProcess(processId);
         
         // Publish system mode changed based on process type
         var process = _processManager.GetProcess(processId);
@@ -411,6 +445,11 @@ public partial class SceneOrchestrator : Node
         {
             _mainMenuScene.QueueFree();
         }
+
+        if (_processSlotRegistry != null)
+        {
+            _processSlotRegistry.ActiveProcessChanged -= OnActiveProcessChanged;
+        }
         
         // Clear references
         _processManager = null;
@@ -418,5 +457,6 @@ public partial class SceneOrchestrator : Node
         _mainContent = null;
         _mainMenuScene = null;
         _activeProcessId = null;
+        _processSlotRegistry = null;
     }
 }

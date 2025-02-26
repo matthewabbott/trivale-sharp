@@ -3,6 +3,7 @@ using Godot;
 using System.Collections.Generic;
 using System.Linq;
 using Trivale.Memory.SlotManagement;
+using Trivale.Memory.ProcessManagement;
 using Trivale.OS.Events;
 
 namespace Trivale.UI.Components;
@@ -30,14 +31,22 @@ public partial class SlotGridSystem : Control
     private Dictionary<string, SlotState> _slots = new();
     private ISlotManager _slotManager;
     private SystemEventBus _eventBus;
+    private ProcessSlotRegistry _registry;
     
     [Signal]
     public delegate void SlotStateChangedEventHandler(string slotId, bool isActive, bool isUnlocked, string loadedText);
     
-    public void Initialize(ISlotManager slotManager)
+    [Signal]
+    public delegate void SlotSelectedEventHandler(string slotId, string processId);
+
+    public void Initialize(ISlotManager slotManager, ProcessSlotRegistry registry)
     {
         _slotManager = slotManager;
+        _registry = registry;
         _eventBus = SystemEventBus.Instance;
+        
+        // Subscribe to registry events
+        _registry.ProcessSlotMappingChanged += OnProcessSlotMappingChanged;
         
         // Use event bus to monitor slot changes
         _eventBus.SlotStatusChanged += OnSlotStatusChanged;
@@ -54,6 +63,23 @@ public partial class SlotGridSystem : Control
         foreach (var slot in _slotManager.GetAllSlots())
         {
             UpdateSlotState(slot);
+        }
+    }
+
+    private void OnProcessSlotMappingChanged(string processId, string slotId)
+    {
+        // Update slot state if needed
+        if (!string.IsNullOrEmpty(slotId) && _slots.TryGetValue(slotId, out var slotState))
+        {
+            var process = _registry.GetProcessForSlot(slotId);
+            var processType = process != null ? "LOADED" : "EMPTY";
+            
+            // Update the slot state and emit signal
+            slotState.LoadedText = processType;
+            _slots[slotId] = slotState;
+            
+            EmitSignal(SignalName.SlotStateChanged, slotId, slotState.IsActive, 
+                slotState.IsUnlocked, slotState.LoadedText);
         }
     }
 
@@ -180,6 +206,17 @@ public partial class SlotGridSystem : Control
         return activeSlots.Concat(inactiveSlots).Concat(lockedSlots);
     }
 
+    public void SelectSlot(string slotId)
+    {
+        if (!_slots.TryGetValue(slotId, out var state) || !state.IsUnlocked)
+            return;
+            
+        string processId = _registry.GetProcessForSlot(slotId);
+        
+        // Emit signal even if processId is null (empty slot)
+        EmitSignal(SignalName.SlotSelected, slotId, processId);
+    }
+
     // Set parent-child relationship between slots
     public void SetSlotParent(string childSlotId, string parentSlotId)
     {
@@ -242,7 +279,7 @@ public partial class SlotGridSystem : Control
     
     public SlotState? GetSlotState(string slotId) => 
         _slots.ContainsKey(slotId) ? _slots[slotId] : null;
-        
+    
     public override void _ExitTree()
     {
         // Unsubscribe from events
@@ -262,8 +299,14 @@ public partial class SlotGridSystem : Control
             _slotManager.SlotUnlocked -= OnLegacySlotUnlocked;
         }
         
+        if (_registry != null)
+        {
+            _registry.ProcessSlotMappingChanged -= OnProcessSlotMappingChanged;
+        }
+        
         // Clear references
         _slotManager = null;
+        _registry = null;
         _eventBus = null;
         _slots.Clear();
         

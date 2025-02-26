@@ -14,6 +14,7 @@ public partial class ProcessManagementTest : Control
     private Label _statusLabel;
     private VBoxContainer _slotDisplay;
     private HBoxContainer _buttonContainer;
+	private ProcessSlotRegistry _processSlotRegistry;
     
     // Test control buttons
     private Button _createProcessButton;
@@ -23,9 +24,11 @@ public partial class ProcessManagementTest : Control
     
     public override void _Ready()
     {
-        // Create managers - using a 3x2 grid for more testing space
-        _slotManager = new SlotManager(3, 2);  // 6 total slots
-        _processManager = new ProcessManager(_slotManager);
+		_processSlotRegistry = new ProcessSlotRegistry();
+
+		// Create core managers - pass registry to ProcessManager
+		_slotManager = new SlotManager(2, 2);  // 2x2 grid of slots
+		_processManager = new ProcessManager(_slotManager, _processSlotRegistry);
         
         SetupUI();
         ConnectSignals();

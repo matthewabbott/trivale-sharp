@@ -44,6 +44,7 @@ public partial class SimpleMainMenu : Control
 	private ISlotManager _slotManager;
 	private SceneOrchestrator _sceneOrchestrator;
 	private SystemEventBus _eventBus;
+	private ProcessSlotRegistry _processSlotRegistry;
 
 	public override void _Ready()
 	{
@@ -55,17 +56,20 @@ public partial class SimpleMainMenu : Control
 		// Set up event listeners
 		SubscribeToEvents();
 
-		// Create core managers
+		// Create the process-slot registry
+		_processSlotRegistry = new ProcessSlotRegistry();
+
+		// Create core managers - pass registry to ProcessManager
 		_slotManager = new SlotManager(2, 2);  // 2x2 grid of slots
-		_processManager = new ProcessManager(_slotManager);
+		_processManager = new ProcessManager(_slotManager, _processSlotRegistry);
 		_sceneOrchestrator = new SceneOrchestrator();
 		AddChild(_sceneOrchestrator);
 
 		// Set up the three-panel layout
 		SetupLayout();
 		
-		// Initialize orchestrator last (it will load the main menu scene)
-		_sceneOrchestrator.Initialize(_processManager, _slotManager, _mainContent);
+		// Initialize orchestrator last - pass registry
+		_sceneOrchestrator.Initialize(_processManager, _slotManager, _processSlotRegistry, _mainContent);
 		
 		// Listen for system mode changes
 		_eventBus.SystemModeChanged += OnSystemModeChanged;
@@ -170,7 +174,8 @@ public partial class SimpleMainMenu : Control
 
 		// Memory slot management UI
 		_slotSystem = new SlotGridSystem();
-		_slotSystem.Initialize(_slotManager);
+		_slotSystem.Initialize(_slotManager, _processSlotRegistry);
+		_slotSystem.SlotSelected += OnSlotSelected;
 		leftContent.AddChild(_slotSystem);
 
 		// Slot grid display
@@ -216,6 +221,15 @@ public partial class SimpleMainMenu : Control
 		rightPanel.AddChild(resourcePanel);
 	}
 
+	private void OnSlotSelected(string slotId, string processId)
+	{
+		GD.Print($"Slot selected: {slotId}, Process: {processId}");
+		if (_sceneOrchestrator != null && !string.IsNullOrEmpty(processId))
+		{
+			_sceneOrchestrator.HandleSlotSelected(slotId, processId);
+		}
+	}
+
 	public override void _ExitTree()
 	{
 		// Unsubscribe from events
@@ -232,12 +246,18 @@ public partial class SimpleMainMenu : Control
 		{
 			_sceneOrchestrator.QueueFree();
 		}
+
+		if (_slotSystem != null)
+		{
+			_slotSystem.SlotSelected -= OnSlotSelected;
+		}
 		
 		// Clear references
 		_processManager = null;
 		_slotManager = null;
 		_sceneOrchestrator = null;
 		_eventBus = null;
+		_processSlotRegistry = null;
 		
 		base._ExitTree();
 	}

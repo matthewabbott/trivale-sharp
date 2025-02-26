@@ -42,6 +42,58 @@ public partial class SlotGridDisplay : Control
         AddChild(richTextLabel);
         _displayLabel = richTextLabel;
     }
+
+    private Control CreateSlotVisual(string slotId, SlotState state)
+    {
+        var container = new VBoxContainer
+        {
+            CustomMinimumSize = new Vector2(200, 0),
+            SizeFlagsHorizontal = SizeFlags.Fill
+        };
+        
+        // Create a button for slot selection
+        var button = new Button
+        {
+            Text = state.IsActive 
+                ? $"{GetSlotSymbol(state)} [{state.LoadedText}]" 
+                : $"{GetSlotSymbol(state)} [EMPTY]",
+            SizeFlagsHorizontal = SizeFlags.Fill
+        };
+        
+        // Style the button based on state
+        var style = new StyleBoxFlat();
+        
+        if (state.IsActive)
+        {
+            style.BgColor = new Color(0, 0.3f, 0, 0.7f); // Green for active
+        }
+        else if (state.IsUnlocked)
+        {
+            style.BgColor = new Color(0.1f, 0.1f, 0.1f, 0.7f); // Dark for unlocked
+        }
+        else
+        {
+            style.BgColor = new Color(0.2f, 0, 0, 0.5f); // Red for locked
+            button.Disabled = true;
+        }
+        
+        button.AddThemeStyleboxOverride("normal", style);
+        
+        // Connect the button's pressed signal
+        button.Pressed += () => OnSlotButtonPressed(slotId);
+        
+        container.AddChild(button);
+        
+        return container;
+    }
+
+    private void OnSlotButtonPressed(string slotId)
+    {
+        if (_slotSystem != null)
+        {
+            _slotSystem.SelectSlot(slotId);
+        }
+    }
     
     private void OnSlotStateChanged(string slotId, bool isActive, bool isUnlocked, string loadedText)
     {
