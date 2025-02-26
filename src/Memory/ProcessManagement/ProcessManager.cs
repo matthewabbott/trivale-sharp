@@ -6,6 +6,7 @@ using System.Linq;
 using Trivale.Memory.SlotManagement;
 using Trivale.OS.Events;
 using Trivale.OS.MainMenu.Processes;
+using Trivale.Encounters.CardGame;
 
 namespace Trivale.Memory.ProcessManagement;
 
@@ -46,7 +47,7 @@ public partial class ProcessManager : Node, IProcessManager
         
         IProcess newProcess = processType switch
         {
-            "CardGame" => new CardGameMenuProcess(processId),
+            "CardGame" => new CardGameProcess(processId),
             "Debug" => new DebugMenuProcess(processId),
             "MainMenu" => new MainMenuProcess(processId),
             _ => null
