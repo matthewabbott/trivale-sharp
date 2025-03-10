@@ -33,6 +33,40 @@ public partial class SlotManager : Node, ISlotManager
         InitializeSlots();
     }
     
+    public void InitializeMainMenuSlot()
+    {
+        string mainMenuSlotId = "slot_0_0";
+        ISlot slot = GetSlot(mainMenuSlotId);
+        
+        if (slot == null)
+        {
+            // Create the slot directly with the desired ID
+            var position = new Vector2I(0, 0);
+            float slotMemory = _totalMemory / (_gridWidth * _gridHeight);
+            float slotCpu = _totalCpu / (_gridWidth * _gridHeight);
+            
+            slot = new Slot(
+                id: mainMenuSlotId,
+                position: position,
+                maxMemory: slotMemory,
+                maxCpu: slotCpu,
+                startUnlocked: true
+            );
+            
+            _slots[mainMenuSlotId] = slot;
+            GD.Print($"Created slot_0_0 for main menu");
+            
+            // Publish events for the new slot
+            _eventBus.PublishSlotUnlocked(mainMenuSlotId);
+            _eventBus.PublishSlotStatusChanged(mainMenuSlotId, SlotStatus.Empty);
+        }
+        else if (!slot.IsUnlocked)
+        {
+            UnlockSlot(mainMenuSlotId);
+            GD.Print($"Unlocked slot_0_0 for main menu");
+        }
+    }
+    
     private void InitializeSlots()
     {
         float slotMemory = _totalMemory / (_gridWidth * _gridHeight);
@@ -63,6 +97,9 @@ public partial class SlotManager : Node, ISlotManager
                 }
             }
         }
+        
+        // Ensure main menu slot is properly initialized
+        InitializeMainMenuSlot();
     }
     
     public bool TryLoadProcessIntoSlot(IProcess process, out string slotId)
