@@ -9,17 +9,6 @@ using Trivale.OS.MainMenu.Processes;
 
 namespace Trivale.Memory.ProcessManagement;
 
-/// <summary>
-/// Manages process lifecycle and coordinates with the slot system. Acts as the
-/// central authority for process creation, loading, and cleanup.
-/// 
-/// The ProcessManager owns the relationship between processes and slots, delegating
-/// slot management to the SlotManager while maintaining the process-to-slot mapping
-/// and handling resource cleanup.
-/// 
-/// This version is decoupled from UI and uses the SystemEventBus to communicate
-/// state changes, rather than direct event callbacks.
-/// </summary>
 public partial class ProcessManager : Node, IProcessManager
 {
     // These events are kept for backward compatibility but should be replaced with the event bus
@@ -38,6 +27,11 @@ public partial class ProcessManager : Node, IProcessManager
         _slotManager = slotManager;
         _registry = registry;
         _eventBus = SystemEventBus.Instance;
+    }
+
+    public string CreateMainMenuProcess(string specificId = "mainmenu")
+    {
+        return CreateProcess("MainMenu", null, specificId);
     }
 
     public string CreateProcess(string processType, Dictionary<string, object> initParams = null, string specificId = null)
@@ -70,6 +64,28 @@ public partial class ProcessManager : Node, IProcessManager
         return processId;
     }
 
+    private void InitializeMainMenu()
+    {
+        var mainMenuProcessId = CreateMainMenuProcess();
+        if (mainMenuProcessId != null && StartProcess(mainMenuProcessId, out string slotId))
+        {
+            GD.Print($"Started MainMenuProcess in slot {slotId}");
+            
+            // Set as active process after starting
+            _registry.SetActiveProcess(mainMenuProcessId);
+        }
+        else
+        {
+            GD.PrintErr($"Failed to start MainMenuProcess (ID: {mainMenuProcessId})");
+        }
+    }
+
+    public override void _Ready()
+    {
+        // Initialize the main menu process
+        InitializeMainMenu();
+    }
+
     public bool StartProcess(string processId, out string slotId)
     {
         slotId = null;
@@ -99,7 +115,6 @@ public partial class ProcessManager : Node, IProcessManager
         
         return true;
     }
-
    
     public bool UnloadProcess(string processId)
     {
