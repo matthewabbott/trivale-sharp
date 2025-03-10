@@ -1,0 +1,194 @@
+Below is a Technical Specification and Implementation Plan for converting the Main Menu into a standard process within the game's architecture. This document is designed for Software Engineer Claude Sonnet 3.7 to follow, ensuring the Main Menu is managed uniformly by the existing process and slot management systems in the Trivale codebase. The goal is to reduce special-case code and enhance architectural consistency.
+Technical Specification and Implementation Plan for Converting the Main Menu to a Standard Process
+Objective
+Transform the Main Menu into a standard process that integrates seamlessly with the existing process and slot management systems. This will allow the ProcessManager, SlotManager, and SceneOrchestrator to handle the Main Menu like any other game process, such as a card game encounter, thereby simplifying the codebase and improving maintainability.
+Components Involved
+New Component: MainMenuProcess
+A new class to encapsulate the Main Menu as a process implementing the IProcess interface.
+Existing Components:
+ProcessManager: Manages the lifecycle of processes (creation, starting, ending).
+SlotManager: Handles slot allocation and resource management for processes.
+SceneOrchestrator: Loads and switches scenes associated with processes.
+SlotGridSystem and SlotGridDisplay: Visualize processes in MEM slots.
+SystemEventBus: Facilitates communication between components.
+Implementation Steps
+1. Create the MainMenuProcess Class
+Purpose: Define the Main Menu as a process that adheres to the IProcess interface.
+Location: Place this in src/OS/MainMenu/Processes/MainMenuProcess.cs (already exists in the codebase but may need adjustment).
+Details:
+Inherit from BaseProcess to leverage common process functionality.
+Set the process type to "MainMenu".
+Associate it with the Main Menu scene (e.g., SimpleMainMenu.tscn or MainMenuScene.tscn, depending on the desired implementation; SimpleMainMenu.tscn is the current default per project.godot).
+Implement lifecycle methods:
+Initialize(): Set up initial state.
+Start(): Instruct SceneOrchestrator to load the Main Menu scene.
+Update(): Handle ongoing logic (if any).
+Exit(): Clean up resources when deactivated.
+Sample Code:
+csharp
+// src/OS/MainMenu/Processes/MainMenuProcess.cs
+using Godot;
+using Trivale.Memory.ProcessManagement;
+using Trivale.OS;
+
+public partial class MainMenuProcess : BaseProcess
+{
+    public override string Type => "MainMenu";
+    public string ScenePath => "res://Scenes/MainMenu/SimpleMainMenu.tscn";
+
+    public override void Initialize(Dictionary<string, object> initParams = null)
+    {
+        // Set up initial state if needed (e.g., menu options)
+        base.Initialize(initParams);
+    }
+
+    public override void Start()
+    {
+        // Load the Main Menu scene via SceneOrchestrator
+        SceneOrchestrator.Instance.ShowScene(Id);
+    }
+
+    public override void Update(float delta)
+    {
+        // Optional: Add logic if the Main Menu needs continuous updates
+    }
+
+    public override void Exit()
+    {
+        // Clean up resources or state when switching away
+    }
+}
+2. Integrate with ProcessManager
+Purpose: Enable ProcessManager to create and manage the MainMenuProcess.
+Location: Modify src/Memory/ProcessManagement/ProcessManager.cs.
+Details:
+Add a method to create the MainMenuProcess explicitly, or use the generic CreateProcess method with type "MainMenu".
+Ensure the MainMenuProcess is started in a designated slot (e.g., slot_0_0) at game launch.
+Sample Code:
+csharp
+// src/Memory/ProcessManagement/ProcessManager.cs
+public partial class ProcessManager : Node, IProcessManager
+{
+    public string CreateMainMenuProcess()
+    {
+        return CreateProcess("MainMenu");
+    }
+
+    public override void _Ready()
+    {
+        // Automatically start the Main Menu process on game launch
+        string processId = CreateMainMenuProcess();
+        StartProcess(processId, out string slotId);
+    }
+}
+3. Handle Slot Assignment with SlotManager
+Purpose: Assign the MainMenuProcess to a specific slot, such as slot_0_0.
+Location: Modify src/Memory/SlotManagement/SlotManager.cs.
+Details:
+Reserve slot_0_0 for the Main Menu, ensuring it’s unlocked and available at startup.
+Optionally, designate it as a "system slot" to prevent unloading.
+Load the MainMenuProcess into this slot during initialization.
+Sample Code:
+csharp
+// src/Memory/SlotManagement/SlotManager.cs
+public partial class SlotManager : Node, ISlotManager
+{
+    public void InitializeMainMenuSlot()
+    {
+        string slotId = "slot_0_0";
+        ISlot slot = GetSlot(slotId);
+        if (slot == null)
+        {
+            slotId = CreateNewSlot(true); // Create and unlock slot_0_0
+        }
+        else if (!slot.IsUnlocked)
+        {
+            UnlockSlot(slotId);
+        }
+    }
+
+    public override void _Ready()
+    {
+        InitializeMainMenuSlot();
+    }
+}
+4. Update SceneOrchestrator for Main Menu Scene Management
+Purpose: Ensure the SceneOrchestrator loads the Main Menu scene when MainMenuProcess is activated.
+Location: Modify src/OS/SceneOrchestrator.cs.
+Details:
+Update ShowScene to load the scene specified by the process (e.g., SimpleMainMenu.tscn).
+Handle scene transitions smoothly when switching to/from the Main Menu.
+Sample Code:
+csharp
+// src/OS/SceneOrchestrator.cs
+public partial class SceneOrchestrator : Node
+{
+    public void ShowScene(string processId)
+    {
+        var process = ProcessManager.Instance.GetProcess(processId);
+        if (process is MainMenuProcess mainMenuProcess)
+        {
+            LoadScene("MainMenu", mainMenuProcess.ScenePath);
+        }
+        _activeProcessId = processId;
+    }
+}
+5. Adjust SlotGridSystem and SlotGridDisplay
+Purpose: Visually represent the MainMenuProcess in its slot with appropriate styling.
+Location: Modify src/UI/Components/SlotGridSystem.cs and src/UI/Components/SlotGridDisplay.cs.
+Details:
+In SlotGridDisplay, maintain special styling for slot_0_0 (already present for "MainMenu" slots).
+Ensure selecting the slot activates the MainMenuProcess.
+Sample Code:
+csharp
+// src/UI/Components/SlotGridDisplay.cs
+private Control CreateSlotButton(string slotId, SlotState state, string prefix, bool isMainMenu = false)
+{
+    var button = new Button
+    {
+        Text = $"{prefix}{GetSlotSymbol(state)} [{GetSlotText(state)}]",
+        Disabled = !state.IsUnlocked
+    };
+    if (slotId == "slot_0_0") // Special case for Main Menu
+    {
+        isMainMenu = true;
+    }
+    // Existing styling logic remains; ensure isMainMenu applies blue styling
+    button.Pressed += () => OnSlotButtonPressed(slotId);
+    return button; // Simplified; add container and resource indicator as needed
+}
+6. Handle Main Menu Interactions
+Purpose: Allow the Main Menu to trigger actions like starting a new game.
+Location: Modify src/OS/MainMenu/SimpleMainMenu.cs or MainMenuScene.cs.
+Details:
+Connect UI elements (e.g., buttons) to methods that interact with ProcessManager or SystemEventBus.
+For example, a "Start Game" button creates a new game process.
+Sample Code:
+csharp
+// src/OS/MainMenu/SimpleMainMenu.cs
+public partial class SimpleMainMenu : Control
+{
+    private void OnStartGameButtonPressed()
+    {
+        ProcessManager.Instance.CreateProcess("CardGame");
+        // Optionally switch to the new process via SceneOrchestrator
+    }
+}
+Potential Challenges
+Smooth Transitions: Ensure activating/deactivating the Main Menu doesn’t disrupt gameplay flow. Test scene switching with SceneOrchestrator.
+Game Startup: Guarantee the Main Menu loads automatically on launch. Verify ProcessManager and SlotManager initialization.
+State Preservation: Decide if the Main Menu needs state preservation (e.g., selected options) when switching processes. Implement if necessary in MainMenuProcess.
+Testing Plan
+Startup Test: Confirm the Main Menu loads in slot_0_0 when the game starts.
+Activation Test: Select the Main Menu slot and verify the scene displays correctly.
+Switching Test: Switch between the Main Menu and another process (e.g., CardGame), ensuring proper state handling.
+Interaction Test: Trigger actions from the Main Menu (e.g., start a game) and validate process creation.
+Documentation Updates
+Architecture Design: Update architecture_design.txt to note that MainMenuScene is now managed as a process via MainMenuProcess.
+Code Comments: Add comments in MainMenuProcess.cs explaining its role and any special handling (e.g., slot_0_0 reservation).
+Final Notes
+This plan leverages the existing Trivale architecture, aligning the Main Menu with the process-slot paradigm. Software Engineer Claude should:
+Start by implementing MainMenuProcess and integrating it with ProcessManager.
+Test incrementally after each step to catch issues early.
+Refer to the codebase (e.g., BaseProcess.cs, SceneOrchestrator.cs) for exact method signatures, as some assumptions are made due to incomplete code snippets.
+If questions arise, consult the architecture_design.txt or escalate to a senior engineer for clarification. Happy coding!
