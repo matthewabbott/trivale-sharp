@@ -77,7 +77,7 @@ public partial class ProcessManager : Node, IProcessManager
         
         GD.Print($"Created MainMenuProcess with ID: {mainMenuProcessId}");
         
-        if (StartProcess(mainMenuProcessId, out string slotId))
+        if (StartProcess(mainMenuProcessId, "slot_0_0", out string slotId))
         {
             GD.Print($"Successfully started MainMenuProcess in slot {slotId}");
             
