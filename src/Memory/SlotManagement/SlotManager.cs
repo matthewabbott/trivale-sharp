@@ -147,6 +147,49 @@ public partial class SlotManager : Node, ISlotManager
             return false;
         }
     }
+
+    public bool TryLoadProcessIntoSpecificSlot(IProcess process, string slotId)
+    {
+        if (!_slots.TryGetValue(slotId, out var slot))
+        {
+            GD.PrintErr($"Slot {slotId} not found for specific load");
+            return false;
+        }
+        
+        if (slot.Status != SlotStatus.Empty || !slot.IsUnlocked)
+        {
+            GD.PrintErr($"Slot {slotId} is not available (Status: {slot.Status}, Unlocked: {slot.IsUnlocked})");
+            return false;
+        }
+        
+        try
+        {
+            if (slot is Slot mutableSlot)
+            {
+                mutableSlot.LoadProcess(process);
+                
+                // Publish slot status change
+                _eventBus.PublishSlotStatusChanged(slot.Id, slot.Status);
+                _eventBus.PublishSlotResourcesChanged(slot.Id, slot.MemoryUsage, slot.CpuUsage);
+                
+                // Update system resources
+                UpdateSystemResources();
+                
+                GD.Print($"Successfully loaded process {process.Type} into specific slot {slotId}");
+                return true;
+            }
+            else
+            {
+                GD.PrintErr($"Slot {slotId} cannot be cast to Slot type");
+                return false;
+            }
+        }
+        catch (Exception e)
+        {
+            GD.PrintErr($"Failed to load process into specific slot {slotId}: {e.Message}");
+            return false;
+        }
+    }
     
     public void FreeSlot(string slotId)
     {

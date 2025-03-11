@@ -98,6 +98,12 @@ public partial class ProcessManager : Node, IProcessManager
 
     public bool StartProcess(string processId, out string slotId)
     {
+        // Call the overload with null preferredSlotId
+        return StartProcess(processId, null, out slotId);
+    }
+
+    public bool StartProcess(string processId, string preferredSlotId, out string slotId)
+    {
         slotId = null;
         if (!_processes.TryGetValue(processId, out var process))
         {
@@ -105,25 +111,52 @@ public partial class ProcessManager : Node, IProcessManager
             return false;
         }
         
-        // Try to load into a slot
-        if (!_slotManager.TryLoadProcessIntoSlot(process, out slotId))
+        // For MainMenu or when a specific slot is requested
+        if (process.Type == "MainMenu" || !string.IsNullOrEmpty(preferredSlotId))
         {
-            GD.PrintErr("Failed to load process into any slot.");
-            return false;
+            string targetSlotId = preferredSlotId ?? "slot_0_0"; // Use slot_0_0 by default for MainMenu
+            
+            if (_slotManager.TryLoadProcessIntoSpecificSlot(process, targetSlotId))
+            {
+                slotId = targetSlotId;
+                _processToSlot[processId] = slotId;
+                
+                // Register the process-slot mapping in the registry
+                _registry.RegisterProcessSlot(processId, slotId);
+                
+                // Publish event through the bus
+                _eventBus.PublishProcessStarted(processId, slotId);
+                
+                // Legacy event invocation
+                ProcessStarted?.Invoke(processId, slotId);
+                
+                GD.Print($"Started process {processId} ({process.Type}) in specific slot {slotId}");
+                return true;
+            }
+            else
+            {
+                GD.PrintErr($"Failed to load process {processId} into specific slot {targetSlotId}");
+                return false;
+            }
+        }
+        // Original behavior for other processes
+        else if (_slotManager.TryLoadProcessIntoSlot(process, out slotId))
+        {
+            _processToSlot[processId] = slotId;
+            
+            // Register the process-slot mapping in the registry
+            _registry.RegisterProcessSlot(processId, slotId);
+            
+            // Publish event through the bus
+            _eventBus.PublishProcessStarted(processId, slotId);
+            
+            // Legacy event invocation
+            ProcessStarted?.Invoke(processId, slotId);
+            
+            return true;
         }
         
-        _processToSlot[processId] = slotId;
-        
-        // Register the process-slot mapping in the registry
-        _registry.RegisterProcessSlot(processId, slotId);
-        
-        // Publish event through the bus
-        _eventBus.PublishProcessStarted(processId, slotId);
-        
-        // Legacy event invocation
-        ProcessStarted?.Invoke(processId, slotId);
-        
-        return true;
+        return false;
     }
    
     public bool UnloadProcess(string processId)

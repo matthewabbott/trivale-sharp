@@ -21,6 +21,7 @@ public interface ISlotManager
     event Action<string> SlotLocked;
     
     bool TryLoadProcessIntoSlot(IProcess process, out string slotId);
+    bool TryLoadProcessIntoSpecificSlot(IProcess process, string slotId);
     void FreeSlot(string slotId);
     bool UnlockSlot(string slotId);
     bool LockSlot(string slotId);  // Method for locking slots

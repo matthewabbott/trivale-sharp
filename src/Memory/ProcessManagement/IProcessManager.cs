@@ -20,6 +20,7 @@ public interface IProcessManager
     event Action<string> ProcessStateChanged;    // processId
     
     string CreateProcess(string processType, Dictionary<string, object> initParams = null, string specificId = null);
+    bool StartProcess(string processId, string preferredSlotId, out string slotId);
     bool StartProcess(string processId, out string slotId);
     bool UnloadProcess(string processId);
     IProcess GetProcess(string processId);
