@@ -35,6 +35,7 @@ public partial class SlotManager : Node, ISlotManager
     
     public void InitializeMainMenuSlot()
     {
+        GD.Print("Initializing main menu slot (slot_0_0)...");
         string mainMenuSlotId = "slot_0_0";
         ISlot slot = GetSlot(mainMenuSlotId);
         
@@ -62,8 +63,18 @@ public partial class SlotManager : Node, ISlotManager
         }
         else if (!slot.IsUnlocked)
         {
-            UnlockSlot(mainMenuSlotId);
-            GD.Print($"Unlocked slot_0_0 for main menu");
+            if (UnlockSlot(mainMenuSlotId))
+            {
+                GD.Print($"Unlocked slot_0_0 for main menu");
+            }
+            else
+            {
+                GD.PrintErr("Failed to unlock slot_0_0");
+            }
+        }
+        else
+        {
+            GD.Print("slot_0_0 already exists and is unlocked");
         }
     }
     

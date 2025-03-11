@@ -63,13 +63,23 @@ public partial class ProcessManager : Node, IProcessManager
         
         return processId;
     }
-
+    
     private void InitializeMainMenu()
     {
+        GD.Print("Attempting to initialize main menu process...");
         var mainMenuProcessId = CreateMainMenuProcess();
-        if (mainMenuProcessId != null && StartProcess(mainMenuProcessId, out string slotId))
+        
+        if (mainMenuProcessId == null)
         {
-            GD.Print($"Started MainMenuProcess in slot {slotId}");
+            GD.PrintErr("Failed to create MainMenuProcess");
+            return;
+        }
+        
+        GD.Print($"Created MainMenuProcess with ID: {mainMenuProcessId}");
+        
+        if (StartProcess(mainMenuProcessId, out string slotId))
+        {
+            GD.Print($"Successfully started MainMenuProcess in slot {slotId}");
             
             // Set as active process after starting
             _registry.SetActiveProcess(mainMenuProcessId);

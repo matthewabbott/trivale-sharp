@@ -24,7 +24,7 @@ public class MainMenuProcess : BaseProcess
         ["CPU"] = 0.05f  // Minimal CPU usage
     };
     
-    public string ScenePath => "res://Scenes/MainMenu/SimpleMainMenu.tscn";
+    public string ScenePath => "res://Scenes/MainMenu/MainMenuScene.tscn";
     
     public MainMenuProcess(string id) : base(id) { }
     
