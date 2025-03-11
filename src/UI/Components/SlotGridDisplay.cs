@@ -221,30 +221,24 @@ public partial class SlotGridDisplay : Control
 	
 	private Control CreateSlotButton(string slotId, SlotState state, string prefix, bool isMainMenu = false)
 	{
-		// Create a horizontal container for button + resource indicator
-		var buttonContainer = new HBoxContainer
+		// Special case for main menu - only use slot_0_0
+		if (slotId == "slot_0_0")
 		{
-			SizeFlagsHorizontal = SizeFlags.Fill
-		};
+			isMainMenu = true;
+		}
 		
-		// Create the main button
 		var button = new Button
 		{
 			Text = $"{prefix}{GetSlotSymbol(state)} [{GetSlotText(state)}]",
-			CustomMinimumSize = new Vector2(200, 30),
-			SizeFlagsHorizontal = SizeFlags.Expand | SizeFlags.Fill,
 			Disabled = !state.IsUnlocked
 		};
-		
-		// Use TextAlignment to left align
-		button.AddThemeConstantOverride("text_alignment", (int)HorizontalAlignment.Left);
 		
 		// Style the button based on slot state
 		var style = new StyleBoxFlat();
 		
 		if (isMainMenu)
 		{
-			// Special styling for main menu
+			// Blue styling for main menu
 			style.BgColor = new Color(0, 0.2f, 0.4f, 0.8f); // Blue-ish for main menu
 			style.BorderColor = new Color(0, 0.4f, 0.8f, 1.0f);
 			style.BorderWidthBottom = 2;
@@ -254,6 +248,7 @@ public partial class SlotGridDisplay : Control
 		}
 		else if (state.IsActive)
 		{
+			// Green styling for active slots
 			style.BgColor = new Color(0, 0.3f, 0, 0.7f); // Green for active
 			style.BorderColor = new Color(0, 0.5f, 0, 1.0f);
 			style.BorderWidthBottom = 1;
@@ -263,6 +258,7 @@ public partial class SlotGridDisplay : Control
 		}
 		else if (state.IsUnlocked)
 		{
+			// Dark styling for unlocked but inactive slots
 			style.BgColor = new Color(0.1f, 0.1f, 0.1f, 0.7f); // Dark for unlocked
 			style.BorderColor = new Color(0.3f, 0.3f, 0.3f, 1.0f);
 			style.BorderWidthBottom = 1;
@@ -272,6 +268,7 @@ public partial class SlotGridDisplay : Control
 		}
 		else
 		{
+			// Red styling for locked slots
 			style.BgColor = new Color(0.2f, 0, 0, 0.5f); // Red for locked
 			style.BorderColor = new Color(0.4f, 0, 0, 0.7f);
 			style.BorderWidthBottom = 1;
@@ -304,28 +301,7 @@ public partial class SlotGridDisplay : Control
 		// Connect button press to slot selection in the SlotGridSystem
 		button.Pressed += () => OnSlotButtonPressed(slotId);
 		
-		buttonContainer.AddChild(button);
-		
-		// Add resource indicator if active
-		if (state.IsActive)
-		{
-			var resourceColor = GetResourceColor(state.MemoryUsage);
-			var resourceIndicator = new ColorRect
-			{
-				Color = resourceColor,
-				CustomMinimumSize = new Vector2(10, 10)
-			};
-
-			var indicatorContainer = new CenterContainer
-			{
-				CustomMinimumSize = new Vector2(20, 30), // Match button height
-				SizeFlagsVertical = SizeFlags.Fill
-			};
-			indicatorContainer.AddChild(resourceIndicator);
-			buttonContainer.AddChild(indicatorContainer);
-		}
-		
-		return buttonContainer;
+		return button;
 	}
 	
 	private string GetSlotText(SlotState state)
