@@ -92,10 +92,11 @@ public partial class ProcessManager : Node, IProcessManager
 
     public override void _Ready()
     {
+        GD.Print("ProcessManager._Ready called");
+        
         // Initialize the main menu process
         InitializeMainMenu();
     }
-
     public bool StartProcess(string processId, out string slotId)
     {
         // Call the overload with null preferredSlotId

@@ -40,14 +40,15 @@ public partial class SimpleMainMenu : Control
 	private Control _mainContent;
 	
 	// Core system managers
-	private IProcessManager _processManager;
-	private ISlotManager _slotManager;
+	private SlotManager _slotManager;
+	private ProcessManager _processManager;
 	private SceneOrchestrator _sceneOrchestrator;
 	private SystemEventBus _eventBus;
 	private ProcessSlotRegistry _processSlotRegistry;
 
 	public override void _Ready()
 	{
+		GD.Print("SimpleMainMenu._Ready started"); // Diagnostic log
 		CustomMinimumSize = new Vector2(800, 600);
 
 		// Get instance of event bus
@@ -63,6 +64,10 @@ public partial class SimpleMainMenu : Control
 		_slotManager = new SlotManager(2, 2);  // 2x2 grid of slots
 		_processManager = new ProcessManager(_slotManager, _processSlotRegistry);
 		_sceneOrchestrator = new SceneOrchestrator();
+		
+		// Add managers as children to ensure their _Ready methods are called
+		AddChild(_slotManager);      // Ensure SlotManager._Ready runs
+		AddChild(_processManager);   // Ensure ProcessManager._Ready runs
 		AddChild(_sceneOrchestrator);
 
 		// Set up the three-panel layout
@@ -73,6 +78,7 @@ public partial class SimpleMainMenu : Control
 		
 		// Listen for system mode changes
 		_eventBus.SystemModeChanged += OnSystemModeChanged;
+		GD.Print("SimpleMainMenu._Ready completed"); // Confirm completion
 	}
 	
 	private void SubscribeToEvents()
