@@ -1,0 +1,194 @@
+Below is a tech spec and implementation plan addendum tailored for your request to refactor SimpleMainMenu.cs into GameShell.cs, streamline the MainMenuProcess integration, and prepare Trivale for future expansion while minimizing excess complexity from the feature branch. This is written in a clear, concise format suitable for sharing with a coding agent (human or AI), focusing on the “what,” “why,” and “how” of the changes.
+Trivale: Tech Spec and Implementation Plan Addendum
+Tech Spec: Refactor SimpleMainMenu to GameShell
+Objective
+Refactor SimpleMainMenu.cs into GameShell.cs to serve as a lightweight system bootstrapper, delegating main menu logic to MainMenuProcess.cs. This reduces the monolithic nature of SimpleMainMenu, aligns with Trivale’s process-slot architecture, and prepares the system for future main menu expansion (e.g., roguelite mode, editors) while simplifying the codebase by removing unnecessary feature branch complexity.
+Background
+The feature branch aimed to integrate the main menu as a process but introduced timing issues and excess complexity (e.g., static SceneOrchestrator.Instance). The master branch’s SimpleMainMenu.cs initializes managers and loads scenes, but its growing responsibilities risk future bloat. Refactoring to GameShell balances architectural purity with practicality, treating the main menu as a process without overcomplicating startup.
+Requirements
+GameShell:
+Initializes core managers (SlotManager, ProcessManager, SceneOrchestrator).
+Sets up the three-panel UI layout (slots, main content, resources).
+Starts MainMenuProcess in slot_0_0 as a standard process.
+Avoids static dependencies (e.g., no SceneOrchestrator.Instance).
+MainMenuProcess:
+Loads MainMenuScene.tscn via SceneOrchestrator when started.
+Accepts an explicit SceneOrchestrator reference for scene management.
+SceneOrchestrator:
+Loads scenes for active processes, ensuring MainMenuScene.tscn appears at startup.
+Maintains consistency across all process-driven scenes.
+ProcessManager:
+Creates and starts processes with explicit SceneOrchestrator injection.
+Slot UI: Reflects MainMenuProcess in slot_0_0 naturally via existing SlotGridSystem.
+Design Principles
+Single Responsibility: GameShell bootstraps; processes (e.g., MainMenuProcess) handle logic.
+Clean Dependencies: Pass SceneOrchestrator explicitly, avoiding singletons.
+Future-Proofing: Enable main menu expansion as a process without bloating GameShell.
+Simplicity: Remove feature branch cruft (e.g., static Instance, redundant timing fixes).
+Success Criteria
+GameShell.tscn loads at startup (project.godot).
+MainMenuScene.tscn appears in the main content panel.
+slot_0_0 shows “mainmenu” in the slot UI.
+Clicking “CARD GAME” or “DEBUG SANDBOX” loads respective scenes via SceneOrchestrator.
+No errors or null references in logs.
+Implementation Plan Addendum
+Scope
+This addendum refines the feature branch’s MainMenuProcess integration by refactoring SimpleMainMenu.cs into GameShell.cs and adjusting related files. It removes unnecessary complexity while retaining the process-slot model.
+Tasks
+1. Refactor SimpleMainMenu.cs to GameShell.cs
+File: src/OS/MainMenu/GameShell.cs (rename from SimpleMainMenu.cs)
+Changes:
+Rename class to GameShell.
+Keep three-panel layout (SetupLayout) and manager initialization.
+Replace manual MainMenuProcess startup with streamlined process creation:
+csharp
+public override void _Ready()
+{
+    GD.Print("GameShell._Ready started");
+    CustomMinimumSize = new Vector2(800, 600);
+
+    _eventBus = SystemEventBus.Instance;
+    SubscribeToEvents();
+
+    _processSlotRegistry = new ProcessSlotRegistry();
+    _slotManager = new SlotManager(2, 2);
+    _processManager = new ProcessManager(_slotManager, _processSlotRegistry);
+    _sceneOrchestrator = new SceneOrchestrator();
+
+    AddChild(_slotManager);
+    AddChild(_processManager);
+    AddChild(_sceneOrchestrator);
+
+    SetupLayout();
+    _sceneOrchestrator.Initialize(_processManager, _slotManager, _processSlotRegistry, _mainContent);
+
+    string processId = _processManager.CreateProcess("MainMenu", null, "mainmenu");
+    if (_processManager.StartProcess(processId, "slot_0_0", out string slotId))
+    {
+        GD.Print($"Main menu started in {slotId}");
+        _processSlotRegistry.SetActiveProcess(processId);
+    }
+    else
+    {
+        GD.PrintErr("Failed to start main menu process");
+    }
+
+    _eventBus.SystemModeChanged += OnSystemModeChanged;
+    GD.Print("GameShell._Ready completed");
+}
+Notes: No static dependencies; SceneOrchestrator is passed to processes via ProcessManager.
+2. Update MainMenuProcess.cs
+File: src/OS/MainMenu/Processes/MainMenuProcess.cs
+Changes:
+Add SceneOrchestrator field and modify Initialize to accept it:
+csharp
+private SceneOrchestrator _orchestrator;
+
+public void Initialize(SceneOrchestrator orchestrator, Dictionary<string, object> initialState)
+{
+    _orchestrator = orchestrator;
+    base.Initialize(initialState);
+    State["scenePath"] = ScenePath;
+    GD.Print($"MainMenuProcess {Id} initialized");
+}
+
+public override void Start()
+{
+    GD.Print("MainMenuProcess.Start called");
+    if (_orchestrator != null)
+    {
+        _orchestrator.ShowScene(Id);
+    }
+    else
+    {
+        GD.PrintErr("SceneOrchestrator not set in MainMenuProcess");
+    }
+}
+Notes: Removes reliance on static Instance, ensuring explicit dependency.
+3. Simplify SceneOrchestrator.cs
+File: src/OS/SceneOrchestrator.cs
+Changes:
+Remove static Instance and its _Ready setup.
+Adjust OnActiveProcessChanged to load scenes:
+csharp
+private void OnActiveProcessChanged(string processId)
+{
+    if (string.IsNullOrEmpty(processId)) return;
+    ShowScene(processId); // Load or show the scene
+}
+Ensure ShowScene works without statics (already uses _processManager).
+Notes: Keeps scene loading logic but simplifies dependency management.
+4. Adjust ProcessManager.cs
+File: src/Memory/ProcessManagement/ProcessManager.cs
+Changes:
+Add SceneOrchestrator field and pass it to processes:
+csharp
+private SceneOrchestrator _sceneOrchestrator;
+
+public ProcessManager(ISlotManager slotManager, ProcessSlotRegistry registry, SceneOrchestrator sceneOrchestrator)
+{
+    _slotManager = slotManager;
+    _registry = registry;
+    _sceneOrchestrator = sceneOrchestrator;
+    _processes = new Dictionary<string, IProcess>();
+    _processToSlot = new Dictionary<string, string>();
+}
+
+public string CreateProcess(string processType, Dictionary<string, object> initParams = null, string specificId = null)
+{
+    IProcess process = processType switch
+    {
+        "MainMenu" => new MainMenuProcess(specificId ?? Guid.NewGuid().ToString()),
+        "CardGame" => new CardGameMenuProcess(specificId ?? Guid.NewGuid().ToString()),
+        "Debug" => new DebugMenuProcess(specificId ?? Guid.NewGuid().ToString()),
+        _ => null
+    };
+    if (process != null)
+    {
+        process.Initialize(_sceneOrchestrator, initParams ?? new());
+        _processes[process.Id] = process;
+        _eventBus.PublishProcessCreated(process.Id);
+        return process.Id;
+    }
+    return null;
+}
+Notes: Injects SceneOrchestrator at construction, ensuring processes get it.
+5. Update project.godot
+File: project.godot
+Changes:
+Update run/main_scene to res://Scenes/MainMenu/GameShell.tscn:
+ini
+run/main_scene="res://Scenes/MainMenu/GameShell.tscn"
+Notes: Reflects the renamed root scene.
+6. Rename Scene File
+File: Rename Scenes/MainMenu/SimpleMainMenu.tscn to Scenes/MainMenu/GameShell.tscn
+Changes:
+Update the script reference in GameShell.tscn:
+ini
+[node name="GameShell" type="Control"]
+script = ExtResource("res://src/OS/MainMenu/GameShell.cs")
+Notes: Ensures Godot uses the new class name.
+Verification Plan
+Run the Game:
+Expected logs:
+GameShell._Ready started
+MainMenuProcess mainmenu initialized
+MainMenuProcess.Start called
+[EVENT] Scene loaded: res://Scenes/MainMenu/MainMenuScene.tscn
+GameShell._Ready completed
+UI: “CARD GAME” and “DEBUG SANDBOX” buttons in the center panel.
+Slot UI: “mainmenu” in slot_0_0.
+Test Interactions:
+Click buttons: Loads CardGameScene.tscn or DebugScene.tscn.
+Click slot_0_0: Returns to main menu via SceneOrchestrator.HandleSlotSelected.
+Check Errors: No null reference exceptions or missing dependencies.
+Rationale for Changes
+Sliced Complexity: Removed static SceneOrchestrator.Instance to avoid hidden dependencies, replacing it with explicit injection (ProcessManager passes _sceneOrchestrator to processes).
+Kept Core Logic: Retained MainMenuProcess.Start() and OnActiveProcessChanged to ensure scene loading aligns with the process model, refined for clarity.
+Future-Ready: GameShell is a minimal shell, allowing MainMenuProcess to grow (e.g., new modes) without bloating the root.
+Next Steps for Coding Agent
+Implement Tasks: Apply the changes as outlined.
+Test: Run and verify against the verification plan.
+Report: Share logs and any issues for review.
+Iterate: Adjust based on feedback (e.g., if scene loading fails, add diagnostics).
+This refactor delivers a clean, scalable GameShell while keeping the main menu as a process—perfect for your future plans. Let me know if you want to tweak this before handing it off!
