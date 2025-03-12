@@ -4,6 +4,7 @@ using System;
 using System.Linq;
 using Trivale.Memory.ProcessManagement;
 using Trivale.Memory.SlotManagement;
+using Trivale.OS;
 
 namespace Trivale.Tests;
 
@@ -15,6 +16,7 @@ public partial class ProcessManagementTest : Control
     private VBoxContainer _slotDisplay;
     private HBoxContainer _buttonContainer;
 	private ProcessSlotRegistry _processSlotRegistry;
+    private SceneOrchestrator _sceneOrchestrator;
     
     // Test control buttons
     private Button _createProcessButton;
@@ -24,11 +26,22 @@ public partial class ProcessManagementTest : Control
     
     public override void _Ready()
     {
-		_processSlotRegistry = new ProcessSlotRegistry();
+        _processSlotRegistry = new ProcessSlotRegistry();
 
-		// Create core managers - pass registry to ProcessManager
-		_slotManager = new SlotManager(2, 2);  // 2x2 grid of slots
-		_processManager = new ProcessManager(_slotManager, _processSlotRegistry);
+        // Create core managers - pass registry to ProcessManager
+        _slotManager = new SlotManager(2, 2);  // 2x2 grid of slots
+        _sceneOrchestrator = new SceneOrchestrator(); // Create SceneOrchestrator
+        AddChild(_sceneOrchestrator); // Add to the scene
+        
+        // Create a dummy container for the orchestrator to use
+        var dummyContent = new Control();
+        AddChild(dummyContent);
+        
+        // Initialize orchestrator with dummy content
+        _sceneOrchestrator.Initialize(null, _slotManager, _processSlotRegistry, dummyContent);
+        
+        // Now pass SceneOrchestrator to ProcessManager
+        _processManager = new ProcessManager(_slotManager, _processSlotRegistry, _sceneOrchestrator);
         
         SetupUI();
         ConnectSignals();

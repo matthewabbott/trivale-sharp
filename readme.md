@@ -41,7 +41,7 @@ trivale-sharp/
 │   └── MainMenu/
 │       ├── MainMenuScene.tscn
 │       ├── DebugScene.tscn
-│       └── SimpleMainMenu.tscn
+│       └── GameShell.tscn
 ├── src/                  # C# source code (core logic, OS interface, UI, etc.)
 │   ├── Game/             # Card game domain & services
 │   ├── Memory/           # Process & slot management
@@ -63,5 +63,5 @@ trivale-sharp/
 2. **Running the Project**  
    - Clone or download this repo.  
    - Open the project folder in Godot.  
-   - Run the `SimpleMainMenu.tscn` or `MainMenuScene.tscn`.  
+   - Run the `GameShell.tscn`.
    - Expect placeholders and incomplete features!
