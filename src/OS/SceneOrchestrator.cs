@@ -68,9 +68,24 @@ public partial class SceneOrchestrator : Node
         // Subscribe to registry events
         _processSlotRegistry.ActiveProcessChanged += OnActiveProcessChanged;
         
+        // Subscribe to process events through event bus
+        _eventBus.ProcessStarted += OnProcessStarted;
+        
         // Publish system started event
         _eventBus.PublishSystemStarted();
         _eventBus.PublishSystemModeChanged(SystemMode.MainMenu);
+    }
+    
+    /// <summary>
+    /// Handles process started events by showing the appropriate scene
+    /// </summary>
+    private void OnProcessStarted(string processId, string slotId)
+    {
+        var process = _processManager.GetProcess(processId);
+        if (process != null)
+        {
+            ShowScene(processId);
+        }
     }
 
     /// <summary>
@@ -81,7 +96,7 @@ public partial class SceneOrchestrator : Node
     {
         if (string.IsNullOrEmpty(processId))
             return;
-                
+            
         // Show the scene associated with this process
         ShowScene(processId);
     }
@@ -133,20 +148,11 @@ public partial class SceneOrchestrator : Node
         
         string scenePath = null;
         
-        // Determine scene path based on process type
-        if (process is MainMenuProcess mainMenuProcess)
+        // Get scene path from process state
+        var state = process.GetState();
+        if (state.TryGetValue("scenePath", out var path) && path is string pathString)
         {
-            // Special handling for MainMenuProcess
-            scenePath = mainMenuProcess.ScenePath;
-        }
-        else 
-        {
-            // Get scenePath from process state for other processes
-            var state = process.GetState();
-            if (state.TryGetValue("scenePath", out var path) && path is string pathString)
-            {
-                scenePath = pathString;
-            }
+            scenePath = pathString;
         }
         
         if (string.IsNullOrEmpty(scenePath))
@@ -213,6 +219,12 @@ public partial class SceneOrchestrator : Node
         if (scene is IOrchestratableScene orchestratable)
         {
             orchestratable.SetOrchestrator(this);
+        }
+        
+        // Connect menu scene signals if applicable
+        if (scene is MainMenuScene menuScene)
+        {
+            menuScene.MenuOptionSelected += OnMenuOptionSelected;
         }
         
         // Add to the content area and cache
@@ -452,11 +464,18 @@ public partial class SceneOrchestrator : Node
             _processSlotRegistry.ActiveProcessChanged -= OnActiveProcessChanged;
         }
         
+        if (_eventBus != null)
+        {
+            _eventBus.ProcessStarted -= OnProcessStarted;
+        }
+        
         // Clear references
         _processManager = null;
         _slotManager = null;
         _mainContent = null;
         _activeProcessId = null;
         _processSlotRegistry = null;
+        
+        base._ExitTree();
     }
 }

@@ -14,12 +14,13 @@ public class DebugMenuProcess : BaseProcess
         ["MEM"] = 0.1f,  // Even lighter resource usage for debug
         ["CPU"] = 0.1f
     };
-
+    
     public DebugMenuProcess(string id) : base(id) { }
 
-    protected override void OnInitialize()
+    public override void Initialize(Dictionary<string, object> initialState)
     {
-        // Basic initialization
+        base.Initialize(initialState);
+        State["scenePath"] = "res://Scenes/MainMenu/DebugScene.tscn";
         GD.Print($"DebugMenuProcess {Id} initialized");
     }
 }

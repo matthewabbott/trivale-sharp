@@ -14,12 +14,13 @@ public class CardGameMenuProcess : BaseProcess
         ["MEM"] = 0.2f,  // Minimal memory usage for now
         ["CPU"] = 0.1f   // Minimal CPU usage for now
     };
-
+    
     public CardGameMenuProcess(string id) : base(id) { }
 
-    protected override void OnInitialize()
+    public override void Initialize(Dictionary<string, object> initialState)
     {
-        // For now, just a basic initialization
+        base.Initialize(initialState);
+        State["scenePath"] = "res://Scenes/MainMenu/CardGameScene.tscn";
         GD.Print($"CardGameMenuProcess {Id} initialized");
     }
 }

@@ -6,7 +6,6 @@ using System.Linq;
 using Trivale.Memory.SlotManagement;
 using Trivale.OS.Events;
 using Trivale.OS.MainMenu.Processes;
-using Trivale.OS;
 
 namespace Trivale.Memory.ProcessManagement;
 
@@ -22,13 +21,11 @@ public partial class ProcessManager : Node, IProcessManager
     private readonly Dictionary<string, string> _processToSlot = new();
     private readonly SystemEventBus _eventBus;
     private readonly ProcessSlotRegistry _registry;
-    private readonly SceneOrchestrator _sceneOrchestrator;
    
-    public ProcessManager(ISlotManager slotManager, ProcessSlotRegistry registry, SceneOrchestrator sceneOrchestrator)
+    public ProcessManager(ISlotManager slotManager, ProcessSlotRegistry registry)
     {
         _slotManager = slotManager;
         _registry = registry;
-        _sceneOrchestrator = sceneOrchestrator;
         _eventBus = SystemEventBus.Instance;
     }
 
@@ -58,12 +55,6 @@ public partial class ProcessManager : Node, IProcessManager
         // Hook up state change events from the process
         newProcess.StateChanged += (state) => OnProcessStateChanged(processId, state);
         
-        // Set orchestrator for MainMenuProcess
-        if (newProcess is MainMenuProcess mainMenuProcess)
-        {
-            mainMenuProcess.SetOrchestrator(_sceneOrchestrator);
-        }
-        
         _processes[processId] = newProcess;
         
         GD.Print($"Created process: {processId}");
@@ -77,12 +68,37 @@ public partial class ProcessManager : Node, IProcessManager
         return processId;
     }
     
+    private void InitializeMainMenu()
+    {
+        GD.Print("Attempting to initialize main menu process...");
+        var mainMenuProcessId = CreateMainMenuProcess();
+        
+        if (mainMenuProcessId == null)
+        {
+            GD.PrintErr("Failed to create MainMenuProcess");
+            return;
+        }
+        
+        GD.Print($"Created MainMenuProcess with ID: {mainMenuProcessId}");
+        
+        if (StartProcess(mainMenuProcessId, "slot_0_0", out string slotId))
+        {
+            GD.Print($"Successfully started MainMenuProcess in slot {slotId}");
+            
+            // Set as active process after starting
+            _registry.SetActiveProcess(mainMenuProcessId);
+        }
+        else
+        {
+            GD.PrintErr($"Failed to start MainMenuProcess (ID: {mainMenuProcessId})");
+        }
+    }
 
     public override void _Ready()
     {
         GD.Print("ProcessManager._Ready called");
         
-        // GameShell will initialize main menu, so we don't need to do it here
+        // GameShell now handles this, so we don't need it here
         // InitializeMainMenu();
     }
     
@@ -120,9 +136,6 @@ public partial class ProcessManager : Node, IProcessManager
                 // Legacy event invocation
                 ProcessStarted?.Invoke(processId, slotId);
                 
-                // Call Start on the process after it's registered and mapped
-                process.Start();
-                
                 GD.Print($"Started process {processId} ({process.Type}) in specific slot {slotId}");
                 return true;
             }
@@ -146,15 +159,12 @@ public partial class ProcessManager : Node, IProcessManager
             // Legacy event invocation
             ProcessStarted?.Invoke(processId, slotId);
             
-            // Call Start on the process after it's registered and mapped
-            process.Start();
-            
             return true;
         }
         
         return false;
     }
-
+   
     public bool UnloadProcess(string processId)
     {
         if (!_processes.TryGetValue(processId, out var process))

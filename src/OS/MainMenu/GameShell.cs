@@ -53,11 +53,13 @@ public partial class GameShell : Control
 
 		// Create core managers
 		_slotManager = new SlotManager(2, 2);  // 2x2 grid of slots
-        _slotManager.UnlockSlot("slot_0_1");
-        _slotManager.UnlockSlot("slot_1_0");
-        
-        _sceneOrchestrator = new SceneOrchestrator();
-		_processManager = new ProcessManager(_slotManager, _processSlotRegistry, _sceneOrchestrator);
+		
+		// Unlock additional slots for processes to use
+		_slotManager.UnlockSlot("slot_0_1"); // Unlock the slot to the right of main menu
+		_slotManager.UnlockSlot("slot_1_0"); // Unlock the slot below main menu
+		
+		_processManager = new ProcessManager(_slotManager, _processSlotRegistry);
+		_sceneOrchestrator = new SceneOrchestrator();
 		
 		// Add managers as children to ensure their _Ready methods are called
 		AddChild(_slotManager);      // Ensure SlotManager._Ready runs
