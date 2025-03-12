@@ -30,6 +30,12 @@ public abstract class BaseProcess : IProcess
         OnInitialize();
     }
     
+    public virtual void Start()
+    {
+        // Base implementation calls the virtual OnStart method
+        OnStart();
+    }
+    
     public virtual void Update(float delta)
     {
         OnUpdate(delta);
@@ -43,6 +49,7 @@ public abstract class BaseProcess : IProcess
     public Dictionary<string, object> GetState() => new Dictionary<string, object>(State);
     
     protected virtual void OnInitialize() { }
+    protected virtual void OnStart() { }
     protected virtual void OnUpdate(float delta) { }
     protected virtual void OnCleanup() { }
     

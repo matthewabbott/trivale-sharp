@@ -32,6 +32,11 @@ public interface IProcess
     void Initialize(Dictionary<string, object> state);
     
     /// <summary>
+    /// Starts the process after it has been loaded into a slot.
+    /// </summary>
+    void Start();
+    
+    /// <summary>
     /// Gets the current process state for saving/restoration.
     /// </summary>
     Dictionary<string, object> GetState();

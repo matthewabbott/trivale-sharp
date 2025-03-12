@@ -26,13 +26,38 @@ public class MainMenuProcess : BaseProcess
     
     public string ScenePath => "res://Scenes/MainMenu/MainMenuScene.tscn";
     
+    private SceneOrchestrator _orchestrator;
+    
     public MainMenuProcess(string id) : base(id) { }
+    
+    /// <summary>
+    /// Sets the SceneOrchestrator reference to use for scene management
+    /// </summary>
+    public void SetOrchestrator(SceneOrchestrator orchestrator)
+    {
+        _orchestrator = orchestrator;
+    }
     
     public override void Initialize(Dictionary<string, object> initialState)
     {
         base.Initialize(initialState);
         State["scenePath"] = ScenePath;
         GD.Print($"MainMenuProcess {Id} initialized");
+    }
+    
+    public override void Start()
+    {
+        GD.Print("MainMenuProcess.Start called");
+        if (_orchestrator != null)
+        {
+            _orchestrator.ShowScene(Id);
+        }
+        else
+        {
+            GD.PrintErr("SceneOrchestrator not set in MainMenuProcess");
+        }
+        
+        base.Start(); // Call base implementation to trigger OnStart()
     }
     
     protected override void OnUpdate(float delta)
