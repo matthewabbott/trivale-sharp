@@ -5,20 +5,19 @@ namespace Trivale.OS.MainMenu;
 
 /// <summary>
 /// Implements the main menu UI as a standalone scene.
-/// Responsible for presenting menu options and emitting signals when options are selected.
-/// 
-/// The main menu is not a process itself - it's part of the core system UI.
+/// Responsible for presenting menu options and using SceneOrchestrator to load other scenes.
 /// </summary>
 public partial class MainMenuScene : Control, IOrchestratableScene
 {
-    [Signal]
-    public delegate void MenuOptionSelectedEventHandler(string scenePath, string processType);
-
     private VBoxContainer _buttonContainer;
     private Button _cardGameButton;
     private Button _debugButton;
-	private SceneOrchestrator _orchestrator;
+    private SceneOrchestrator _orchestrator;
 
+    /// <summary>
+    /// Sets the SceneOrchestrator reference used for direct method calls
+    /// Called by SceneOrchestrator during scene initialization
+    /// </summary>
     public void SetOrchestrator(SceneOrchestrator orchestrator)
     {
         _orchestrator = orchestrator;
@@ -69,11 +68,9 @@ public partial class MainMenuScene : Control, IOrchestratableScene
         var bottomSpacer = new Control { SizeFlagsVertical = Control.SizeFlags.Expand };
         _buttonContainer.AddChild(bottomSpacer);
 
-        // Connect signals
-        _cardGameButton.Pressed += () => EmitSignal(SignalName.MenuOptionSelected, 
-            "res://Scenes/MainMenu/CardGameScene.tscn", "CardGame");
-        _debugButton.Pressed += () => EmitSignal(SignalName.MenuOptionSelected, 
-            "res://Scenes/MainMenu/DebugScene.tscn", "Debug");
+        // Connect buttons to direct method calls
+        _cardGameButton.Pressed += OnCardGameButtonPressed;
+        _debugButton.Pressed += OnDebugButtonPressed;
     }
 
     private Button CreateStyledButton(string text, Color accentColor)
@@ -126,19 +123,44 @@ public partial class MainMenuScene : Control, IOrchestratableScene
         return button;
     }
 
+    // New methods to handle button presses using orchestrator directly
+    private void OnCardGameButtonPressed()
+    {
+        if (_orchestrator != null)
+        {
+            GD.Print("Card Game button pressed, loading scene via orchestrator");
+            _orchestrator.LoadScene("CardGame", "res://Scenes/MainMenu/CardGameScene.tscn");
+        }
+        else
+        {
+            GD.PrintErr("Cannot load Card Game scene: orchestrator not set");
+        }
+    }
+
+    private void OnDebugButtonPressed()
+    {
+        if (_orchestrator != null)
+        {
+            GD.Print("Debug button pressed, loading scene via orchestrator");
+            _orchestrator.LoadScene("Debug", "res://Scenes/MainMenu/DebugScene.tscn");
+        }
+        else
+        {
+            GD.PrintErr("Cannot load Debug scene: orchestrator not set");
+        }
+    }
+
     public override void _ExitTree()
     {
         // Disconnect button signals to prevent memory leaks or disposed object access
         if (_cardGameButton != null)
         {
-            _cardGameButton.Pressed -= () => EmitSignal(SignalName.MenuOptionSelected, 
-                "res://Scenes/MainMenu/CardGameScene.tscn", "CardGame");
+            _cardGameButton.Pressed -= OnCardGameButtonPressed;
         }
         
         if (_debugButton != null)
         {
-            _debugButton.Pressed -= () => EmitSignal(SignalName.MenuOptionSelected, 
-                "res://Scenes/MainMenu/DebugScene.tscn", "Debug");
+            _debugButton.Pressed -= OnDebugButtonPressed;
         }
         
         base._ExitTree();
