@@ -81,12 +81,9 @@ public partial class SceneOrchestrator : Node
     {
         if (string.IsNullOrEmpty(processId))
             return;
-            
+                
         // Show the scene associated with this process
-        if (_loadedScenes.TryGetValue(processId, out var scene))
-        {
-            ShowScene(processId);
-        }
+        ShowScene(processId);
     }
 
     /// <summary>

@@ -170,6 +170,38 @@ The process-slot system is built around these key components:
    }
    ```
 
+## System Bootstrapping with GameShell
+
+The application startup is handled by GameShell (formerly SimpleMainMenu), which serves as a lightweight system bootstrapper. GameShell's responsibilities are:
+
+1. Initializing core system managers (ProcessManager, SlotManager, SceneOrchestrator)
+2. Setting up the three-panel UI layout (Memory Slots, Main Content, Resources)
+3. Starting the MainMenuProcess in slot_0_0
+4. Subscribing to system-level events
+
+This architectural change separates bootstrapping concerns from main menu functionality, improving separation of concerns and maintainability.
+
+## Main Menu as a Process
+
+The Main Menu is implemented as a standard process using MainMenuProcess. This aligns with the overall process-slot architecture and simplifies the codebase by removing special case handling. The main menu is:
+
+1. Automatically loaded at startup into slot_0_0
+2. Managed like any other process via ProcessManager
+3. Displayed by SceneOrchestrator just like other processes
+4. Stylistically differentiated in the SlotGridDisplay to indicate its role
+
+This approach improves consistency, maintainability, and scalability while enabling future expansion of the main menu (e.g., adding roguelite mode, editors) without complicating the bootstrapping process.
+
+## Clean Dependencies
+
+The new architecture uses explicit dependency injection rather than static instances:
+
+1. SceneOrchestrator is passed to ProcessManager during construction
+2. ProcessManager sets SceneOrchestrator on MainMenuProcess when creating it
+3. MainMenuProcess uses its SceneOrchestrator reference to show its scene
+
+This approach avoids hidden dependencies, makes testing easier, and creates a more robust system overall.
+
 ### User Interface Components
 
 1. **SlotGridSystem**: Manages slot interactions and state
@@ -222,6 +254,8 @@ The process-slot system is built around these key components:
    - Switching
    - State preservation
    - Unloading
+
+   
 
 ## Best Practices
 
