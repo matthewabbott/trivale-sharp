@@ -5,7 +5,7 @@ namespace Trivale.OS.MainMenu;
 
 /// <summary>
 /// Implements the main menu UI as a standalone scene.
-/// Responsible for presenting menu options and using SceneOrchestrator to load other scenes.
+/// Responsible for presenting menu options and using SceneOrchestrator directly.
 /// </summary>
 public partial class MainMenuScene : Control, IOrchestratableScene
 {
@@ -123,7 +123,7 @@ public partial class MainMenuScene : Control, IOrchestratableScene
         return button;
     }
 
-    // New methods to handle button presses using orchestrator directly
+    // Handle menu button presses directly with orchestrator
     private void OnCardGameButtonPressed()
     {
         if (_orchestrator != null)

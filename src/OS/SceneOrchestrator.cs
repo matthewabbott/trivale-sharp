@@ -102,14 +102,6 @@ public partial class SceneOrchestrator : Node
     }
 
     /// <summary>
-    /// Handles menu option selection from the main menu.
-    /// </summary>
-    private void OnMenuOptionSelected(string scenePath, string processType)
-    {
-        LoadScene(processType, scenePath);
-    }
-
-    /// <summary>
     /// Responds to slot selection in the SlotGridSystem.
     /// Shows the scene for the process in the selected slot.
     /// </summary>
@@ -219,12 +211,6 @@ public partial class SceneOrchestrator : Node
         if (scene is IOrchestratableScene orchestratable)
         {
             orchestratable.SetOrchestrator(this);
-        }
-        
-        // Connect menu scene signals if applicable
-        if (scene is MainMenuScene menuScene)
-        {
-            menuScene.MenuOptionSelected += OnMenuOptionSelected;
         }
         
         // Add to the content area and cache
