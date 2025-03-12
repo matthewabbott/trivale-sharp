@@ -1,4 +1,4 @@
-// src/OS/MainMenu/SimpleMainMenu.cs
+// src/OS/MainMenu/GameShell.cs
 using Godot;
 using Trivale.Memory;
 using Trivale.UI.Components;
@@ -9,23 +9,14 @@ using Trivale.OS.Events;
 namespace Trivale.OS;
 
 /// <summary>
-/// Core UI layout manager for the NetrunnerOS interface. Handles the three-panel layout
-/// (Memory Slots, Main Content, Resource Panel) and initializes the core managers.
-/// 
-/// Architecture:
-/// - Left Panel: Memory slot display and management
-/// - Center Panel: Main content viewport (managed by SceneOrchestrator)
-/// - Right Panel: Resource monitoring and stats
-/// 
-/// This class has been simplified to focus on layout and initialization, with actual
-/// scene management delegated to the SceneOrchestrator and menu functionality moved
-/// to MainMenuScene.
+/// Core system bootstrapper that initializes managers, sets up UI, and launches MainMenuProcess.
+/// Provides a clean separation between system bootstrapping and the main menu's functionality.
 /// 
 /// Key Responsibilities:
-/// - Set up and maintain the three-panel layout
 /// - Initialize core system managers (Process, Slot, Scene)
-/// - Create and configure UI components
-/// - Handle layout adaptation to window changes
+/// - Set up the three-panel layout
+/// - Start MainMenuProcess in slot_0_0
+/// - Handle system event subscriptions
 /// 
 /// Dependencies:
 /// - ProcessManager: For process lifecycle management
@@ -34,7 +25,7 @@ namespace Trivale.OS;
 /// - UI Components: SlotGridSystem, ResourcePanel
 /// - SystemEventBus: For decoupled event communication
 /// </summary>
-public partial class SimpleMainMenu : Control
+public partial class GameShell : Control
 {
 	private SlotGridSystem _slotSystem;
 	private Control _mainContent;
@@ -48,7 +39,7 @@ public partial class SimpleMainMenu : Control
 
 	public override void _Ready()
 	{
-		GD.Print("SimpleMainMenu._Ready started"); // Diagnostic log
+		GD.Print("GameShell._Ready started"); // Diagnostic log
 		CustomMinimumSize = new Vector2(800, 600);
 
 		// Get instance of event bus
@@ -60,10 +51,10 @@ public partial class SimpleMainMenu : Control
 		// Create the process-slot registry
 		_processSlotRegistry = new ProcessSlotRegistry();
 
-		// Create core managers - pass registry to ProcessManager
+		// Create core managers
 		_slotManager = new SlotManager(2, 2);  // 2x2 grid of slots
-		_processManager = new ProcessManager(_slotManager, _processSlotRegistry);
 		_sceneOrchestrator = new SceneOrchestrator();
+		_processManager = new ProcessManager(_slotManager, _processSlotRegistry, _sceneOrchestrator);
 		
 		// Add managers as children to ensure their _Ready methods are called
 		AddChild(_slotManager);      // Ensure SlotManager._Ready runs
@@ -73,12 +64,24 @@ public partial class SimpleMainMenu : Control
 		// Set up the three-panel layout
 		SetupLayout();
 		
-		// Initialize orchestrator last - pass registry
+		// Initialize orchestrator - pass registry
 		_sceneOrchestrator.Initialize(_processManager, _slotManager, _processSlotRegistry, _mainContent);
+		
+        // Start main menu as a standard process
+        string processId = _processManager.CreateProcess("MainMenu", null, "mainmenu");
+        if (_processManager.StartProcess(processId, "slot_0_0", out string slotId))
+        {
+            GD.Print($"Main menu started in {slotId}");
+            _processSlotRegistry.SetActiveProcess(processId);
+        }
+        else
+        {
+            GD.PrintErr("Failed to start main menu process");
+        }
 		
 		// Listen for system mode changes
 		_eventBus.SystemModeChanged += OnSystemModeChanged;
-		GD.Print("SimpleMainMenu._Ready completed"); // Confirm completion
+		GD.Print("GameShell._Ready completed"); // Confirm completion
 	}
 	
 	private void SubscribeToEvents()
