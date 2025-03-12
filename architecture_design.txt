@@ -15,7 +15,7 @@ A terminal-based cyberpunk card game where the interface itself is part of the e
    - SystemEventBus (facilitates decoupled communication)
 
 2. **Interface Layer**
-   - MainTerminal (main interface container)
+   - GameShell (bootstrapper and UI container)
    - SlotGridSystem (slot visualization and interaction logic)
    - SlotGridDisplay (visual representation of slots)
    - MainMenuScene (menu options and interactions)
@@ -32,7 +32,7 @@ A terminal-based cyberpunk card game where the interface itself is part of the e
 
 ```mermaid
 graph TD
-    A[SimpleMainMenu] --> B[ProcessSlotRegistry]
+    A[GameShell] --> B[ProcessSlotRegistry]
     A --> C[ProcessManager]
     A --> D[SlotManager]
     A --> E[SceneOrchestrator]
@@ -97,6 +97,24 @@ The process-slot system is built around these key components:
        IReadOnlyList<string> GetActiveProcessIds();
        string GetProcessSlotId(string processId);
    }
+
+   public partial class ProcessManager : Node, IProcessManager
+   {
+       private readonly ISlotManager _slotManager;
+       private readonly ProcessSlotRegistry _registry;
+       private readonly SceneOrchestrator _sceneOrchestrator;
+       private readonly SystemEventBus _eventBus;
+
+       public ProcessManager(ISlotManager slotManager, ProcessSlotRegistry registry, SceneOrchestrator sceneOrchestrator)
+       {
+           _slotManager = slotManager;
+           _registry = registry;
+           _sceneOrchestrator = sceneOrchestrator;
+           _eventBus = SystemEventBus.Instance;
+       }
+
+       // Implementation of interface methods
+   }
    ```
 
 3. **SlotManager**: Handles memory slots and their states
@@ -126,6 +144,10 @@ The process-slot system is built around these key components:
    {
        private Dictionary<string, Control> _loadedScenes;
        private string _activeProcessId;
+       private IProcessManager _processManager;
+       private ISlotManager _slotManager;
+       private Control _mainContent;
+       private SystemEventBus _eventBus;
        private ProcessSlotRegistry _processSlotRegistry;
        
        public void Initialize(IProcessManager processManager, ISlotManager slotManager, 
@@ -138,7 +160,57 @@ The process-slot system is built around these key components:
    }
    ```
 
-5. **SystemEventBus**: Facilitates communication between components
+5. **Process Interface and Base Implementation**: Defines the process lifecycle
+   ```csharp
+   public interface IProcess
+   {
+       string Id { get; }
+       string Type { get; }
+       Dictionary<string, float> ResourceRequirements { get; }
+       bool IsComplete { get; }
+       
+       event Action<Dictionary<string, object>> StateChanged;
+       
+       void Initialize(Dictionary<string, object> state);
+       void Start(); // Process activation point after slot assignment
+       void Update(float delta);
+       void Cleanup();
+       Dictionary<string, object> GetState();
+   }
+
+   public abstract class BaseProcess : IProcess
+   {
+       public string Id { get; }
+       public abstract string Type { get; }
+       public virtual Dictionary<string, float> ResourceRequirements => new Dictionary<string, float>();
+       public bool IsComplete { get; protected set; }
+       
+       protected Dictionary<string, object> State { get; private set; }
+       
+       public event Action<Dictionary<string, object>> StateChanged;
+       
+       public virtual void Initialize(Dictionary<string, object> initialState)
+       {
+           State = initialState ?? new Dictionary<string, object>();
+           OnInitialize();
+       }
+       
+       public virtual void Start()
+       {
+           // Process activation logic
+           OnStart();
+       }
+       
+       // Other methods
+       
+       protected virtual void OnInitialize() { }
+       protected virtual void OnStart() { } // Hook for subclasses
+       protected virtual void OnUpdate(float delta) { }
+       protected virtual void OnCleanup() { }
+   }
+   ```
+
+6. **SystemEventBus**: Facilitates communication between components
    ```csharp
    public class SystemEventBus
    {
@@ -255,8 +327,6 @@ This approach avoids hidden dependencies, makes testing easier, and creates a mo
    - State preservation
    - Unloading
 
-   
-
 ## Best Practices
 
 ### Architecture Principles
@@ -267,6 +337,7 @@ This approach avoids hidden dependencies, makes testing easier, and creates a mo
    - ProcessManager manages process lifecycle
    - SlotManager manages slot states
    - SceneOrchestrator manages scene transitions
+   - GameShell handles system bootstrapping
 
 2. **Decoupled Communication**
    - Use SystemEventBus for cross-component communication
@@ -278,7 +349,13 @@ This approach avoids hidden dependencies, makes testing easier, and creates a mo
    - No global state or service locator pattern
    - Makes the system more testable and maintainable
 
-4. **Proper Cleanup**
+4. **Complete Process Lifecycle**
+   - Initialize: Set up initial state
+   - Start: Activate after slot assignment
+   - Update: Perform ongoing operations
+   - Cleanup: Release resources when done
+
+5. **Proper Cleanup**
    - All components properly disconnect signals
    - References are cleared in _ExitTree
    - Prevents memory leaks and disposed object issues
