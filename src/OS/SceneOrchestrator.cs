@@ -25,7 +25,7 @@ namespace Trivale.OS;
 /// main content area.
 /// 
 /// This updated version uses the SystemEventBus for publishing events
-/// instead of direct signal connections.
+/// instead of direct signal connections, and adds support for process state-based scene loading.
 /// </summary>
 public partial class SceneOrchestrator : Node
 {
@@ -60,9 +60,10 @@ public partial class SceneOrchestrator : Node
 
         // Subscribe to registry events
         _processSlotRegistry.ActiveProcessChanged += OnActiveProcessChanged;
-
-        // Initialize main menu as a special process
-        InitializeMainMenu();
+        
+        // Subscribe to process events to handle scene loading based on process state
+        _eventBus.ProcessStarted += OnProcessStarted;
+        _eventBus.ProcessStateChanged += OnProcessStateChanged;
         
         // Publish system started event
         _eventBus.PublishSystemStarted();
@@ -70,67 +71,25 @@ public partial class SceneOrchestrator : Node
     }
 
     /// <summary>
-    /// Initializes the main menu as a special process with a fixed ID.
-    /// This process is loaded into slot 0 and serves as the root of the MEM slot tree.
+    /// Handles process start events - loads the appropriate scene for the process
     /// </summary>
-    private void InitializeMainMenu()
+    private void OnProcessStarted(string processId, string slotId)
     {
-        // Create a special process for main menu with fixed ID
-        var mainMenuProcessId = "mainmenu";
-        
-        // Create the main menu process
-        mainMenuProcessId = _processManager.CreateProcess("MainMenu", null, mainMenuProcessId);
-        
-        if (mainMenuProcessId == null)
-        {
-            GD.PrintErr("Failed to create main menu process");
+        // Check if the process already has a scene loaded
+        if (_loadedScenes.ContainsKey(processId))
             return;
-        }
-        
-        // Load the main menu scene
-        var menuScene = LoadSceneInstance("res://Scenes/MainMenu/MainMenuScene.tscn");
-        if (menuScene != null)
+            
+        LoadSceneForProcess(processId);
+    }
+
+    /// <summary>
+    /// Handles process state change events - updates scenes if needed
+    /// </summary>
+    private void OnProcessStateChanged(string processId, Dictionary<string, object> state)
+    {
+        if (state.ContainsKey("scenePath") && !_loadedScenes.ContainsKey(processId))
         {
-            // Store it in loaded scenes
-            _loadedScenes[mainMenuProcessId] = menuScene;
-            
-            // Store process ID in metadata
-            menuScene.SetMeta("ProcessId", mainMenuProcessId);
-            
-            // Set orchestrator if it's an orchestratable scene
-            if (menuScene is IOrchestratableScene orchestratable)
-            {
-                orchestratable.SetOrchestrator(this);
-            }
-            
-            // Connect its signals
-            if (menuScene is MainMenu.MainMenuScene mainMenu)
-            {
-                mainMenu.MenuOptionSelected += OnMenuOptionSelected;
-            }
-            
-            // Show the main menu
-            _mainContent.AddChild(menuScene);
-            ShowScene(mainMenuProcessId);
-            
-            // Try to load it into slot 0 if possible
-            if (_slotManager != null)
-            {
-                var rootSlotId = "slot_0_0";
-                // Make sure slot 0 exists and is unlocked
-                _slotManager.UnlockSlot(rootSlotId);
-                
-                // Also unlock another slot for testing
-                _slotManager.UnlockSlot("slot_0_1");
-                
-                // Start the process in the slot
-                bool started = _processManager.StartProcess(mainMenuProcessId, out _);
-                GD.Print($"Main menu process started in slot: {started}");
-            }
-            
-            // Publish that main menu was loaded
-            _eventBus.PublishSceneLoaded("MainMenuScene");
-            _eventBus.PublishSystemModeChanged(SystemMode.MainMenu);
+            LoadSceneForProcess(processId);
         }
     }
 
@@ -144,11 +103,57 @@ public partial class SceneOrchestrator : Node
         {
             ShowScene(processId);
         }
+        else
+        {
+            // If the scene isn't loaded yet, try to load it
+            LoadSceneForProcess(processId);
+        }
     }
-
-    private void OnMenuOptionSelected(string scenePath, string processType)
+    
+    /// <summary>
+    /// Loads the appropriate scene for a process based on its state
+    /// </summary>
+    private void LoadSceneForProcess(string processId)
     {
-        LoadScene(processType, scenePath);
+        var process = _processManager.GetProcess(processId);
+        if (process == null)
+            return;
+            
+        var state = process.GetState();
+        if (state.TryGetValue("scenePath", out var scenePath) && scenePath is string path)
+        {
+            var scene = LoadSceneInstance(path);
+            if (scene != null)
+            {
+                // Store the scene
+                _loadedScenes[processId] = scene;
+                
+                // Initialize scene with relevant data
+                InitializeLoadedScene(scene, processId);
+                
+                // Add to main content
+                _mainContent.AddChild(scene);
+                
+                // Show it if this is now the active process
+                if (_processSlotRegistry.ActiveProcessId == processId)
+                {
+                    ShowScene(processId);
+                }
+                else
+                {
+                    scene.Visible = false;
+                }
+                
+                // Publish scene loaded event
+                _eventBus.PublishSceneLoaded(path);
+                
+                // For the main menu specifically, track the system mode change
+                if (process.Type == "MainMenu")
+                {
+                    _eventBus.PublishSystemModeChanged(SystemMode.MainMenu);
+                }
+            }
+        }
     }
 
     public void HandleSlotSelected(string slotId, string processId)
@@ -160,6 +165,11 @@ public partial class SceneOrchestrator : Node
         if (_loadedScenes.TryGetValue(processId, out _))
         {
             ShowScene(processId);
+        }
+        else
+        {
+            // If we don't have a scene, try to load it
+            LoadSceneForProcess(processId);
         }
     }
 
@@ -428,6 +438,13 @@ public partial class SceneOrchestrator : Node
             mainMenu.MenuOptionSelected -= OnMenuOptionSelected;
         }
         
+        // Unsubscribe from event bus
+        if (_eventBus != null)
+        {
+            _eventBus.ProcessStarted -= OnProcessStarted;
+            _eventBus.ProcessStateChanged -= OnProcessStateChanged;
+        }
+        
         // Publish system shutdown
         _eventBus.PublishSystemShutdown();
         
@@ -458,5 +475,11 @@ public partial class SceneOrchestrator : Node
         _mainMenuScene = null;
         _activeProcessId = null;
         _processSlotRegistry = null;
+    }
+    
+    // Handle menu option selection (kept for backward compatibility)
+    private void OnMenuOptionSelected(string scenePath, string processType)
+    {
+        LoadScene(processType, scenePath);
     }
 }
