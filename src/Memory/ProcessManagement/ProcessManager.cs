@@ -46,9 +46,9 @@ public partial class ProcessManager : Node, IProcessManager
         
         IProcess newProcess = processType switch
         {
+            "MainMenu" => new MainMenuProcess(processId),
             "CardGame" => new CardGameMenuProcess(processId),
             "Debug" => new DebugMenuProcess(processId),
-            "MainMenu" => new MainMenuProcess(processId),
             _ => null
         };
         
@@ -60,6 +60,10 @@ public partial class ProcessManager : Node, IProcessManager
 
         // Hook up state change events from the process
         newProcess.StateChanged += (state) => OnProcessStateChanged(processId, state);
+        
+        // Initialize the process with provided state or empty state
+        newProcess.Initialize(initParams ?? new Dictionary<string, object>());
+        
         _processes[processId] = newProcess;
         
         GD.Print($"Created process: {processId}");
@@ -72,6 +76,11 @@ public partial class ProcessManager : Node, IProcessManager
 
     public bool StartProcess(string processId, out string slotId)
     {
+        return StartProcess(processId, null, out slotId);
+    }
+
+    public bool StartProcess(string processId, string preferredSlotId, out string slotId)
+    {
         slotId = null;
         if (!_processes.TryGetValue(processId, out var process))
         {
@@ -79,8 +88,31 @@ public partial class ProcessManager : Node, IProcessManager
             return false;
         }
         
-        // Try to load into a slot
-        if (!_slotManager.TryLoadProcessIntoSlot(process, out slotId))
+        // Try to load into specific slot if provided
+        if (!string.IsNullOrEmpty(preferredSlotId))
+        {
+            var slot = _slotManager.GetSlot(preferredSlotId);
+            if (slot != null && slot.CanLoadProcess(process))
+            {
+                try
+                {
+                    slot.LoadProcess(process);
+                    slotId = preferredSlotId;
+                }
+                catch (Exception ex)
+                {
+                    GD.PrintErr($"Failed to load process into preferred slot: {ex.Message}");
+                    return false;
+                }
+            }
+            else
+            {
+                GD.PrintErr($"Preferred slot {preferredSlotId} cannot load this process");
+                return false;
+            }
+        }
+        // Otherwise try to load into any available slot
+        else if (!_slotManager.TryLoadProcessIntoSlot(process, out slotId))
         {
             GD.PrintErr("Failed to load process into any slot.");
             return false;
@@ -100,7 +132,6 @@ public partial class ProcessManager : Node, IProcessManager
         return true;
     }
 
-   
     public bool UnloadProcess(string processId)
     {
         if (!_processes.TryGetValue(processId, out var process))
