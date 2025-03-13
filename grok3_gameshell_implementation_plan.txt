@@ -1,0 +1,259 @@
+Trivale: Implementation Plan - Main Menu as a Process from Master Branch
+Objective
+Starting from the master branch, refactor SimpleMainMenu.cs into GameShell.cs and convert the main menu into a MainMenuProcess that mirrors the behavior of existing processes (CardGameMenuProcess, DebugMenuProcess). Ensure processes remain unchanged and functional, using the master branch’s proven mechanics, while achieving a clean, scalable architecture.
+Principles
+Preserve Master Behavior: Processes (CardGameMenuProcess, DebugMenuProcess) work without Start()—don’t break them.
+
+Main Menu Parity: MainMenuProcess behaves exactly like other processes (sets scenePath, loads via SceneOrchestrator).
+
+GameShell Simplicity: Bootstrap managers and start the main menu process, nothing more.
+
+No Overengineering: Stick to master’s simplicity—no new lifecycle methods unless absolutely needed.
+
+Background: Master Branch Mechanics
+Processes:
+Initialize sets scenePath in State (e.g., State["scenePath"] = "res://Scenes/MainMenu/CardGameScene.tscn").
+
+No Start()—ProcessManager.StartProcess assigns slots and fires ProcessStarted.
+
+SceneOrchestrator loads scenes via LoadScene or HandleSlotSelected, triggered externally (e.g., SimpleMainMenu, SlotGridSystem).
+
+SimpleMainMenu:
+Sets up managers and UI layout.
+
+Likely loaded MainMenuScene.tscn statically or manually started processes and scenes.
+
+SceneOrchestrator:
+Reacts to slot selection or manual calls, not process-driven events.
+
+Goal: Make MainMenuProcess fit this mold, triggered naturally like other processes.
+Implementation Plan
+Step 1: Baseline Check
+Action: Verify master branch behavior.
+
+Test:
+Run SimpleMainMenu.tscn.
+
+Click slot buttons to start CardGame or Debug processes.
+
+Confirm scenes load (CardGameScene.tscn, DebugScene.tscn) in _mainContent.
+
+Logs: “Process started”, “Scene loaded”.
+
+Outcome: Ensure processes work as expected before changes.
+
+Step 2: Create MainMenuProcess.cs
+File: src/OS/MainMenu/Processes/MainMenuProcess.cs
+
+Code:
+csharp
+
+namespace Trivale.OS.MainMenu.Processes;
+
+public class MainMenuProcess : BaseProcess
+{
+    public override string Type => "MainMenu";
+
+    public MainMenuProcess(string id) : base(id) { }
+
+    public override void Initialize(Dictionary<string, object> initialState)
+    {
+        base.Initialize(initialState);
+        State["scenePath"] = "res://Scenes/MainMenu/MainMenuScene.tscn";
+        GD.Print($"MainMenuProcess {Id} initialized");
+    }
+}
+
+Notes: Matches CardGameMenuProcess—sets scenePath in Initialize, no extra methods.
+
+Step 3: Refactor SimpleMainMenu.cs to GameShell.cs
+File: Rename src/OS/MainMenu/SimpleMainMenu.cs to src/OS/MainMenu/GameShell.cs
+
+Code:
+csharp
+
+using Godot;
+using Trivale.Memory;
+using Trivale.UI.Components;
+using Trivale.Memory.ProcessManagement;
+using Trivale.Memory.SlotManagement;
+using Trivale.OS.Events;
+
+public partial class GameShell : Control
+{
+    private SlotGridSystem _slotSystem;
+    private Control _mainContent;
+    private SlotManager _slotManager;
+    private ProcessManager _processManager;
+    private SceneOrchestrator _sceneOrchestrator;
+    private SystemEventBus _eventBus;
+    private ProcessSlotRegistry _processSlotRegistry;
+
+    public override void _Ready()
+    {
+        GD.Print("GameShell._Ready started");
+        CustomMinimumSize = new Vector2(800, 600);
+
+        _eventBus = SystemEventBus.Instance;
+        SubscribeToEvents();
+
+        _processSlotRegistry = new ProcessSlotRegistry();
+        _slotManager = new SlotManager(2, 2);
+        _processManager = new ProcessManager(_slotManager, _processSlotRegistry);
+        _sceneOrchestrator = new SceneOrchestrator();
+
+        AddChild(_slotManager);
+        AddChild(_processManager);
+        AddChild(_sceneOrchestrator);
+
+        SetupLayout();
+        _sceneOrchestrator.Initialize(_processManager, _slotManager, _processSlotRegistry, _mainContent);
+
+        // Start MainMenuProcess like any other process
+        string processId = _processManager.CreateProcess("MainMenu", null, "mainmenu");
+        if (_processManager.StartProcess(processId, "slot_0_0", out string slotId))
+        {
+            GD.Print($"Main menu assigned to {slotId}");
+            _sceneOrchestrator.ShowScene(processId); // Load scene explicitly
+            _processSlotRegistry.SetActiveProcess(processId);
+        }
+        else
+        {
+            GD.PrintErr("Failed to start MainMenuProcess");
+        }
+
+        _eventBus.SystemModeChanged += OnSystemModeChanged;
+        GD.Print("GameShell._Ready completed");
+    }
+
+    private void OnSlotSelected(string slotId, string processId)
+    {
+        GD.Print($"Slot selected: {slotId}, Process: {processId}");
+        _sceneOrchestrator.HandleSlotSelected(slotId, processId);
+    }
+
+    // SetupLayout, SubscribeToEvents, etc., unchanged from master
+}
+
+Notes: Replaces manual main menu loading with process creation, mimicking how CardGame and Debug start.
+
+Step 4: Update ProcessManager.cs
+File: src/Memory/ProcessManagement/ProcessManager.cs
+
+Changes:
+Add MainMenu case to CreateProcess:
+csharp
+
+public string CreateProcess(string processType, Dictionary<string, object> initParams = null, string specificId = null)
+{
+    IProcess process = processType switch
+    {
+        "MainMenu" => new MainMenuProcess(specificId ?? Guid.NewGuid().ToString()),
+        "CardGame" => new CardGameMenuProcess(specificId ?? Guid.NewGuid().ToString()),
+        "Debug" => new DebugMenuProcess(specificId ?? Guid.NewGuid().ToString()),
+        _ => null
+    };
+    if (process != null)
+    {
+        process.Initialize(initParams ?? new());
+        _processes[process.Id] = process;
+        _eventBus.PublishProcessCreated(process.Id);
+        return process.Id;
+    }
+    return null;
+}
+
+Notes: No lifecycle changes—StartProcess stays as-is, just assigns slots.
+
+Step 5: Tweak SceneOrchestrator.cs
+File: src/OS/SceneOrchestrator.cs
+
+Changes:
+Add ProcessStarted listener to catch main menu startup:
+csharp
+
+public partial class SceneOrchestrator : Node
+{
+    private Dictionary<string, Control> _loadedScenes = new();
+
+    public void Initialize(IProcessManager processManager, ISlotManager slotManager, 
+        ProcessSlotRegistry registry, Control mainContent)
+    {
+        _processManager = processManager;
+        _slotManager = slotManager;
+        _processSlotRegistry = registry;
+        _mainContent = mainContent;
+        _eventBus = SystemEventBus.Instance;
+
+        _processSlotRegistry.ActiveProcessChanged += OnActiveProcessChanged;
+        _eventBus.ProcessStarted += OnProcessStarted; // New
+        _eventBus.PublishSystemStarted();
+    }
+
+    private void OnProcessStarted(string processId, string slotId)
+    {
+        if (_processManager.GetProcess(processId) != null)
+        {
+            ShowScene(processId); // Load scene on start
+        }
+    }
+
+    private void OnActiveProcessChanged(string processId)
+    {
+        if (string.IsNullOrEmpty(processId)) return;
+        ShowScene(processId); // Switch scenes
+    }
+
+    // ShowScene, LoadSceneForProcess, etc., unchanged
+}
+
+Notes: Ensures MainMenuProcess loads its scene on startup, like others do via slot selection.
+
+Step 6: Update Project and Scene Files
+File: project.godot
+Change: run/main_scene="res://Scenes/MainMenu/GameShell.tscn"
+
+File: Rename Scenes/MainMenu/SimpleMainMenu.tscn to Scenes/MainMenu/GameShell.tscn
+Update script reference:
+ini
+
+[node name="GameShell" type="Control"]
+script = ExtResource("res://src/OS/MainMenu/GameShell.cs")
+
+Verification
+Logs:
+“GameShell._Ready started”
+
+“MainMenuProcess mainmenu initialized”
+
+“Main menu assigned to slot_0_0”
+
+“[EVENT] Scene loaded: res://Scenes/MainMenu/MainMenuScene.tscn”
+
+UI:
+MainMenuScene.tscn loads in center panel.
+
+slot_0_0 shows “mainmenu” in SlotGridDisplay.
+
+Clicking “CARD GAME” or “DEBUG SANDBOX” starts processes and loads scenes.
+
+Processes: CardGame and Debug work as in master—no regression.
+
+Why This Won’t Break Processes
+No Lifecycle Changes: Sticks to master’s Initialize, Update, Cleanup—no Start() added.
+
+SceneOrchestrator Drives Scenes: Listens to ProcessStarted, loading scenes consistently for all processes, including MainMenuProcess.
+
+Master Mechanics: ProcessManager and SlotManager are untouched beyond adding a process type; they worked before, they work now.
+
+What Went Wrong Before:
+We added Start() and SceneOrchestrator dependencies, assuming processes needed to self-activate. This broke the master’s pattern where SceneOrchestrator reacted to external triggers (e.g., slot UI), not process internals.
+
+The feature branch overcomplicated the contract, introducing timing issues and unnecessary dependencies.
+
+Why This Works
+Parity: MainMenuProcess is identical to CardGameMenuProcess—sets scenePath, gets started, loads via SceneOrchestrator.
+
+Simplicity: GameShell bootstraps; SceneOrchestrator handles scenes; processes stay passive.
+
+Scalability: Future main menu features (e.g., roguelite mode) can extend MainMenuProcess without touching GameShell.
