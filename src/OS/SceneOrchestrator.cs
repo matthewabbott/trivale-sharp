@@ -326,12 +326,7 @@ public partial class SceneOrchestrator : Node
         if (scene is IOrchestratableScene orchestratableScene)
         {
             orchestratableScene.SetOrchestrator(this);
-            
-            // For MainMenuScene, also connect to the MenuOptionSelected signal
-            if (scene is MainMenu.MainMenuScene mainMenu)
-            {
-                mainMenu.MenuOptionSelected += OnMenuOptionSelected;
-            }
+            // No signal connection needed - direct method calls will be used
         }
         
         // Additional scene-specific initialization if needed

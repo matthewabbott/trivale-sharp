@@ -77,13 +77,12 @@ public partial class MainMenuScene : Control, IOrchestratableScene
     {
         if (_orchestrator != null)
         {
+            // Direct method call to orchestrator rather than signal
             _orchestrator.LoadScene("CardGame", "res://Scenes/MainMenu/CardGameScene.tscn");
         }
         else
         {
-            // Fallback to signal for backward compatibility
-            EmitSignal(SignalName.MenuOptionSelected, 
-                "res://Scenes/MainMenu/CardGameScene.tscn", "CardGame");
+            GD.PrintErr("MainMenuScene: Orchestrator not set, can't load CardGame scene");
         }
     }
 
@@ -91,13 +90,12 @@ public partial class MainMenuScene : Control, IOrchestratableScene
     {
         if (_orchestrator != null)
         {
+            // Direct method call to orchestrator rather than signal
             _orchestrator.LoadScene("Debug", "res://Scenes/MainMenu/DebugScene.tscn");
         }
         else
         {
-            // Fallback to signal for backward compatibility
-            EmitSignal(SignalName.MenuOptionSelected, 
-                "res://Scenes/MainMenu/DebugScene.tscn", "Debug");
+            GD.PrintErr("MainMenuScene: Orchestrator not set, can't load Debug scene");
         }
     }
 
