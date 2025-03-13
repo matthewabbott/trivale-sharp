@@ -6,8 +6,6 @@ namespace Trivale.OS.MainMenu;
 /// <summary>
 /// Implements the main menu UI as a standalone scene.
 /// Responsible for presenting menu options and emitting signals when options are selected.
-/// 
-/// The main menu is not a process itself - it's part of the core system UI.
 /// </summary>
 public partial class MainMenuScene : Control, IOrchestratableScene
 {
@@ -17,7 +15,7 @@ public partial class MainMenuScene : Control, IOrchestratableScene
     private VBoxContainer _buttonContainer;
     private Button _cardGameButton;
     private Button _debugButton;
-	private SceneOrchestrator _orchestrator;
+    private SceneOrchestrator _orchestrator;
 
     public void SetOrchestrator(SceneOrchestrator orchestrator)
     {
@@ -70,10 +68,37 @@ public partial class MainMenuScene : Control, IOrchestratableScene
         _buttonContainer.AddChild(bottomSpacer);
 
         // Connect signals
-        _cardGameButton.Pressed += () => EmitSignal(SignalName.MenuOptionSelected, 
-            "res://Scenes/MainMenu/CardGameScene.tscn", "CardGame");
-        _debugButton.Pressed += () => EmitSignal(SignalName.MenuOptionSelected, 
-            "res://Scenes/MainMenu/DebugScene.tscn", "Debug");
+        _cardGameButton.Pressed += OnCardGamePressed;
+        _debugButton.Pressed += OnDebugPressed;
+    }
+
+    // Add these new methods for button handlers
+    private void OnCardGamePressed()
+    {
+        if (_orchestrator != null)
+        {
+            _orchestrator.LoadScene("CardGame", "res://Scenes/MainMenu/CardGameScene.tscn");
+        }
+        else
+        {
+            // Fallback to signal for backward compatibility
+            EmitSignal(SignalName.MenuOptionSelected, 
+                "res://Scenes/MainMenu/CardGameScene.tscn", "CardGame");
+        }
+    }
+
+    private void OnDebugPressed()
+    {
+        if (_orchestrator != null)
+        {
+            _orchestrator.LoadScene("Debug", "res://Scenes/MainMenu/DebugScene.tscn");
+        }
+        else
+        {
+            // Fallback to signal for backward compatibility
+            EmitSignal(SignalName.MenuOptionSelected, 
+                "res://Scenes/MainMenu/DebugScene.tscn", "Debug");
+        }
     }
 
     private Button CreateStyledButton(string text, Color accentColor)
@@ -131,14 +156,12 @@ public partial class MainMenuScene : Control, IOrchestratableScene
         // Disconnect button signals to prevent memory leaks or disposed object access
         if (_cardGameButton != null)
         {
-            _cardGameButton.Pressed -= () => EmitSignal(SignalName.MenuOptionSelected, 
-                "res://Scenes/MainMenu/CardGameScene.tscn", "CardGame");
+            _cardGameButton.Pressed -= OnCardGamePressed;
         }
         
         if (_debugButton != null)
         {
-            _debugButton.Pressed -= () => EmitSignal(SignalName.MenuOptionSelected, 
-                "res://Scenes/MainMenu/DebugScene.tscn", "Debug");
+            _debugButton.Pressed -= OnDebugPressed;
         }
         
         base._ExitTree();
