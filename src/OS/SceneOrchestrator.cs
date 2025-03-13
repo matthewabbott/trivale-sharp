@@ -45,6 +45,7 @@ public partial class SceneOrchestrator : Node
     private Control _mainMenuScene;
     private SystemEventBus _eventBus;
     private ProcessSlotRegistry _processSlotRegistry;
+    private Dictionary<string, string> _pendingSceneLoads = new();
     
     [Signal]
     public delegate void SceneUnloadedEventHandler(bool returningToMainMenu);
@@ -477,9 +478,31 @@ public partial class SceneOrchestrator : Node
         _processSlotRegistry = null;
     }
     
-    // Handle menu option selection (kept for backward compatibility)
     private void OnMenuOptionSelected(string scenePath, string processType)
     {
-        LoadScene(processType, scenePath);
+        // Store the scene path in a way that won't conflict with other processes
+        var processId = _processManager.CreateProcess(processType);
+        if (processId != null)
+        {
+            var process = _processManager.GetProcess(processId);
+            if (process != null)
+            {
+                // Update the process state to include scene path
+                var state = process.GetState();
+                state["scenePath"] = scenePath;
+                process.Initialize(state);
+                
+                // Start the process
+                if (_processManager.StartProcess(processId, out var slotId))
+                {
+                    GD.Print($"Process {processId} started in slot {slotId} from menu selection");
+                    _processSlotRegistry.SetActiveProcess(processId);
+                }
+                else
+                {
+                    GD.PrintErr($"Failed to start process {processId} from menu selection");
+                }
+            }
+        }
     }
 }

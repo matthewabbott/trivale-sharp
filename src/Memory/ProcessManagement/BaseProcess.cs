@@ -26,7 +26,11 @@ public abstract class BaseProcess : IProcess
     
     public virtual void Initialize(Dictionary<string, object> initialState)
     {
-        State = initialState ?? new Dictionary<string, object>();
+        // Replace the entire state if provided, otherwise keep current
+        if (initialState != null)
+        {
+            State = new Dictionary<string, object>(initialState);
+        }
         OnInitialize();
     }
     
