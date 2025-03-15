@@ -214,20 +214,8 @@ private void OnSlotLocked(string slotId)
     // Get slots in display order
     private IEnumerable<KeyValuePair<string, SlotState>> GetDisplayOrder()
     {
-        // First, any active slots
-        var activeSlots = _slots.Where(kvp => kvp.Value.IsActive);
-        
-        // Then, unlocked but inactive slots, ordered by grid position
-        var inactiveSlots = _slots.Where(kvp => !kvp.Value.IsActive && kvp.Value.IsUnlocked)
-            .OrderBy(kvp => kvp.Value.GridPosition.Y)
-            .ThenBy(kvp => kvp.Value.GridPosition.X);
-            
-        // Finally, any locked slots
-        var lockedSlots = _slots.Where(kvp => !kvp.Value.IsUnlocked)
-            .OrderBy(kvp => kvp.Value.GridPosition.Y)
-            .ThenBy(kvp => kvp.Value.GridPosition.X);
-
-        return activeSlots.Concat(inactiveSlots).Concat(lockedSlots);
+        return _slots.OrderBy(kvp => kvp.Value.GridPosition.Y)
+                    .ThenBy(kvp => kvp.Value.GridPosition.X);
     }
 
     // Set parent-child relationship between slots

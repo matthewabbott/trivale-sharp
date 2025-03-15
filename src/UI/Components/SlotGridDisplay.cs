@@ -168,54 +168,15 @@ public partial class SlotGridDisplay : Control
 	
 	private void CreateFlatLayout(VBoxContainer container, List<KeyValuePair<string, SlotState>> slots, string mainMenuSlotId)
 	{
-		// Filter out the main menu slot which is shown separately
 		var filteredSlots = slots.Where(s => s.Key != mainMenuSlotId).ToList();
 		
-		// First display active slots
-		var activeSlots = filteredSlots.Where(s => s.Value.IsActive).ToList();
-		var inactiveSlots = filteredSlots.Where(s => !s.Value.IsActive && s.Value.IsUnlocked).ToList();
-		var lockedSlots = filteredSlots.Where(s => !s.Value.IsUnlocked).ToList();
-		
-		// Display active slots
-		if (activeSlots.Any())
+		for (int i = 0; i < filteredSlots.Count; i++)
 		{
-			for (int i = 0; i < activeSlots.Count; i++)
-			{
-				var (slotId, state) = activeSlots[i];
-				bool isLast = (i == activeSlots.Count - 1) && !inactiveSlots.Any() && !lockedSlots.Any();
-				
-				var prefix = isLast ? "└── " : "├── ";
-				var slotButton = CreateSlotButton(slotId, state, prefix);
-				container.AddChild(slotButton);
-			}
-		}
-		
-		// Display inactive but unlocked slots
-		if (inactiveSlots.Any())
-		{
-			for (int i = 0; i < inactiveSlots.Count; i++)
-			{
-				var (slotId, state) = inactiveSlots[i];
-				bool isLast = (i == inactiveSlots.Count - 1) && !lockedSlots.Any();
-				
-				var prefix = isLast ? "└── " : "├── ";
-				var slotButton = CreateSlotButton(slotId, state, prefix);
-				container.AddChild(slotButton);
-			}
-		}
-		
-		// Display locked slots if any
-		if (lockedSlots.Any())
-		{
-			for (int i = 0; i < lockedSlots.Count; i++)
-			{
-				var (slotId, state) = lockedSlots[i];
-				bool isLast = (i == lockedSlots.Count - 1);
-				
-				var prefix = isLast ? "└── " : "├── ";
-				var slotButton = CreateSlotButton(slotId, state, prefix);
-				container.AddChild(slotButton);
-			}
+			var (slotId, state) = filteredSlots[i];
+			bool isLast = i == filteredSlots.Count - 1;
+			var prefix = isLast ? "└── " : "├── ";
+			var slotButton = CreateSlotButton(slotId, state, prefix);
+			container.AddChild(slotButton);
 		}
 	}
 	
