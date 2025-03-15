@@ -80,19 +80,14 @@ public partial class SlotGridSystem : Control
         }
     }
     
-    // Add new method to handle registry events
     private void OnProcessSlotMappingChanged(string processId, string slotId)
     {
-        // Update slot state if needed
         if (!string.IsNullOrEmpty(slotId) && _slots.TryGetValue(slotId, out var slotState))
         {
             var process = _registry.GetProcessForSlot(slotId);
-            var processType = process != null ? "LOADED" : "EMPTY";
-            
-            // Update the slot state and emit signal
-            slotState.LoadedText = processType;
+            slotState.LoadedText = process?.Type ?? "EMPTY";
+            slotState.IsActive = process?.Id == _registry.ActiveProcessId;
             _slots[slotId] = slotState;
-            
             EmitSignal(SignalName.SlotStateChanged, slotId, slotState.IsActive, 
                 slotState.IsUnlocked, slotState.LoadedText);
         }
@@ -116,7 +111,7 @@ public partial class SlotGridSystem : Control
         }
     }
     
-    private void OnSlotLocked(string slotId)
+private void OnSlotLocked(string slotId)
     {
         var slot = _slotManager.GetAllSlots().FirstOrDefault(s => s.Id == slotId);
         if (slot != null)
