@@ -47,6 +47,7 @@ public partial class SlotGridSystem : Control
         
         // Subscribe to registry events
         _registry.ProcessSlotMappingChanged += OnProcessSlotMappingChanged;
+        _registry.ActiveProcessChanged += OnActiveProcessChanged;
         
         // Use event bus to monitor slot changes
         _eventBus.SlotStatusChanged += OnSlotStatusChanged;
@@ -63,6 +64,19 @@ public partial class SlotGridSystem : Control
         foreach (var slot in _slotManager.GetAllSlots())
         {
             UpdateSlotState(slot);
+        }
+    }
+    
+    private void OnActiveProcessChanged(string newActiveProcessId)
+    {
+        foreach (var slotId in _slots.Keys.ToList())
+        {
+            var slotState = _slots[slotId];
+            var processId = _registry.GetProcessForSlot(slotId);
+            slotState.IsActive = processId == newActiveProcessId;
+            _slots[slotId] = slotState;
+            EmitSignal(SignalName.SlotStateChanged, slotId, slotState.IsActive, 
+                slotState.IsUnlocked, slotState.LoadedText);
         }
     }
     
@@ -152,9 +166,10 @@ public partial class SlotGridSystem : Control
     private void UpdateSlotState(ISlot slot)
     {
         var gridPosition = GetGridPositionFromId(slot.Id);
-        var isActive = slot.Status == SlotStatus.Active;
+        var processId = slot.CurrentProcess?.Id;
+        var isActive = processId != null && processId == _registry.ActiveProcessId;
         var isUnlocked = slot.Status != SlotStatus.Locked;
-        var loadedText = slot.CurrentProcess?.Type ?? "";
+        var loadedText = slot.CurrentProcess?.Type ?? "EMPTY";
         
         // Look for existing parent relationship
         string parentSlotId = null;
@@ -299,6 +314,7 @@ public partial class SlotGridSystem : Control
         if (_registry != null)
         {
             _registry.ProcessSlotMappingChanged -= OnProcessSlotMappingChanged;
+            _registry.ActiveProcessChanged -= OnActiveProcessChanged;
         }
         
         // Unsubscribe from legacy events
