@@ -84,15 +84,15 @@ public partial class SlotGridSystem : Control
     {
         if (!string.IsNullOrEmpty(slotId) && _slots.TryGetValue(slotId, out var slotState))
         {
-            var process = _registry.GetProcessForSlot(slotId);
+            var slot = _slotManager.GetAllSlots().FirstOrDefault(s => s.Id == slotId);
+            var process = slot?.CurrentProcess;
             slotState.LoadedText = process?.Type ?? "EMPTY";
-            slotState.IsActive = process?.Id == _registry.ActiveProcessId;
+            slotState.IsActive = processId == _registry.ActiveProcessId;
             _slots[slotId] = slotState;
             EmitSignal(SignalName.SlotStateChanged, slotId, slotState.IsActive, 
                 slotState.IsUnlocked, slotState.LoadedText);
         }
     }
-
     private void OnSlotStatusChanged(string slotId, SlotStatus status)
     {
         var slot = _slotManager.GetAllSlots().FirstOrDefault(s => s.Id == slotId);
