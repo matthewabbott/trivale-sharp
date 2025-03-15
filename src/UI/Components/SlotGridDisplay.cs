@@ -330,7 +330,7 @@ public partial class SlotGridDisplay : Control
 	
 	private string GetSlotText(SlotState state)
 	{
-		if (state.IsActive && !string.IsNullOrEmpty(state.LoadedText))
+		if (!string.IsNullOrEmpty(state.LoadedText))
 		{
 			return state.LoadedText.PadRight(10);
 		}
